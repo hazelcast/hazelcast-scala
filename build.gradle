@@ -1,0 +1,31 @@
+apply plugin: "scala"
+sourceCompatibility = 1.6
+targetCompatibility = 1.6
+version = "1.0.0-alpha"
+
+repositories {
+    mavenCentral()
+    
+}
+
+ext {
+    junitVersion = '4.12'
+    scalaMinorVersion = '2.11'
+    scalaVersion = "$scalaMinorVersion.7"
+    hzVersion = '3.6-EA2'
+}
+
+dependencies {
+    testCompile "junit:junit:$junitVersion"
+    //testCompile fileTree(dir: 'lib', include: '*.jar')
+    //testCompile "com.hazelcast:hazelcast:$hzVersion:tests"
+    compile "org.scala-lang:scala-reflect:$scalaVersion"
+    compile "com.hazelcast:hazelcast:$hzVersion"
+    compile "com.hazelcast:hazelcast-client:$hzVersion"
+    compile "javax.cache:cache-api:1.0.0"
+    compile "javax.transaction:transaction-api:1.1"
+}
+
+task wrapper(type: Wrapper) {
+    gradleVersion = "2.8"
+}
