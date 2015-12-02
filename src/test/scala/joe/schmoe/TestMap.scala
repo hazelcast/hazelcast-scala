@@ -261,10 +261,11 @@ class TestMap {
 
   @Test
   def `large map test` {
+    val Thousands = 100
     val clientMap = getClientMap[UUID, Employee]("employees")
     var allSalaries = 0d
     var empCount = 0
-    (1 to 100).foreach { _ =>
+    (1 to Thousands).foreach { _ =>
       val localMap = new java.util.HashMap[UUID, Employee]
       (1 to 1000).foreach { _ =>
         val id = UUID.randomUUID()
@@ -276,7 +277,7 @@ class TestMap {
       }
       clientMap.putAll(localMap)
     }
-    assertEquals(750 * 1000, empCount)
+    assertEquals(Thousands * 1000, empCount)
     val localAvg = (allSalaries / empCount).toInt
     val (avg, ms) = timed {
       clientMap.map(_.getValue).map(_.salary.toDouble).mean.await.get.toInt
