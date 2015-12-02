@@ -1,26 +1,25 @@
 package joe.schmoe
 
-import java.io.{ BufferedReader, InputStreamReader }
+import java.util.{ Date, UUID }
 import java.util.Map.Entry
-import java.util.UUID
 import java.util.concurrent.{ CountDownLatch, TimeUnit }
-import scala.{ Left, Right }
-import scala.collection.JavaConverters.{ collectionAsScalaIterableConverter, mapAsScalaMapConverter }
-import scala.concurrent.Await
+
+import scala.collection.JavaConverters._
 import scala.concurrent.ExecutionContext.Implicits.global
-import scala.concurrent.Future
-import scala.concurrent.duration.{ DurationInt, FiniteDuration }
+import scala.io.Source
 import scala.util.{ Failure, Random, Success }
+
 import org.junit.Assert._
 import org.junit.Test
+
 import com.hazelcast.Scala._
 import com.hazelcast.config.{ InMemoryFormat, MapIndexConfig }
 import com.hazelcast.core.IMap
 import com.hazelcast.map.AbstractEntryProcessor
 import com.hazelcast.query.Predicate
+
 import TestMap.MyNumber
-import scala.io.Source
-import java.util.Date
+import joe.schmoe.TestFuture
 
 object TestMap extends ClusterSetup {
   def init {
@@ -265,7 +264,7 @@ class TestMap {
     val clientMap = getClientMap[UUID, Employee]("employees")
     var allSalaries = 0d
     var empCount = 0
-    (1 to 750).foreach { _ =>
+    (1 to 100).foreach { _ =>
       val localMap = new java.util.HashMap[UUID, Employee]
       (1 to 1000).foreach { _ =>
         val id = UUID.randomUUID()
