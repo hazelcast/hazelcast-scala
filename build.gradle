@@ -12,13 +12,13 @@ task wrapper(type: Wrapper) {
     gradleVersion = "2.8"
 }
 
-version = "1-alpha"
+version = tsVersion("1-alpha")
 
-def publishVersion = {
+def tsVersion(version) {
     java.text.SimpleDateFormat tsFmt = new java.text.SimpleDateFormat('yyMMddHHmm')
     tsFmt.setCalendar(Calendar.getInstance(TimeZone.getTimeZone('UTC')))
-    return "$version.${tsFmt.format(new Date())}"
-}()
+    return "${version}.b${tsFmt.format(new Date())}"
+}
 
 repositories {
     mavenCentral()
@@ -64,7 +64,6 @@ publishing {
         maven(MavenPublication) {
             groupId 'com.hazelcast'
             artifactId jar.baseName
-            //version version
 
             from components.java
             artifact sourceJar
@@ -89,7 +88,7 @@ bintray {
         repo = System.properties.bintrayRepo
         name = System.properties.bintrayName
         version {
-            name = publishVersion
+            name = version
         }
     }
 }
