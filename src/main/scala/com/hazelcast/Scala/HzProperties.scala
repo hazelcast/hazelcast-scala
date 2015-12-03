@@ -346,10 +346,10 @@ class HzMemberProperties(private val conf: Config) extends AnyVal {
   /** @see com.hazelcast.instance.GroupProperty.TCP_JOIN_PORT_TRY_COUNT */
   def setTcpJoinPortTryCount(count: Int): Config =
     conf.setProperty(TCP_JOIN_PORT_TRY_COUNT, count.toString)
-  /** @see com.hazelcast.instance.GroupProperty.VERSION_CHECK_ENABLED */
-  def setVersionCheckEnabled(enabled: Boolean): Config =
-    conf.setProperty(VERSION_CHECK_ENABLED, enabled.toString)
   /** @see com.hazelcast.instance.GroupProperty.WAIT_SECONDS_BEFORE_JOIN */
   def setWaitBeforeJoin(wait: FiniteDuration): Config =
     conf.setProperty(WAIT_SECONDS_BEFORE_JOIN, wait.toSeconds.toString)
+  /** @see com.hazelcast.instance.GroupProperty.PHONE_HOME_ENABLED */
+  def setPhoneHomeEnabled(enabled: Boolean): Config =
+    conf.setProperty(PHONE_HOME_ENABLED, enabled.toString)
 }
