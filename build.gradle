@@ -1,7 +1,24 @@
+plugins {
+    id "com.jfrog.bintray" version "1.4"
+}
+
 apply plugin: "scala"
+apply plugin: "maven-publish"
+
 sourceCompatibility = 1.6
 targetCompatibility = 1.6
-version = "1.0.0-alpha"
+
+task wrapper(type: Wrapper) {
+    gradleVersion = "2.8"
+}
+
+version = "1-alpha"
+
+def publishVersion = {
+    java.text.SimpleDateFormat tsFmt = new java.text.SimpleDateFormat('yyMMddHHmm')
+    tsFmt.setCalendar(Calendar.getInstance(TimeZone.getTimeZone('UTC')))
+    return "$version.${tsFmt.format(new Date())}"
+}()
 
 repositories {
     mavenCentral()
@@ -26,6 +43,53 @@ dependencies {
     compile "javax.transaction:transaction-api:1.1"
 }
 
-task wrapper(type: Wrapper) {
-    gradleVersion = "2.8"
+jar {
+    baseName = "hazelcast-scala_2.11"
+    manifest {
+        attributes "Implementation-Title": "hazelcast-scala", "Implementation-Version": version
+    }
+}
+
+task sourceJar(type: Jar) {
+    classifier "sources"
+    from sourceSets.main.allScala
+}
+task docsJar(type: Jar, dependsOn: scaladoc) {
+    classifier "docs"
+    from scaladoc.destinationDir
+}
+
+publishing {
+    publications {
+        maven(MavenPublication) {
+            groupId 'com.hazelcast'
+            artifactId jar.baseName
+            //version version
+
+            from components.java
+            artifact sourceJar
+            artifact docsJar
+            pom.withXml { xml ->
+                includeArtifacts = ['cache-api', 'transaction-api']
+                xml.asNode().dependencies.dependency.findAll{ ! includeArtifacts.contains(it.artifactId.text()) }.each { dep ->
+                    dep.scope[0].value = "provided"
+                }
+            }
+        }
+    }
+}
+
+bintray {
+    user = System.properties.bintrayUser ?: "n/a"
+    key = System.properties.bintrayApiKey ?: "n/a"
+    dryRun = (user == "n/a" || key == "n/a")
+    publish = !dryRun
+    publications = ['maven']
+    pkg {
+        repo = System.properties.bintrayRepo
+        name = System.properties.bintrayName
+        version {
+            name = publishVersion
+        }
+    }
 }
