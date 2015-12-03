@@ -87,8 +87,8 @@ bintray {
     pkg {
         repo = System.properties.bintrayRepo
         name = System.properties.bintrayName
-        version {
-            name = version
-        }
+//        version {
+//            name = version
+//        }
     }
 }
