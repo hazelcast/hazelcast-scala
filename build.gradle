@@ -70,7 +70,7 @@ publishing {
             artifact sourceJar
             artifact docsJar
             pom.withXml { xml ->
-                includeArtifacts = ['cache-api', 'transaction-api']
+                def includeArtifacts = ['cache-api', 'transaction-api']
                 xml.asNode().dependencies.dependency.findAll{ ! includeArtifacts.contains(it.artifactId.text()) }.each { dep ->
                     dep.scope[0].value = "provided"
                 }
