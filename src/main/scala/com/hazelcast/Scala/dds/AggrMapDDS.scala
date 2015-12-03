@@ -96,9 +96,7 @@ private object AggrMapDDS {
       val values = localKeys.par.toSeq.map(key => key -> imap.getAsync(key))
       val seqop = (reduction: Q, kv: (K, jFuture[Any])) => {
         kv._2.await match {
-          case null =>
-            // Not seen, may not be possible
-            sys.error("Probable migration problem! Please retry")
+          case null => reduction
           case value =>
             val entry = new ImmutableEntry(kv._1, value)
             if (includeEntry(entry)) {
