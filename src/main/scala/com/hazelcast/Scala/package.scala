@@ -1,23 +1,19 @@
 package com.hazelcast
 
-import java.util.Map.Entry
-import java.util.concurrent.{ TimeUnit, ExecutionException }
-import scala.util.Try
-import scala.concurrent.{ ExecutionException, Future, Promise }
-import scala.language.implicitConversions
-import query.{ Predicate, SqlPredicate, Predicates }
-import mapreduce._
-import core._
 import java.util.AbstractMap
-import cache.ICache
-import spi.AbstractDistributedObject
-import client.spi.ClientProxy
-import query.{ PredicateBuilder, EntryObject }
-import memory._
+import java.util.Map.Entry
+
+import _root_.scala.concurrent.{ Await, Future }
+import _root_.scala.concurrent.duration.{ DurationInt, FiniteDuration }
+import _root_.scala.language.implicitConversions
+
+import Scala._
 import Scala.dds._
+import cache.ICache
+import core.{ Hazelcast, HazelcastInstance, ICollection, ICompletableFuture, IExecutorService, IMap, ITopic, Message }
 import client.HazelcastClient
-import scala.concurrent.duration._
-import scala.concurrent.Await
+import memory.{ MemorySize, MemoryUnit }
+import query.{ EntryObject, Predicate, PredicateBuilder, Predicates, SqlPredicate }
 
 package Scala {
 
@@ -160,8 +156,8 @@ package object Scala extends HighPriorityImplicits {
   }
 
   private[Scala] implicit class JavaFuture[T](private val jFuture: java.util.concurrent.Future[T]) extends AnyVal {
-    def await: T = await(DefaultFutureTimeout)
-    def await(dur: FiniteDuration): T = if (jFuture.isDone) jFuture.get else jFuture.get(dur.length, dur.unit)
+    @inline def await: T = await(DefaultFutureTimeout)
+    @inline def await(dur: FiniteDuration): T = if (jFuture.isDone) jFuture.get else jFuture.get(dur.length, dur.unit)
     def asScala[U](implicit ev: T => U): Future[U] = {
       val callback = new FutureCallback[T, U]()
       jFuture match {
