@@ -67,6 +67,19 @@ object DefaultSerializers extends SerializerEnum(-987654321) {
       readIMap(len, new ITreeMap()(ord), inp)
     }
   }
+  private type CTrieMap = collection.concurrent.TrieMap[Any, Any]
+  val CTrieMapSer = new StreamSerializer[CTrieMap] {
+    def write(out: ObjectDataOutput, m: CTrieMap): Unit = {
+      out.writeInt(m.size)
+      writeSMap(m, out)
+    }
+    def read(inp: ObjectDataInput): CTrieMap = {
+      val len = inp.readInt()
+      val builder = collection.concurrent.TrieMap.newBuilder[Any, Any]
+      builder.sizeHint(len)
+      readMutable(len, builder, () => Tuple2Ser.read(inp))
+    }
+  }
   private type MHashMap = collection.mutable.HashMap[Any, Any]
   val MHashMapSer = new StreamSerializer[MHashMap] {
     def write(out: ObjectDataOutput, m: MHashMap): Unit = {
@@ -131,7 +144,7 @@ object DefaultSerializers extends SerializerEnum(-987654321) {
     }
     def read(inp: ObjectDataInput): JHashMap = {
       val size = inp.readInt()
-      readJMap(size, new JHashMap(size), inp)
+      readJMap(size, new JHashMap((size * 1.4f).toInt, 1f), inp)
     }
   }
   private type JTreeMap = java.util.TreeMap[Any, Any]
