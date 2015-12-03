@@ -128,7 +128,7 @@ final class HzMap[K, V](private val imap: core.IMap[K, V]) extends AnyVal {
       case OnKeys(key) =>
         val value = imap.executeOnKey(key, ep)
         Collections.singletonMap(key, value)
-      case OnKeys(keys: Seq[K]) =>
+      case OnKeys(keys @ _*) =>
         imap.executeOnKeys(keys.toSet.asJava, ep)
     }
     jMap.asInstanceOf[java.util.Map[K, R]].asScala
