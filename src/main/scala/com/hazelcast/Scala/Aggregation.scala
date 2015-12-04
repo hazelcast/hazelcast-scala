@@ -1,6 +1,6 @@
 package com.hazelcast.Scala
 
-trait Aggregation[@specialized(AnyRef, Float, Double, Int, Long) Q, @specialized(AnyRef, Float, Double, Int, Long) -T, W, +R] extends Serializable {
+trait Aggregation[Q, -T, W, +R] extends Serializable {
   def remoteInit: Q
   def remoteFold(q: Q, t: T): Q
   def remoteCombine(x: Q, y: Q): Q
