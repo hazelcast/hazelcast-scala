@@ -35,6 +35,7 @@ Add this to your project's `build.sbt`:
     import com.hazelcast.Scala._
     
     val conf = new Config
+    serialization.DefaultSerializers.register(conf.getSerializationConfig)
     val hz = conf.newInstance()
 
 
