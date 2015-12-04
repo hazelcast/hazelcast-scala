@@ -3,6 +3,13 @@
 [![Download](https://api.bintray.com/packages/nilskp/maven/hazelcast-scala/images/download.svg)](https://bintray.com/nilskp/maven/hazelcast-scala/_latestVersion#files)
 [![Join Chat at https://gitter.im/nilskp/hazelcast-scala](https://badges.gitter.im/Join%20Chat.svg)](https://gitter.im/nilskp/hazelcast-scala)
 
+## Installation ##
+Add this to your project's `build.sbt`:
+
+    resolvers += "nilskp/maven on bintray" at "http://dl.bintray.com/nilskp/maven"
+
+    libraryDependencies += "com.hazelcast" %% "hazelcast-scala" % "latest-integration" withSources()
+
 Hazelcast Scala API
 ===================
 
@@ -13,5 +20,9 @@ Quick start:
     
     val conf = new Config
     val hz = conf.newInstance()
+
+
+## Sample Code ##
+See the unit tests for examples of how to use this library.
 
 More to come...
