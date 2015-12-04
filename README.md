@@ -3,17 +3,33 @@
 [![Download](https://api.bintray.com/packages/nilskp/maven/hazelcast-scala/images/download.svg)](https://bintray.com/nilskp/maven/hazelcast-scala/_latestVersion#files)
 [![Join Chat at https://gitter.im/nilskp/hazelcast-scala](https://badges.gitter.im/Join%20Chat.svg)](https://gitter.im/nilskp/hazelcast-scala)
 
-## Installation ##
+# Installation
+
+The hazelcast-scala API is based on Scala 2.11 and Hazelcast 3.6, but does not define them as hard dependencies, so make sure to also include the relevant Hazelcast dependencies.
+
+## Gradle
+Add this to your `build.gradle` file:
+
+    repositories {
+      maven {
+        url "http://dl.bintray.com/nilskp/maven" 
+      }
+    }
+    dependencies {
+      compile "org.scala-lang:scala-reflect:2.11.+"
+      compile "com.hazelcast:hazelcast-all:3.6+"
+      compile "com.hazelcast:hazelcast-scala_2.11:1+"
+    }
+
+## SBT
 Add this to your project's `build.sbt`:
 
     resolvers += "nilskp/maven on bintray" at "http://dl.bintray.com/nilskp/maven"
 
     libraryDependencies += "com.hazelcast" %% "hazelcast-scala" % "latest-integration" withSources()
 
-Hazelcast Scala API
-===================
 
-Quick start:
+# Quick start:
 
     import com.hazelcast.config._
     import com.hazelcast.Scala._
