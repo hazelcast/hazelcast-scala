@@ -18,6 +18,7 @@ import javax.cache.CacheManager
 import javax.transaction.TransactionManager
 import javax.transaction.xa.XAResource
 import com.hazelcast.config.CacheConfig
+import scala.util.control.NonFatal
 
 private object HzHazelcastInstance {
   private[this] val DefaultTxnOpts = TransactionOptions.getDefault
@@ -129,9 +130,9 @@ final class HzHazelcastInstance(private val hz: HazelcastInstance) extends AnyVa
       txnMgr.commit()
       result
     } catch {
-      case t: Throwable =>
+      case NonFatal(e) =>
         txnMgr.rollback()
-        throw t
+        throw e
     }
   }
 
