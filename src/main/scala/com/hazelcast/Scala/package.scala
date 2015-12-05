@@ -141,8 +141,8 @@ package object Scala extends HighPriorityImplicits {
     def <(value: Comparable[_]) = eo.lessThan(value)
     def >=(value: Comparable[_]) = eo.greaterEqual(value)
     def <=(value: Comparable[_]) = eo.lessEqual(value)
-    def ==(value: Comparable[_]) = eo.equal(value)
-    def !=(value: Comparable[_]) = eo.notEqual(value)
+    def ===(value: Comparable[_]) = eo.equal(value)
+    def <>(value: Comparable[_]) = eo.notEqual(value)
   }
 
   implicit class WhereString(private val sc: StringContext) extends AnyVal {
