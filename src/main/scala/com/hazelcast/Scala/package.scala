@@ -137,6 +137,7 @@ package object Scala extends HighPriorityImplicits {
   implicit class ScalaEntryObject(private val eo: EntryObject) extends AnyVal {
     def apply(name: String) = eo.get(name)
     def key(name: String) = eo.key().get(name)
+    def value = eo.get("this")
     def >(value: Comparable[_]) = eo.greaterThan(value)
     def <(value: Comparable[_]) = eo.lessThan(value)
     def >=(value: Comparable[_]) = eo.greaterEqual(value)

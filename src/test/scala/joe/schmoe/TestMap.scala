@@ -140,7 +140,7 @@ class TestMap {
     map.putAll(tempMap)
     println(s"Took ${System.currentTimeMillis - start} ms to putAll $count entries")
     val predicate37 = new Predicate[String, Int] {
-      def apply(entry: Entry[String, Int]) = isFactor37(entry.getValue)
+      def apply(entry: Entry[String, Int]) = isFactor37(entry.value)
     }
     val entryProcessor = new AbstractEntryProcessor[String, Int] {
       def process(entry: Entry[String, Int]): Object = {
@@ -154,13 +154,13 @@ class TestMap {
     val result2a = map.execute(OnValues(isFactor37)) { entry =>
       entry.value * 2
     }
-    val result2b = map.map(_.getValue).collect {
+    val result2b = map.map(_.value).collect {
       case value if isFactor37(value) => value * 2
     }.fetch().await.sorted
-    val result2c = map.map(_.getValue).filter(isFactor37).collect {
+    val result2c = map.map(_.value).filter(isFactor37).collect {
       case value => value * 2
     }.fetch().await.sorted
-    val result2d = map.filter(e => isFactor37(e.getValue)).map(_.value * 8).map(_ / 4).fetch().await.sorted
+    val result2d = map.filter(e => isFactor37(e.value)).map(_.value * 8).map(_ / 4).fetch().await.sorted
     assertEquals(result1a, result1b)
     assertEquals(result1a, result2a)
     assertEquals(result1a.values.toSeq.sorted, result2b)
@@ -198,11 +198,11 @@ class TestMap {
   @Test
   def `min & max` {
     val map = getClientMap[String, Long]()
-    assertEquals(None, map.map(_.getValue).minMax.await)
+    assertEquals(None, map.map(_.value).minMax.await)
     for (n <- 1L to 500L) {
       map.set(n.toString, n)
     }
-    val filtered = map.filter(where("this").between(50, 99)).map(_.getValue)
+    val filtered = map.filter(where.value.between(50, 99)).map(_.value)
     val (min, max) = filtered.minMax().await.get
     assertEquals(50L, min)
     assertEquals(99L, max)
@@ -217,9 +217,9 @@ class TestMap {
   @Test
   def mean {
     val map = getClientMap[String, Int]()
-    assertTrue(map.map(_.getValue).mean().await.isEmpty)
+    assertTrue(map.map(_.value).mean().await.isEmpty)
     for (n <- 1 to 4) map.set(n.toString, n)
-    val intAvg = map.map(_.getValue).mean.await.get
+    val intAvg = map.map(_.value).mean.await.get
     assertEquals(2, intAvg)
     val dblAvg = map.map(_.value.toDouble).mean.await.get
     assertEquals(2.5, dblAvg, 0.00001)
@@ -245,16 +245,16 @@ class TestMap {
       localMap.put(n, fizzBuzz.result)
     }
     map.putAll(localMap)
-    val (distribution, distrTime) = timed { map.filterKeys(_ <= 100).map(_.getValue).distribution().await }
-    val (distinct, distcTime) = timed { map.filter(where.key <= 100).map(_.getValue).distinct().await }
+    val (distribution, distrTime) = timed { map.filterKeys(_ <= 100).map(_.value).distribution().await }
+    val (distinct, distcTime) = timed { map.filter(where.key <= 100).map(_.value).distinct().await }
     assertEquals(distribution.keySet, distinct)
     //    println(s"Distribution: $distrTime ms, Distinct: $distcTime ms, using ${map.getClass.getSimpleName}")
     assertEquals(27, distribution("Fizz"))
     assertEquals(14, distribution("Buzz"))
     assertEquals(6, distribution("FizzBuzz"))
     assertTrue(distribution.filterKeys(!Set("Fizz", "Buzz", "FizzBuzz").contains(_)).forall(_._2 == 1))
-    assertEquals(Map(27 -> Set("Fizz")), map.filterKeys(_ <= 100).map(_.getValue).frequency(1).await)
-    assertEquals(Map(27 -> Set("Fizz"), 14 -> Set("Buzz"), 6 -> Set("FizzBuzz")), map.filterKeys(_ <= 100).map(_.getValue).frequency(3).await)
+    assertEquals(Map(27 -> Set("Fizz")), map.filterKeys(_ <= 100).map(_.value).frequency(1).await)
+    assertEquals(Map(27 -> Set("Fizz"), 14 -> Set("Buzz"), 6 -> Set("FizzBuzz")), map.filterKeys(_ <= 100).map(_.value).frequency(3).await)
   }
 
   @Test
@@ -278,7 +278,7 @@ class TestMap {
     assertEquals(Thousands * 1000, empCount)
     val localAvg = (allSalaries / empCount).toInt
     val (avg, ms) = timed {
-      clientMap.map(_.getValue).map(_.salary.toDouble).mean.await.get.toInt
+      clientMap.map(_.value).map(_.salary.toDouble).mean.await.get.toInt
     }
     println(s"Average salary : $$$avg ($ms ms)")
     assertEquals(localAvg, avg)
@@ -333,7 +333,7 @@ class TestMap {
   @Test
   def median {
     val strMap = getClientMap[String, String]()
-    val strValues = strMap.map(_.getValue)
+    val strValues = strMap.map(_.value)
     assertEquals(None, strValues.medianValues.await)
     strMap.set("a", "a") // 1:[0:"a"]
     assertEquals(Some(("a", "a")), strValues.medianValues.await)
@@ -365,7 +365,7 @@ class TestMap {
     assertEquals(Some(("c", "d")), strValues.medianValues.await)
 
     val intMap = getClientMap[String, Int]()
-    val intValues = intMap.map(_.getValue)
+    val intValues = intMap.map(_.value)
     assertEquals(None, intValues.median().await)
     intMap.set("1", 1)
     assertEquals(Some(1), intValues.median().await)
@@ -402,7 +402,7 @@ class TestMap {
     }
     val map = getClientMap[X, Y]()
     map.putAll(localMap)
-    val values = map.map(_.getValue)
+    val values = map.map(_.value)
     val dist = values.distribution.await
     var localModeFreq: Int = -1
     var localModeValues = Set.empty[Y]
@@ -452,7 +452,7 @@ class TestMap {
     }
     saveChapter()
     assertEquals(12, aliceChapters.size)
-    val words = aliceChapters.map(_.getValue).flatMap { chapter =>
+    val words = aliceChapters.map(_.value).flatMap { chapter =>
       WordFinder.findAllMatchIn(chapter.toLowerCase).map(_.matched).toTraversable
     }
     val expectedTopTen = Map(1615 -> Set("the"), 870 -> Set("and"), 724 -> Set("to"), 627 -> Set("a"), 542 -> Set("i"), 541 -> Set("she"), 538 -> Set("it"), 513 -> Set("of"), 462 -> Set("said"), 411 -> Set("you"))
