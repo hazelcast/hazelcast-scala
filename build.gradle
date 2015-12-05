@@ -1,9 +1,27 @@
+buildscript {
+    repositories {
+        mavenCentral()
+    }
+    dependencies {
+        classpath "org.scoverage:gradle-scoverage:1.1.0"
+    }
+}
+
 plugins {
     id "com.jfrog.bintray" version "1.4"
 }
 
+ext {
+    junitVersion = '4.12'
+    scalaMinorVersion = '2.11'
+    scalaVersion = "$scalaMinorVersion.7"
+    hzVersion = '3.6-EA2'
+    scoverageVersion = '1.1.0'
+}
+
 apply plugin: "scala"
 apply plugin: "maven-publish"
+apply plugin: 'scoverage'
 
 sourceCompatibility = 1.6
 targetCompatibility = 1.6
@@ -22,18 +40,11 @@ def tsVersion(version) {
 
 repositories {
     mavenCentral()
-    
-}
-
-ext {
-    junitVersion = '4.12'
-    scalaMinorVersion = '2.11'
-    scalaVersion = "$scalaMinorVersion.7"
-    hzVersion = '3.6-EA2'
 }
 
 dependencies {
     testCompile "junit:junit:$junitVersion"
+    scoverage "org.scoverage:scalac-scoverage-plugin_$scalaMinorVersion:$scoverageVersion", "org.scoverage:scalac-scoverage-runtime_$scalaMinorVersion:$scoverageVersion"
     //testCompile fileTree(dir: 'lib', include: '*.jar')
     //testCompile "com.hazelcast:hazelcast:$hzVersion:tests"
     compile "org.scala-lang:scala-reflect:$scalaVersion"
@@ -44,7 +55,7 @@ dependencies {
 }
 
 jar {
-    baseName = "hazelcast-scala_2.11"
+    baseName = "hazelcast-scala_$scalaMinorVersion"
     manifest {
         attributes "Implementation-Title": "hazelcast-scala", "Implementation-Version": version
     }
