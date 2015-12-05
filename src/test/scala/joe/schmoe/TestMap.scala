@@ -1,8 +1,9 @@
 package joe.schmoe
 
-import java.util.{ Date, UUID }
+import java.util.Date
 import java.util.Map.Entry
-import java.util.concurrent.{ CountDownLatch, TimeUnit }
+import java.util.UUID
+import java.util.concurrent.{ CountDownLatch, LinkedBlockingQueue, TimeUnit }
 
 import scala.collection.JavaConverters._
 import scala.concurrent.ExecutionContext.Implicits.global
@@ -17,9 +18,6 @@ import com.hazelcast.config.{ InMemoryFormat, MapIndexConfig }
 import com.hazelcast.core.IMap
 import com.hazelcast.map.AbstractEntryProcessor
 import com.hazelcast.query.Predicate
-
-import TestMap.MyNumber
-import joe.schmoe.TestFuture
 
 object TestMap extends ClusterSetup {
   def init {
@@ -107,7 +105,7 @@ class TestMap {
   def syncUpdateWithDefault {
     val map = getClientMap[String, Int]()
     val latch = new CountDownLatch(2)
-    val reg = map.onEntryEvents(key = "foo") {
+    val reg = map.filterKeys("foo").onEntryEvents() {
       case EntryAdded(key, value) =>
         assertEquals(1, value)
         latch.countDown()
@@ -261,7 +259,7 @@ class TestMap {
 
   @Test
   def `large map test` {
-    val Thousands = 100
+    val Thousands = 750
     val clientMap = getClientMap[UUID, Employee]("employees")
     var allSalaries = 0d
     var empCount = 0
@@ -500,6 +498,22 @@ class TestMap {
     //    assertEquals(12.34f, result(2000 -> 2), err)
     //    assertEquals(12.16f, result(2001 -> 2), err)
     assertEquals(11.84f, result(2002 -> 2), err)
+  }
+
+  @Test
+  def `key events` {
+    val q = new LinkedBlockingQueue[String]
+    val map = getClientMap[Int, String]()
+    // Value mapping doesn't work, and probably would be weird?
+    val reg = map.filterKeys(42, 43, 44).mapValues(_.toUpperCase).onEntryEvents() {
+      case EntryAdded(key, value) => q offer value
+    }
+    map.set(42, "Hello")
+    val hello = q.poll(5, TimeUnit.SECONDS)
+    assertEquals("Hello", hello)
+    map.set(999, "World")
+    assertNull(q.poll(2, TimeUnit.SECONDS))
+    reg.cancel()
   }
 
 }

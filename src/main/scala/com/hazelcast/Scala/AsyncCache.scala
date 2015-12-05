@@ -53,11 +53,8 @@ class AsyncCache[K, V] private[Scala] (private val icache: ICache[K, V]) extends
         icache.putIfAbsentAsync(key, value, expiryPolicy).asScala(_.booleanValue)
     }
 
-  def remove(key: K, expected: V = null.asInstanceOf[V]): Future[Boolean] =
-    expected match {
-      case null => icache.removeAsync(key).asScala(_.booleanValue)
-      case expected => icache.removeAsync(key, expected).asScala(_.booleanValue)
-    }
+  def remove(key: K): Future[Boolean] = icache.removeAsync(key).asScala(_.booleanValue)
+  def remove(key: K, expected: V): Future[Boolean] = icache.removeAsync(key, expected).asScala(_.booleanValue)
 
   def replace(key: K, value: V)(implicit expiryPolicy: ExpiryPolicy = null): Future[Boolean] =
     expiryPolicy match {

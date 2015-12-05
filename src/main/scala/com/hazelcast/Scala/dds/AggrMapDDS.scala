@@ -14,9 +14,10 @@ private[Scala] class AggrMapDDS[E](dds: MapDDS[_, _, E]) extends AggrDDS[E] {
   final def submit[Q, W, R](
     aggr: Aggregation[Q, E, W, R],
     es: IExecutorService)(implicit ec: ExecutionContext): Future[R] = {
-    val keysByMember = dds.keySet.map(dds.hz.groupByMember)
-    val exec = if (es == null) dds.hz.queryPool else es
-    AggrMapDDS.aggregate(dds.name, keysByMember, dds.predicate, dds.pipe, exec, aggr)
+    val hz = dds.imap.getHZ
+    val keysByMember = dds.keySet.map(hz.groupByMember)
+    val exec = if (es == null) hz.queryPool else es
+    AggrMapDDS.aggregate(dds.imap.getName, keysByMember, dds.predicate, dds.pipe, exec, aggr)
   }
 
 }

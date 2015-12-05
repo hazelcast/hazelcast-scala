@@ -144,10 +144,6 @@ final class HzMap[K, V](private val imap: core.IMap[K, V]) extends AnyVal {
     }
   }
 
-  def onKeyEvents(filter: Predicate[_, _] = null, key: K = null.asInstanceOf[K], localOnly: Boolean = false)(pf: PartialFunction[KeyEvent[K], Unit]): ListenerRegistration =
-    subscribeEntries(new KeyListener(pf), localOnly, includeValue = false, Option(key), Option(filter))
-  def onEntryEvents(filter: Predicate[_, _] = null, key: K = null.asInstanceOf[K], localOnly: Boolean = false)(pf: PartialFunction[EntryEvent[K, V], Unit]): ListenerRegistration =
-    subscribeEntries(new EntryListener(pf), localOnly, includeValue = true, Option(key), Option(filter))
   def onPartitionLost(listener: PartialFunction[MapPartitionLostEvent, Unit]): ListenerRegistration = {
     val regId = imap addPartitionLostListener new MapPartitionLostListener {
       def partitionLost(evt: MapPartitionLostEvent) =
@@ -155,23 +151,6 @@ final class HzMap[K, V](private val imap: core.IMap[K, V]) extends AnyVal {
     }
     new ListenerRegistration {
       def cancel = imap removePartitionLostListener regId
-    }
-  }
-  private def subscribeEntries(
-    listener: map.listener.MapListener,
-    localOnly: Boolean,
-    includeValue: Boolean,
-    key: Option[K],
-    filter: Option[Predicate[_, _]]): ListenerRegistration = {
-    val predicate = filter.getOrElse(TruePredicate.INSTANCE).asInstanceOf[Predicate[K, V]]
-    val regId = key match {
-      case Some(key) if localOnly => imap.addLocalEntryListener(listener, predicate, key, includeValue)
-      case None if localOnly => imap.addLocalEntryListener(listener, predicate, includeValue)
-      case Some(key) => imap.addEntryListener(listener, predicate, key, includeValue)
-      case None => imap.addEntryListener(listener, predicate, includeValue)
-    }
-    new ListenerRegistration {
-      def cancel(): Unit = imap.removeEntryListener(regId)
     }
   }
 
