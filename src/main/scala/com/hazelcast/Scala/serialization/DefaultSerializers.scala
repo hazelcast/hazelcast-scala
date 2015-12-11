@@ -206,6 +206,18 @@ object DefaultSerializers extends SerializerEnum(-987654321) {
       (inp.readObject, inp.readObject, inp.readObject, inp.readObject)
     }
   }
+  val Tuple5Ser = new StreamSerializer[Tuple5[_, _, _, _, _]] {
+    def write(out: ObjectDataOutput, t: Tuple5[_, _, _, _, _]): Unit = {
+      out.writeObject(t._1)
+      out.writeObject(t._2)
+      out.writeObject(t._3)
+      out.writeObject(t._4)
+      out.writeObject(t._5)
+    }
+    def read(inp: ObjectDataInput): Tuple5[_, _, _, _, _] = {
+      (inp.readObject, inp.readObject, inp.readObject, inp.readObject, inp.readObject)
+    }
+  }
 
   val MathCtxSer = new StreamSerializer[MathContext] {
     def write(out: ObjectDataOutput, mc: MathContext): Unit = {
