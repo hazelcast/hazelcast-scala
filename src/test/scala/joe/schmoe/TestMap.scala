@@ -4,22 +4,21 @@ import java.util.Date
 import java.util.Map.Entry
 import java.util.UUID
 import java.util.concurrent.{ CountDownLatch, LinkedBlockingQueue, TimeUnit }
-
 import scala.collection.JavaConverters._
 import scala.concurrent.ExecutionContext.Implicits.global
 import scala.io.Source
 import scala.util.{ Failure, Random, Success }
-
 import org.junit.Assert._
 import org.junit.Test
-
 import com.hazelcast.Scala._
 import com.hazelcast.config.{ InMemoryFormat, MapIndexConfig }
 import com.hazelcast.core.IMap
 import com.hazelcast.map.AbstractEntryProcessor
 import com.hazelcast.query.Predicate
+import BigDecimal.RoundingMode._
 
 object TestMap extends ClusterSetup {
+  override val clusterSize = 1
   def init {
     TestSerializers.register(clientConfig.getSerializationConfig)
     TestSerializers.register(memberConfig.getSerializationConfig)
@@ -255,6 +254,18 @@ class TestMap {
     assertTrue(distribution.filterKeys(!Set("Fizz", "Buzz", "FizzBuzz").contains(_)).forall(_._2 == 1))
     assertEquals(Map(27 -> Set("Fizz")), map.filterKeys(_ <= 100).map(_.value).frequency(1).await)
     assertEquals(Map(27 -> Set("Fizz"), 14 -> Set("Buzz"), 6 -> Set("FizzBuzz")), map.filterKeys(_ <= 100).map(_.value).frequency(3).await)
+  }
+
+  @Test
+  def `sql pred` {
+    val pred = new com.hazelcast.query.SqlPredicate("active AND ( age > 20 OR salary < 60000 )")
+    val map = getClientMap[String, String]()
+    val result = map.values(where("active") === true && (where("age") > 20 || where("salary") < 60000))
+    assertEquals(0, result.size)
+    val foos = map.values(where.key === "foo")
+    assertEquals(0, foos.size)
+    val bars = map.values(where.value === "bar")
+    assertEquals(0, bars.size)
   }
 
   @Test
@@ -514,6 +525,26 @@ class TestMap {
     map.set(999, "World")
     assertNull(q.poll(2, TimeUnit.SECONDS))
     reg.cancel()
+  }
+
+  @Test
+  def variance {
+    val dMap = getClientMap[Int, BigDecimal]()
+    1 to 120 foreach { n =>
+      dMap.set(n, n)
+    }
+    val variance = dMap.map(_.value).variance().await.get
+    assertEquals(BigDecimal(1210), variance)
+    val grouped = dMap.map(_.value).groupBy { n =>
+      if (n <= 30) "a"
+      else if (n <= 60) "b"
+      else if (n <= 90) "c"
+      else "d"
+    }.variance().await
+    assertEquals(4, grouped.size)
+    grouped.values.foreach { variance =>
+      assertEquals(BigDecimal(77.5d), variance.setScale(1, HALF_EVEN))
+    }
   }
 
 }

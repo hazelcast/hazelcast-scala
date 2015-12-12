@@ -3,7 +3,7 @@ package com.hazelcast
 import java.util.AbstractMap
 import java.util.Map.Entry
 
-import _root_.scala.concurrent.{ Await, Future }
+import _root_.scala.concurrent.{ Await, Future, blocking }
 import _root_.scala.concurrent.duration.{ DurationInt, FiniteDuration }
 import _root_.scala.language.implicitConversions
 
@@ -159,22 +159,28 @@ package object Scala extends HighPriorityImplicits {
 
   private[Scala] implicit class JavaFuture[T](private val jFuture: java.util.concurrent.Future[T]) extends AnyVal {
     @inline def await: T = await(DefaultFutureTimeout)
-    @inline def await(dur: FiniteDuration): T = if (jFuture.isDone) jFuture.get else jFuture.get(dur.length, dur.unit)
+    @inline def await(dur: FiniteDuration): T = if (jFuture.isDone) jFuture.get else blocking(jFuture.get(dur.length, dur.unit))
     def asScala[U](implicit ev: T => U): Future[U] = {
-      val callback = new FutureCallback[T, U]()
-      jFuture match {
-        case jFuture: ICompletableFuture[T] =>
-          jFuture andThen callback
+      if (jFuture.isDone) try Future successful jFuture.get catch { case t => Future failed t }
+      else {
+        val callback = new FutureCallback[T, U]()
+        jFuture match {
+          case jFuture: ICompletableFuture[T] =>
+            jFuture andThen callback
+        }
+        callback.future
       }
-      callback.future
     }
     def asScalaOpt[U](implicit ev: T <:< U): Future[Option[U]] = {
-      val callback = new FutureCallback[T, Option[U]](None)(Some(_))
-      jFuture match {
-        case jFuture: ICompletableFuture[T] =>
-          jFuture andThen callback
+      if (jFuture.isDone) try Future successful Option(jFuture.get) catch { case t => Future failed t }
+      else {
+        val callback = new FutureCallback[T, Option[U]](None)(Some(_))
+        jFuture match {
+          case jFuture: ICompletableFuture[T] =>
+            jFuture andThen callback
+        }
+        callback.future
       }
-      callback.future
     }
   }
 

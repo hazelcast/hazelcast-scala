@@ -46,6 +46,8 @@ trait NumericDDS[N] extends OrderingDDS[N] {
     }
   }
 
+  def variance()(implicit ec: ExecutionContext): Future[Option[N]] = submit(aggr.Variance())
+
 }
 
 trait NumericGroupDDS[G, N] extends OrderingGroupDDS[G, N] {
@@ -70,5 +72,7 @@ trait NumericGroupDDS[G, N] extends OrderingGroupDDS[G, N] {
       }
     }
   }
+
+  def variance()(implicit ec: ExecutionContext): Future[cMap[G, N]] = submit(Aggregation.groupSome(aggr.Variance()))
 
 }
