@@ -84,3 +84,7 @@ final case class EntryEvicted[K, V](key: K, value: V)(evt: core.EntryEvent[K, V]
 final case class EntryRemoved[K, V](key: K, value: V)(evt: core.EntryEvent[K, V]) extends EntryEvent(evt)
 final case class EntryMerged[K, V](key: K, oldValue: Option[V], mergeValue: V, newValue: Option[V])(evt: core.EntryEvent[K, V]) extends EntryEvent(evt)
 final case class EntryUpdated[K, V](key: K, oldValue: V, newValue: V)(evt: core.EntryEvent[K, V]) extends EntryEvent(evt)
+
+final case class PartitionLossEvent(member: core.Member, partitionId: Int)(evt: map.MapPartitionLostEvent) {
+  override def toString() = evt.toString()
+}

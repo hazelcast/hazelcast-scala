@@ -144,10 +144,12 @@ final class HzMap[K, V](private val imap: core.IMap[K, V]) extends AnyVal {
     }
   }
 
-  def onPartitionLost(listener: PartialFunction[MapPartitionLostEvent, Unit]): ListenerRegistration = {
+  def onPartitionLost(listener: PartialFunction[PartitionLossEvent, Unit]): ListenerRegistration = {
     val regId = imap addPartitionLostListener new MapPartitionLostListener {
-      def partitionLost(evt: MapPartitionLostEvent) =
-        if (listener isDefinedAt evt) listener(evt)
+      def partitionLost(evt: MapPartitionLostEvent) = {
+        val loss = new PartitionLossEvent(evt.getMember, evt.getPartitionId)(evt)
+        if (listener isDefinedAt loss) listener(loss)
+      }
     }
     new ListenerRegistration {
       def cancel = imap removePartitionLostListener regId
