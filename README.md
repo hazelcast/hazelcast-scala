@@ -40,4 +40,4 @@ Add this to your project's `build.sbt`:
 
 
 ## Sample Code ##
-See the [Wiki](hazelcast-scala/wiki) and unit tests for examples of how to use this library.
+See the [Wiki](../../wiki) and unit tests for examples of how to use this library.
