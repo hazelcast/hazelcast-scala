@@ -270,6 +270,9 @@ class TestMap {
     val sqlPredFirst = sqlResult.asScala.head
     val firstByKey = map.values(where.key() = sqlPredFirst.id)
     assertEquals(sqlPredFirst, firstByKey.asScala.head)
+    val sqlSalaries = sqlResult.asScala.map(e => e.id -> e.salary).toMap
+    val querySalaryResult = map.query(sqlPred)(_.salary)
+    assertEquals(sqlSalaries, querySalaryResult)
   }
 
   @Test

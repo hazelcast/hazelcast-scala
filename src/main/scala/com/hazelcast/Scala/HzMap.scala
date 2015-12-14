@@ -53,6 +53,13 @@ final class HzMap[K, V](private val imap: core.IMap[K, V]) extends AnyVal {
     imap.executeOnKeys(keys.asJava, ep).asScala.asInstanceOf[mMap[K, R]]
   }
 
+  def query[T](pred: Predicate[_, _])(mf: V => T): mMap[K, T] = {
+    val ep = new AbstractEntryProcessor[K, V](false) {
+      def process(entry: Entry[K, V]): Object = mf(entry.value).asInstanceOf[Object]
+    }
+    imap.executeOnEntries(ep, pred).asScala.asInstanceOf[mMap[K, T]]
+  }
+
   private def updateValues(predicate: Option[Predicate[_, _]], update: V => V, returnValue: V => Object): mMap[K, V] = {
     val ep = new AbstractEntryProcessor[K, V] {
       def process(entry: Entry[K, V]): Object = {

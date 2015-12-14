@@ -5,7 +5,10 @@ import scala.concurrent.Future
 import scala.concurrent.duration.Duration
 import com.hazelcast.core.{ IExecutorService, IMap, Member }
 import com.hazelcast.query.Predicate
-import scala.concurrent.ExecutionContext
+import scala.concurrent._
+import scala.collection.mutable.{ Map => mMap }
+import scala.collection.JavaConverters._
+import com.hazelcast.map.AbstractEntryProcessor
 
 final class AsyncMap[K, V] private[Scala] (private val imap: IMap[K, V]) extends AnyVal {
 
@@ -24,6 +27,13 @@ final class AsyncMap[K, V] private[Scala] (private val imap: IMap[K, V]) extends
     Future.sequence(fResults).map(_.flatten.toMap)
   }
 
+  def query[T](pred: Predicate[_, _])(mf: V => T)(implicit ec: ExecutionContext): Future[mMap[K, T]] = {
+    val ep = new AbstractEntryProcessor[K, V](false) {
+      def process(entry: Entry[K, V]): Object = mf(entry.value).asInstanceOf[Object]
+    }
+    Future(blocking(imap.executeOnEntries(ep, pred).asScala.asInstanceOf[mMap[K, T]]))
+  }
+
   def put(key: K, value: V, ttl: Duration = Duration.Zero): Future[Option[V]] =
     if (ttl.isFinite && ttl.length > 0) {
       imap.putAsync(key, value, ttl.length, ttl.unit).asScalaOpt
@@ -35,7 +45,7 @@ final class AsyncMap[K, V] private[Scala] (private val imap: IMap[K, V]) extends
     imap.removeAsync(key).asScalaOpt
 
   def upsert(key: K, insertIfMissing: V)(updateIfPresent: V => V): Future[UpsertResult] = {
-    val ep = new CallbackEntryUpdater[K, V, UpsertResult] {
+    val ep = new SingleEntryCallbackUpdater[K, V, UpsertResult] {
       def onEntry(entry: Entry[K, V]): UpsertResult =
         entry.value match {
           case null =>
@@ -52,7 +62,7 @@ final class AsyncMap[K, V] private[Scala] (private val imap: IMap[K, V]) extends
   }
 
   def upsertAndGet(key: K, insertIfMissing: V)(updateIfPresent: V => V): Future[V] = {
-    val ep = new CallbackEntryUpdater[K, V, V] {
+    val ep = new SingleEntryCallbackUpdater[K, V, V] {
       def onEntry(entry: Entry[K, V]): V = {
         entry.value match {
           case null =>
@@ -70,7 +80,7 @@ final class AsyncMap[K, V] private[Scala] (private val imap: IMap[K, V]) extends
   }
 
   def updateAndGet(key: K)(updateIfPresent: V => V): Future[Option[V]] = {
-    val ep = new CallbackEntryUpdater[K, V, V] {
+    val ep = new SingleEntryCallbackUpdater[K, V, V] {
       def onEntry(entry: Entry[K, V]): V =
         entry.value match {
           case null => null.asInstanceOf[V]
@@ -85,7 +95,7 @@ final class AsyncMap[K, V] private[Scala] (private val imap: IMap[K, V]) extends
   }
 
   def update(key: K)(updateIfPresent: V => V): Future[Boolean] = {
-    val ep = new CallbackEntryUpdater[K, V, Boolean] {
+    val ep = new SingleEntryCallbackUpdater[K, V, Boolean] {
       def onEntry(entry: Entry[K, V]): Boolean = {
         entry.value match {
           case null => false
@@ -101,7 +111,7 @@ final class AsyncMap[K, V] private[Scala] (private val imap: IMap[K, V]) extends
   }
 
   def getAs[R](key: K, map: V => R): Future[Option[R]] = {
-    val ep = new CallbackEntryReader[K, V, R] {
+    val ep = new SingleEntryCallbackReader[K, V, R] {
       def onEntry(key: K, value: V): R = {
         value match {
           case null => null.asInstanceOf[R]
