@@ -258,14 +258,18 @@ class TestMap {
 
   @Test
   def `sql pred` {
-    val pred = new com.hazelcast.query.SqlPredicate("active AND ( age > 20 OR salary < 60000 )")
-    val map = getClientMap[String, String]()
-    val result = map.values(where("active") === true && (where("age") > 20 || where("salary") < 60000))
-    assertEquals(0, result.size)
-    val foos = map.values(where.key === "foo")
-    assertEquals(0, foos.size)
-    val bars = map.values(where.value === "bar")
-    assertEquals(0, bars.size)
+    val map = getClientMap[UUID, Employee]()
+    (1 to 1000) foreach { i =>
+      val emp = Employee.random
+      map.set(emp.id, emp)
+    }
+    val sqlPred = new com.hazelcast.query.SqlPredicate("active AND ( age > 20 OR salary < 60000 )")
+    val sqlResult = map.values(sqlPred)
+    val whereResult = map.values((where("active") = true) && (where("age") > 20 || where("salary") < 60000))
+    assertEquals(sqlResult.asScala, whereResult.asScala)
+    val sqlPredFirst = sqlResult.asScala.head
+    val firstByKey = map.values(where.key() = sqlPredFirst.id)
+    assertEquals(sqlPredFirst, firstByKey.asScala.head)
   }
 
   @Test
@@ -277,11 +281,9 @@ class TestMap {
     (1 to Thousands).foreach { _ =>
       val localMap = new java.util.HashMap[UUID, Employee]
       (1 to 1000).foreach { _ =>
-        val id = UUID.randomUUID()
-        val salary = Random.nextInt(480000) + 20000
-        val emp = new Employee(id, randomString(), salary)
-        localMap.put(id, emp)
-        allSalaries += salary
+        val emp = Employee.random
+        localMap.put(emp.id, emp)
+        allSalaries += emp.salary
         empCount += 1
       }
       clientMap.putAll(localMap)

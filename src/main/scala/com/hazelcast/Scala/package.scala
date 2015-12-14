@@ -128,22 +128,26 @@ package object Scala extends HighPriorityImplicits {
 
   implicit class ScalaPredicate(private val pred: Predicate[_, _]) extends AnyVal {
     def &&(other: Predicate[_, _]): Predicate[_, _] = Predicates.and(pred, other)
+    def and(other: Predicate[_, _]): Predicate[_, _] = Predicates.and(pred, other)
     def ||(other: Predicate[_, _]): Predicate[_, _] = Predicates.or(pred, other)
+    def or(other: Predicate[_, _]): Predicate[_, _] = Predicates.or(pred, other)
     def unary_!(): Predicate[_, _] = Predicates.not(pred)
   }
 
   def where = new PredicateBuilder().getEntryObject
   def where(name: String) = new PredicateBuilder().getEntryObject.get(name)
   implicit class ScalaEntryObject(private val eo: EntryObject) extends AnyVal {
-    def apply(name: String) = eo.get(name)
-    def key(name: String) = eo.key().get(name)
-    def value = eo.get("this")
-    def >(value: Comparable[_]) = eo.greaterThan(value)
-    def <(value: Comparable[_]) = eo.lessThan(value)
-    def >=(value: Comparable[_]) = eo.greaterEqual(value)
-    def <=(value: Comparable[_]) = eo.lessEqual(value)
-    def ===(value: Comparable[_]) = eo.equal(value)
-    def <>(value: Comparable[_]) = eo.notEqual(value)
+    def apply(name: String): EntryObject = eo.get(name)
+    def key(name: String): EntryObject = eo.key().get(name)
+    def value: EntryObject = eo.get("this")
+    def value_=(value: Comparable[_]): PredicateBuilder = eo.get("this").equal(value)
+    def >(value: Comparable[_]): PredicateBuilder = eo.greaterThan(value)
+    def <(value: Comparable[_]): PredicateBuilder = eo.lessThan(value)
+    def >=(value: Comparable[_]): PredicateBuilder = eo.greaterEqual(value)
+    def <=(value: Comparable[_]): PredicateBuilder = eo.lessEqual(value)
+    def update(name: String, value: Comparable[_]): PredicateBuilder = apply(name).equal(value)
+    def update(value: Comparable[_]): PredicateBuilder = eo.equal(value)
+    def <>(value: Comparable[_]): PredicateBuilder = eo.notEqual(value)
   }
 
   implicit class WhereString(private val sc: StringContext) extends AnyVal {

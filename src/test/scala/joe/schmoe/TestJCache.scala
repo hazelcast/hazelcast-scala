@@ -28,9 +28,7 @@ class TestJCache {
   def employees {
     val employees = getClientCache[UUID, Employee]()
     (1 to 100) foreach { i =>
-      val name = randomString(15)
-      val salary = Random.nextInt(999999) + 50000
-      val emp = new Employee(UUID.nameUUIDFromBytes(name.getBytes), name, salary)
+      val emp = Employee.random
       employees.async.put(emp.id, emp)
     }
     employees.iterator().asScala.foreach { entry =>
