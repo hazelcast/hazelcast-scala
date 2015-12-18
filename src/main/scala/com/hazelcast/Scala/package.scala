@@ -2,11 +2,9 @@ package com.hazelcast
 
 import java.util.AbstractMap
 import java.util.Map.Entry
-
 import _root_.scala.concurrent.{ Await, Future, blocking }
 import _root_.scala.concurrent.duration.{ DurationInt, FiniteDuration }
 import _root_.scala.language.implicitConversions
-
 import Scala._
 import Scala.dds._
 import cache.ICache
@@ -14,6 +12,7 @@ import core.{ Hazelcast, HazelcastInstance, ICollection, ICompletableFuture, IEx
 import client.HazelcastClient
 import memory.{ MemorySize, MemoryUnit }
 import query.{ EntryObject, Predicate, PredicateBuilder, Predicates, SqlPredicate }
+import scala.util.control.NonFatal
 
 package Scala {
 
@@ -81,7 +80,7 @@ package Scala {
       case grpDDS: MapGroupDDS[_, _, G, N] => new NumericGroupMapDDS(grpDDS.dds)
     }
     @inline implicit def dds2entryDds[K, V](dds: DDS[Entry[K, V]]): EntryMapDDS[K, V] = dds match {
-      case dds: MapDDS[K, V, Entry[K, V]] => new EntryMapDDS(dds)
+      case dds: MapDDS[K, V, Entry[K, V]] @unchecked => new EntryMapDDS(dds)
     }
     @inline implicit def imap2entryDds[K, V](imap: IMap[K, V]): EntryMapDDS[K, V] = new EntryMapDDS(new MapDDS(imap))
   }
@@ -165,7 +164,7 @@ package object Scala extends HighPriorityImplicits {
     @inline def await: T = await(DefaultFutureTimeout)
     @inline def await(dur: FiniteDuration): T = if (jFuture.isDone) jFuture.get else blocking(jFuture.get(dur.length, dur.unit))
     def asScala[U](implicit ev: T => U): Future[U] = {
-      if (jFuture.isDone) try Future successful jFuture.get catch { case t => Future failed t }
+      if (jFuture.isDone) try Future successful jFuture.get catch { case NonFatal(t) => Future failed t }
       else {
         val callback = new FutureCallback[T, U]()
         jFuture match {
@@ -176,7 +175,7 @@ package object Scala extends HighPriorityImplicits {
       }
     }
     def asScalaOpt[U](implicit ev: T <:< U): Future[Option[U]] = {
-      if (jFuture.isDone) try Future successful Option(jFuture.get) catch { case t => Future failed t }
+      if (jFuture.isDone) try Future successful Option(jFuture.get) catch { case NonFatal(t) => Future failed t }
       else {
         val callback = new FutureCallback[T, Option[U]](None)(Some(_))
         jFuture match {
