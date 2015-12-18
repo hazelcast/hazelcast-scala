@@ -3,22 +3,31 @@ package joe.schmoe
 import java.util.Date
 import java.util.Map.Entry
 import java.util.UUID
-import java.util.concurrent.{ CountDownLatch, LinkedBlockingQueue, TimeUnit }
+import java.util.concurrent.CountDownLatch
+import java.util.concurrent.LinkedBlockingQueue
+import java.util.concurrent.TimeUnit
+
+import scala.BigDecimal.RoundingMode._
 import scala.collection.JavaConverters._
 import scala.concurrent.ExecutionContext.Implicits.global
+import scala.concurrent.duration._
 import scala.io.Source
-import scala.util.{ Failure, Random, Success }
+import scala.util.Failure
+import scala.util.Random
+import scala.util.Success
+
 import org.junit.Assert._
 import org.junit.Test
+
 import com.hazelcast.Scala._
-import com.hazelcast.config.{ InMemoryFormat, MapIndexConfig }
+import com.hazelcast.config.InMemoryFormat
+import com.hazelcast.config.MapIndexConfig
 import com.hazelcast.core.IMap
 import com.hazelcast.map.AbstractEntryProcessor
 import com.hazelcast.query.Predicate
-import BigDecimal.RoundingMode._
 
 object TestMap extends ClusterSetup {
-  override val clusterSize = 1
+  override val clusterSize = 3
   def init {
     TestSerializers.register(clientConfig.getSerializationConfig)
     TestSerializers.register(memberConfig.getSerializationConfig)
@@ -226,34 +235,34 @@ class TestMap {
 
   @Test
   def distribution {
+    val iterations = 100
     val memberMap = getMemberMap[Int, String]()
     val clientMap = getClientMap[Int, String]()
-    for (_ <- 1 to 100) {
-      distribution(clientMap)
-      distribution(memberMap)
-      //      clientMap.clear()
+    for (i <- 1 to iterations) {
+      distribution(clientMap, i == iterations)
+      distribution(memberMap, i == iterations)
     }
-  }
-  private def distribution(map: IMap[Int, String]) {
-    val localMap = new java.util.HashMap[Int, String]
-    (1 to 1000).foreach { n =>
-      val fizzBuzz = new StringBuilder()
-      if (n % 3 == 0) fizzBuzz ++= "Fizz"
-      if (n % 5 == 0) fizzBuzz ++= "Buzz"
-      if (fizzBuzz.isEmpty) fizzBuzz ++= n.toString
-      localMap.put(n, fizzBuzz.result)
-    }
-    map.putAll(localMap)
-    val (distribution, distrTime) = timed { map.filterKeys(_ <= 100).map(_.value).distribution().await }
-    val (distinct, distcTime) = timed { map.filter(where.key <= 100).map(_.value).distinct().await }
-    assertEquals(distribution.keySet, distinct)
-    //    println(s"Distribution: $distrTime ms, Distinct: $distcTime ms, using ${map.getClass.getSimpleName}")
-    assertEquals(27, distribution("Fizz"))
-    assertEquals(14, distribution("Buzz"))
-    assertEquals(6, distribution("FizzBuzz"))
-    assertTrue(distribution.filterKeys(!Set("Fizz", "Buzz", "FizzBuzz").contains(_)).forall(_._2 == 1))
-    assertEquals(Map(27 -> Set("Fizz")), map.filterKeys(_ <= 100).map(_.value).frequency(1).await)
-    assertEquals(Map(27 -> Set("Fizz"), 14 -> Set("Buzz"), 6 -> Set("FizzBuzz")), map.filterKeys(_ <= 100).map(_.value).frequency(3).await)
+      def distribution(map: IMap[Int, String], printTimings: Boolean) {
+        val localMap = new java.util.HashMap[Int, String]
+        (1 to 1000).foreach { n =>
+          val fizzBuzz = new StringBuilder()
+          if (n % 3 == 0) fizzBuzz ++= "Fizz"
+          if (n % 5 == 0) fizzBuzz ++= "Buzz"
+          if (fizzBuzz.isEmpty) fizzBuzz ++= n.toString
+          localMap.put(n, fizzBuzz.result)
+        }
+        map.putAll(localMap)
+        val (distribution, distrTime) = timed(MICROSECONDS) { map.filterKeys(_ <= 100).map(_.value).distribution().await }
+        val (distinct, distcTime) = timed(MICROSECONDS) { map.filter(where.key <= 100).map(_.value).distinct().await }
+        assertEquals(distribution.keySet, distinct)
+        if (printTimings) println(s"Distribution: $distrTime μs, Distinct: $distcTime μs, using ${map.getClass.getSimpleName}")
+        assertEquals(27, distribution("Fizz"))
+        assertEquals(14, distribution("Buzz"))
+        assertEquals(6, distribution("FizzBuzz"))
+        assertTrue(distribution.filterKeys(!Set("Fizz", "Buzz", "FizzBuzz").contains(_)).forall(_._2 == 1))
+        assertEquals(Map(27 -> Set("Fizz")), map.filterKeys(_ <= 100).map(_.value).frequency(1).await)
+        assertEquals(Map(27 -> Set("Fizz"), 14 -> Set("Buzz"), 6 -> Set("FizzBuzz")), map.filterKeys(_ <= 100).map(_.value).frequency(3).await)
+      }
   }
 
   @Test
@@ -279,7 +288,7 @@ class TestMap {
   def `large map test` {
     val Thousands = 125
     val clientMap = getClientMap[UUID, Employee]("employees")
-    var allSalaries = 0d
+    var allSalaries = 0L
     var empCount = 0
     (1 to Thousands).foreach { _ =>
       val localMap = new java.util.HashMap[UUID, Employee]
@@ -292,16 +301,17 @@ class TestMap {
       clientMap.putAll(localMap)
     }
     assertEquals(Thousands * 1000, empCount)
-    val localAvg = (allSalaries / empCount).toInt
-    val (avg, ms) = timed {
-      clientMap.map(_.value).map(_.salary.toDouble).mean.await.get.toInt
+    val localAvg = allSalaries / empCount
+    val (avg, ms) = timed() {
+      // Deliberately inefficient, testing piped mapping
+      clientMap.map(_.value).map(_.salary).map(_.toLong).mean.await.get
     }
     println(s"Average salary : $$$avg ($ms ms)")
     assertEquals(localAvg, avg)
-    val (fCount, fCountMs) = timed(clientMap.filterValues(_.salary > 495000).count.await)
-    val (cCount, cCountMs) = timed(clientMap.filter(where("salary") > 495000).count.await)
+    val (fCount, fCountMs) = timed()(clientMap.filterValues(_.salary > 495000).count.await)
+    val (cCount, cCountMs) = timed()(clientMap.filter(where("salary") > 495000).count.await)
     println(s"Filter: $fCount employees make more than $$495K ($fCountMs ms)")
-    println(s"Predicate: $cCount employees make more than $$495K ($cCountMs ms)")
+    println(s"Predicate: $cCount employees make more than $$495K ($cCountMs ms). Predicates are faster with indexing.")
   }
 
   //  @Test @Ignore
@@ -439,7 +449,7 @@ class TestMap {
     assertTrue(freqValues.nonEmpty)
     assertEquals(localModeFreq, freq)
     assertEquals(localModeValues, freqValues)
-    println(s"Values $freqValues all occurred $freq times")
+    println(s"Value(s) ${freqValues.mkString("[", ",", "]")} occurred $freq times")
     freqValues.foreach { value =>
       assertEquals(freq, dist(value))
     }
@@ -492,28 +502,31 @@ class TestMap {
     val milanWeather = getClientMap[Date, Weather]()
     milanWeather.putAll(localWeather)
     val maxByMonthYear = milanWeather.map { entry =>
+      val yearMonthFmt = new java.text.SimpleDateFormat("yyyy-MM")
       val date = entry.key
-      val yearMonth = (date.getYear + 1900) -> (date.getMonth + 1)
+      val yearMonth = yearMonthFmt.format(date)
+      require(date.getYear + 1900 == yearMonth.take(4).toInt)
+      require(date.getMonth + 1 == yearMonth.drop(5).take(2).toInt)
       yearMonth -> entry.value.tempMax
     }.groupBy(_._1, _._2)
-    val (result, ms) = timed { maxByMonthYear.mean().await }
+    val (result, ms) = timed() { maxByMonthYear.mean().await() }
     println(s"Milan monthly mean max temp: $ms ms")
     val err = 0.005f
-    assertEquals(7.23f, result(2012 -> 2), err)
-    assertEquals(7.2f, result(2013 -> 2), err)
-    assertEquals(7.85f, result(2010 -> 2), err)
-    assertEquals(9.79f, result(2011 -> 2), err)
-    assertEquals(10.74f, result(2013 -> 3), err)
-    assertEquals(13.13f, result(2010 -> 3), err)
-    assertEquals(18.55f, result(2012 -> 3), err)
-    assertEquals(13.74f, result(2011 -> 3), err)
-    assertEquals(9.28f, result(2003 -> 2), err)
-    assertEquals(10.41f, result(2004 -> 2), err)
-    assertEquals(9.15f, result(2005 -> 2), err)
-    assertEquals(8.9f, result(2006 -> 2), err)
-    //    assertEquals(12.34f, result(2000 -> 2), err)
-    //    assertEquals(12.16f, result(2001 -> 2), err)
-    assertEquals(11.84f, result(2002 -> 2), err)
+    assertEquals(7.23f, result("2012-02"), err)
+    assertEquals(7.2f, result("2013-02"), err)
+    assertEquals(7.85f, result("2010-02"), err)
+    assertEquals(9.79f, result("2011-02"), err)
+    assertEquals(10.74f, result("2013-03"), err)
+    assertEquals(13.13f, result("2010-03"), err)
+    assertEquals(18.55f, result("2012-03"), err)
+    assertEquals(13.74f, result("2011-03"), err)
+    assertEquals(9.28f, result("2003-02"), err)
+    assertEquals(10.41f, result("2004-02"), err)
+    assertEquals(9.15f, result("2005-02"), err)
+    assertEquals(8.9f, result("2006-02"), err)
+    assertEquals(12.34f, result("2000-02"), err)
+    assertEquals(12.16f, result("2001-02"), err)
+    assertEquals(11.84f, result("2002-02"), err)
   }
 
   @Test

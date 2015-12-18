@@ -15,6 +15,7 @@ import scala.reflect.ClassTag
 import scala.util.Random
 import scala.concurrent.duration._
 import com.hazelcast.Scala.serialization.DefaultSerializers
+import com.hazelcast.instance.HazelcastInstanceFactory
 
 trait ClusterSetup {
   private[this] var _hz: Vector[HazelcastInstance] = _
@@ -39,6 +40,7 @@ trait ClusterSetup {
     memberConfig.getGroupConfig.setName(group)
     //    memberConfig.setClusterShutdownTimeout(2.seconds)
     memberConfig.getMapConfig("default").setBackupCount(0).setStatisticsEnabled(false)
+    memberConfig.setShutdownHookEnabled(false)
     _hz = (1 to clusterSize).par.map(_ => memberConfig.newInstance).seq.toVector
     clientConfig.getGroupConfig.setName(group)
     _client = clientConfig.newClient()
@@ -48,7 +50,7 @@ trait ClusterSetup {
   def afterClass {
     destroy()
     _client.shutdown
-    _hz.par.foreach(_.shutdown)
+    HazelcastInstanceFactory.terminateAll()
   }
 
   private def contextName: String = {
@@ -65,9 +67,9 @@ trait ClusterSetup {
   def getMemberMap[K, V](name: String = contextName): IMap[K, V] = hz(0).getMap[K, V](name)
   def getMemberCache[K: ClassTag, V: ClassTag](name: String = contextName): ICache[K, V] = hz(0).getCache[K, V](name)
 
-  def timed[T](thunk: => T): (T, Long) = {
-    val start = System.currentTimeMillis
-    thunk -> (System.currentTimeMillis - start)
+  def timed[T](unit: TimeUnit = MILLISECONDS)(thunk: => T): (T, Long) = {
+    val start = System.nanoTime
+    thunk -> unit.convert(System.nanoTime - start, NANOSECONDS)
   }
 
 }
