@@ -35,7 +35,7 @@ private[dds] object AggrDDS {
 }
 
 trait AggrDDS[E] {
-  def submit[Q, W, R](aggregation: Aggregation[Q, E, W, R], es: IExecutorService = null)(implicit ec: ExecutionContext): Future[R]
+  def submit[Q, W, R](aggregator: (Option[Ordering[E]], Option[Int], Option[Int]) => Aggregator[Q, E, W, R], es: IExecutorService = null)(implicit ec: ExecutionContext): Future[R]
   def fetch()(implicit classTag: ClassTag[E], ec: ExecutionContext): Future[Seq[E]] = submit(new aggr.Fetch)
   def distinct()(implicit ec: ExecutionContext): Future[Set[E]] = this submit aggr.Distinct()
   def distribution()(implicit ec: ExecutionContext): Future[cMap[E, Freq]] = this submit aggr.Distribution()

@@ -16,9 +16,6 @@ import com.hazelcast.Scala._
 
 /** Distributed data structure. */
 sealed trait DDS[E] {
-  //  private[Scala] def hz: HazelcastInstance
-  //  private[Scala] def name: String
-
   def filter(f: E => Boolean)(implicit classTag: ClassTag[E]): DDS[E]
   def map[F](m: E => F): DDS[F]
   def collect[F](pf: PartialFunction[E, F]): DDS[F]
@@ -27,14 +24,42 @@ sealed trait DDS[E] {
   final def groupBy[G](gf: E => G): GroupDDS[G, E] = groupBy[G, E](gf, identity)
   def groupBy[G, F](gf: E => G, mf: E => F): GroupDDS[G, F]
 
+  final def sortBy[S: Ordering](sf: E => S): SortDDS[E] = sortBy(sf, identity)
+  def sortBy[S: Ordering, F](sf: E => S, mf: E => F): SortDDS[F]
+  def sorted()(implicit ord: Ordering[E]): SortDDS[E]
+
   //  def innerJoinOne[JK, JV](join: IMap[JK, JV], on: E => Option[JK]): DDS[(E, JV)]
   //  def innerJoinMany[JK, JV](join: IMap[JK, JV], on: E => Set[JK]): DDS[(E, Map[JK, JV])]
   //  def outerJoinOne[JK, JV](join: IMap[JK, JV], on: E => Option[JK]): DDS[(E, Option[JV])]
   //  def outerJoinMany[JK, JV](join: IMap[JK, JV], on: E => Set[JK]): DDS[(E, Map[JK, JV])]
 }
 
+sealed trait SortDDS[E] {
+  def drop(count: Int): SortDDS[E]
+  def take(count: Int): SortDDS[E]
+  def reverse(): SortDDS[E]
+}
+private[Scala] final class MapSortDDS[K, V, E](val dds: MapDDS[K, V, E], val ord: Ordering[E], val skip: Option[Int], val limit: Option[Int])
+    extends SortDDS[E] {
+
+  def drop(count: Int): SortDDS[E] = {
+    val skip = 0 max count
+    limit match {
+      case None => new MapSortDDS(dds, ord, this.skip.map(_ + skip) orElse Some(count), limit)
+      case _ => this
+    }
+  }
+  def take(count: Int): SortDDS[E] = {
+    val limit = 0 max count
+    val someLimit = this.limit.map(_ min limit) orElse Some(limit)
+    new MapSortDDS(dds, ord, skip, someLimit)
+  }
+  def reverse(): SortDDS[E] = new MapSortDDS(dds, ord.reverse, skip, limit)
+}
+
 sealed trait GroupDDS[G, E]
-private[Scala] final class MapGroupDDS[K, V, G, E](val dds: MapDDS[K, V, (G, E)]) extends GroupDDS[G, E]
+private[Scala] final class MapGroupDDS[K, V, G, E](val dds: MapDDS[K, V, (G, E)])
+  extends GroupDDS[G, E]
 
 private[Scala] final class MapDDS[K, V, E](
     val imap: IMap[K, V],
@@ -75,6 +100,14 @@ private[Scala] final class MapDDS[K, V, E](
     val prev = this.pipe getOrElse PassThroughPipe[E]
     val pipe = new FlatMapPipe[E, F](fm, prev)
     new MapDDS[K, V, F](imap, predicate, keySet, Some(pipe))
+  }
+
+  def sortBy[S: Ordering](sf: E => S): SortDDS[E] = {
+    val ord = implicitly[Ordering[S]].on(sf)
+    new MapSortDDS(this, ord, None, None)
+  }
+  def sorted()(implicit ord: Ordering[E]): SortDDS[E] = {
+    new MapSortDDS(this, ord, None, None)
   }
 
   //  private def withJoin[J <: Join[E, _, _]](join: J): DDS[(E, J#T)] = {
