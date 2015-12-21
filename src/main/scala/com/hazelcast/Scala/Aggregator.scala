@@ -1,6 +1,6 @@
 package com.hazelcast.Scala
 
-trait Aggregator[Q, T, W, R] extends Serializable {
+trait Aggregator[Q, -T, W, R] extends Serializable {
   def remoteInit: Q
   def remoteFold(q: Q, t: T): Q
   def remoteCombine(x: Q, y: Q): Q
@@ -11,20 +11,6 @@ trait Aggregator[Q, T, W, R] extends Serializable {
 }
 
 object Aggregator {
-
-  trait AbstractReducer[T, R] extends Aggregator[T, T, T, R] {
-    def init: T
-    def reduce(x: T, y: T): T
-    final def remoteInit(ord: Option[Ordering[T]]) = init
-    final def remoteFold(a: T, t: T): T = reduce(a, t)
-    final def remoteCombine(x: T, y: T): T = reduce(x, y)
-    final def remoteFinalize(t: T): T = t
-    final def localPrepare(t: T, ord: Option[Ordering[T]]): T = t
-    final def localCombine(x: T, y: T): T = reduce(x, y)
-  }
-  trait SimpleReducer[T] extends AbstractReducer[T, T] {
-    final def localFinalize(t: T): T = t
-  }
 
   type JM[G, V] = java.util.HashMap[G, V]
   type SM[G, V] = collection.mutable.Map[G, V]

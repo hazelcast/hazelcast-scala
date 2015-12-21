@@ -1,15 +1,15 @@
 package com.hazelcast.Scala.aggr
 
-import com.hazelcast.Scala.Aggregation
+import com.hazelcast.Scala.Aggregator
 
 object Variance {
 
   type Acc[N] = (Int, N, N)
 
-  def apply[N: Numeric]() = new Variance
+  def apply[N: Numeric] = new Variance
 
   class Variance[N: Numeric]
-      extends Aggregation[Acc[N], N, Acc[N], Option[N]]
+      extends Aggregator[Acc[N], N, Acc[N], Option[N]]
       with DivisionSupport[N] {
 
     protected final def num = implicitly[Numeric[N]]

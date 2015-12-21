@@ -13,6 +13,7 @@ import client.HazelcastClient
 import memory.{ MemorySize, MemoryUnit }
 import query.{ EntryObject, Predicate, PredicateBuilder, Predicates, SqlPredicate }
 import scala.util.control.NonFatal
+import scala.reflect.ClassTag
 
 package Scala {
 
@@ -50,19 +51,25 @@ package Scala {
   }
 
   trait LowPriorityImplicits {
-    @inline implicit def dds2aggrDds[E](dds: DDS[E]): AggrDDS[E] = dds match {
+    @inline implicit def dds2aggrDds[E: ClassTag](dds: DDS[E]): AggrDDS[E] = dds match {
       case dds: MapDDS[_, _, E] => new AggrMapDDS(dds)
     }
+    @inline implicit def sortdds2aggrDds[E: ClassTag](dds: SortDDS[E]): AggrDDS[E] = dds match {
+      case dds: MapSortDDS[_, _, E] => new AggrMapDDS(dds.dds, Sorted(dds.ord, dds.skip, dds.limit))
+    }
     @inline implicit def dds2AggrGrpDds[G, E](dds: GroupDDS[G, E]): AggrGroupDDS[G, E] = dds match {
-      case grpDDS: MapGroupDDS[_, _, G, E] => new AggrGroupMapDDS(grpDDS.dds)
+      case dds: MapGroupDDS[_, _, G, E] => new AggrGroupMapDDS(dds.dds)
     }
   }
   trait MediumPriorityImplicits extends LowPriorityImplicits {
-    @inline implicit def dds2ordDds[O: Ordering](dds: DDS[O]): OrderingDDS[O] = dds match {
+    @inline implicit def dds2ordDds[O: Ordering: ClassTag](dds: DDS[O]): OrderingDDS[O] = dds match {
       case dds: MapDDS[_, _, O] => new OrderingMapDDS(dds)
     }
+    @inline implicit def sortdds2ordDds[O: Ordering: ClassTag](dds: SortDDS[O]): OrderingDDS[O] = dds match {
+      case dds: MapSortDDS[_, _, O] => new OrderingMapDDS(dds.dds, Sorted(dds.ord, dds.skip, dds.limit))
+    }
     @inline implicit def dds2OrdGrpDds[G, O: Ordering](dds: GroupDDS[G, O]): OrderingGroupDDS[G, O] = dds match {
-      case grpDDS: MapGroupDDS[_, _, G, O] => new OrderingGroupMapDDS(grpDDS.dds)
+      case dds: MapGroupDDS[_, _, G, O] => new OrderingGroupMapDDS(dds.dds)
     }
   }
   trait HighPriorityImplicits extends MediumPriorityImplicits {
@@ -73,8 +80,11 @@ package Scala {
     @inline implicit def icache2scala[K, V](icache: ICache[K, V]) = new HzCache[K, V](icache)
     @inline implicit def vfunc2pred[K, V](f: V => Boolean): Predicate[_, V] = new ScalaValuePredicate(f)
     @inline implicit def kfunc2pred[K, V](f: K => Boolean): Predicate[K, _] = new ScalaKeyPredicate(f)
-    @inline implicit def dds2numDds[N: Numeric](dds: DDS[N]): NumericDDS[N] = dds match {
+    @inline implicit def dds2numDds[N: Numeric: ClassTag](dds: DDS[N]): NumericDDS[N] = dds match {
       case dds: MapDDS[_, _, N] => new NumericMapDDS(dds)
+    }
+    @inline implicit def sortdds2numDds[N: Numeric: ClassTag](dds: SortDDS[N]): NumericDDS[N] = dds match {
+      case dds: MapSortDDS[_, _, N] => new NumericMapDDS(dds.dds, Sorted(dds.ord, dds.skip, dds.limit))
     }
     @inline implicit def dds2NumGrpDds[G, N: Numeric](dds: GroupDDS[G, N]): NumericGroupDDS[G, N] = dds match {
       case grpDDS: MapGroupDDS[_, _, G, N] => new NumericGroupMapDDS(grpDDS.dds)

@@ -1,7 +1,5 @@
 package com.hazelcast.Scala.aggr
 
-import com.hazelcast.Scala.Aggregator
-
 class Mean[N: Numeric]
     extends FinalizeAdapter2[N, Option[N], N, N, N, Int, Int, Int](new Sum[N], Count)
     with DivisionSupport[N] {

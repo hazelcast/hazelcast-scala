@@ -1,9 +1,8 @@
 package com.hazelcast.Scala.aggr
 
-import com.hazelcast.Scala.Aggregation
-import com.hazelcast.Scala.Aggregation._
+import com.hazelcast.Scala.Aggregator
 
-class Min[O: Ordering] extends FinalizeSimple[O, Option[O]] {
+class Min[O: Ordering] extends AbstractReducer[O, Option[O]] {
   @inline private def o = implicitly[Ordering[O]]
   def init = null.asInstanceOf[O]
   def reduce(x: O, y: O): O =
@@ -12,7 +11,7 @@ class Min[O: Ordering] extends FinalizeSimple[O, Option[O]] {
     else o.min(x, y)
   def localFinalize(o: O) = Option(o)
 }
-class Max[O: Ordering] extends FinalizeSimple[O, Option[O]] {
+class Max[O: Ordering] extends AbstractReducer[O, Option[O]] {
   @inline private def o = implicitly[Ordering[O]]
   def init = null.asInstanceOf[O]
   def reduce(x: O, y: O): O =
@@ -22,7 +21,7 @@ class Max[O: Ordering] extends FinalizeSimple[O, Option[O]] {
   def localFinalize(o: O) = Option(o)
 }
 
-class MinMax[O: Ordering] extends Aggregation[(O, O), O, (O, O), Option[(O, O)]] {
+class MinMax[O: Ordering] extends Aggregator[(O, O), O, (O, O), Option[(O, O)]] {
   @inline private def o = implicitly[Ordering[O]]
   def remoteInit = null.asInstanceOf[(O, O)]
   def remoteFold(minMax: (O, O), value: O): (O, O) = if (minMax == null) (value, value) else (o.min(minMax._1, value), o.max(minMax._2, value))

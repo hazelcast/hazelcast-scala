@@ -150,25 +150,31 @@ class TestMap {
     val predicate37 = new Predicate[String, Int] {
       def apply(entry: Entry[String, Int]) = isFactor37(entry.value)
     }
-    val entryProcessor = new AbstractEntryProcessor[String, Int] {
+    val entryProcessor = new AbstractEntryProcessor[String, Int](false) {
       def process(entry: Entry[String, Int]): Object = {
         (entry.value * 2).asInstanceOf[Object]
       }
     }
     val result1a = map.executeOnEntries(entryProcessor, predicate37).asScala.asInstanceOf[collection.mutable.Map[String, Int]]
+    println(s"result1a: $result1a")
     val verifyFactor37 = result1a.values.forall(obj => isFactor37(obj.asInstanceOf[Int] / 2))
     assertTrue(verifyFactor37)
     val result1b = map.executeOnEntries(entryProcessor, isFactor37).asScala
+    println(s"result1b: $result1b")
     val result2a = map.execute(OnValues(isFactor37)) { entry =>
       entry.value * 2
     }
+    println(s"result2a: $result2a")
     val result2b = map.map(_.value).collect {
       case value if isFactor37(value) => value * 2
     }.fetch().await.sorted
+    println(s"result2b: $result2b")
     val result2c = map.map(_.value).filter(isFactor37).collect {
       case value => value * 2
     }.fetch().await.sorted
+    println(s"result2c: $result2c")
     val result2d = map.filter(e => isFactor37(e.value)).map(_.value * 8).map(_ / 4).fetch().await.sorted
+    println(s"result2d: $result2d")
     assertEquals(result1a, result1b)
     assertEquals(result1a, result2a)
     assertEquals(result1a.values.toSeq.sorted, result2b)
@@ -176,9 +182,14 @@ class TestMap {
     assertEquals(result2c, result2d)
     val thirtySeven = 37
     val result3a = map.executeOnEntries(entryProcessor, where"this = $thirtySeven")
+    println(s"result3a: $result3a")
     assertEquals(37 * 2, result3a.get("key37"))
     val result3b = map.execute(OnValues(_ == 37))(entry => entry.value * 2)
+    println(s"result3b: $result3b")
+    val result3c = map.query(where.value = 37)(_ * 2)
+    println(s"result3c: $result3c")
     assertEquals(result3a.get("key37"), result3b("key37"))
+    assertEquals(result3b, result3c)
   }
 
   @Test(expected = classOf[ArithmeticException])
@@ -501,32 +512,38 @@ class TestMap {
     }
     val milanWeather = getClientMap[Date, Weather]()
     milanWeather.putAll(localWeather)
-    val maxByMonthYear = milanWeather.map { entry =>
+    val monthYearMax = milanWeather.map { entry =>
       val yearMonthFmt = new java.text.SimpleDateFormat("yyyy-MM")
       val date = entry.key
       val yearMonth = yearMonthFmt.format(date)
-      require(date.getYear + 1900 == yearMonth.take(4).toInt)
-      require(date.getMonth + 1 == yearMonth.drop(5).take(2).toInt)
       yearMonth -> entry.value.tempMax
-    }.groupBy(_._1, _._2)
-    val (result, ms) = timed() { maxByMonthYear.mean().await() }
-    println(s"Milan monthly mean max temp: $ms ms")
+    }
+    val byMonthYear = monthYearMax.groupBy(_._1, _._2)
+    val top10Months = monthYearMax.sortBy(_._2).reverse.take(10).fetch()
+    println(top10Months)
+    val maxMeanByMonth = byMonthYear.mean().await
+//    val foo = maxMeanByMonth.map { maxMeanByMonth =>
+//      maxMeanByMonth.toSeq.sortBy(_._2).reverseIterator.take(10)
+//    }
+
+//    println(foo)
+//    println(s"Milan monthly mean max temp: $ms ms")
     val err = 0.005f
-    assertEquals(7.23f, result("2012-02"), err)
-    assertEquals(7.2f, result("2013-02"), err)
-    assertEquals(7.85f, result("2010-02"), err)
-    assertEquals(9.79f, result("2011-02"), err)
-    assertEquals(10.74f, result("2013-03"), err)
-    assertEquals(13.13f, result("2010-03"), err)
-    assertEquals(18.55f, result("2012-03"), err)
-    assertEquals(13.74f, result("2011-03"), err)
-    assertEquals(9.28f, result("2003-02"), err)
-    assertEquals(10.41f, result("2004-02"), err)
-    assertEquals(9.15f, result("2005-02"), err)
-    assertEquals(8.9f, result("2006-02"), err)
-    assertEquals(12.34f, result("2000-02"), err)
-    assertEquals(12.16f, result("2001-02"), err)
-    assertEquals(11.84f, result("2002-02"), err)
+    assertEquals(7.23f, maxMeanByMonth("2012-02"), err)
+    assertEquals(7.2f, maxMeanByMonth("2013-02"), err)
+    assertEquals(7.85f, maxMeanByMonth("2010-02"), err)
+    assertEquals(9.79f, maxMeanByMonth("2011-02"), err)
+    assertEquals(10.74f, maxMeanByMonth("2013-03"), err)
+    assertEquals(13.13f, maxMeanByMonth("2010-03"), err)
+    assertEquals(18.55f, maxMeanByMonth("2012-03"), err)
+    assertEquals(13.74f, maxMeanByMonth("2011-03"), err)
+    assertEquals(9.28f, maxMeanByMonth("2003-02"), err)
+    assertEquals(10.41f, maxMeanByMonth("2004-02"), err)
+    assertEquals(9.15f, maxMeanByMonth("2005-02"), err)
+    assertEquals(8.9f, maxMeanByMonth("2006-02"), err)
+    assertEquals(12.34f, maxMeanByMonth("2000-02"), err)
+    assertEquals(12.16f, maxMeanByMonth("2001-02"), err)
+    assertEquals(11.84f, maxMeanByMonth("2002-02"), err)
   }
 
   @Test
@@ -563,6 +580,18 @@ class TestMap {
     grouped.values.foreach { variance =>
       assertEquals(BigDecimal(77.5d), variance.setScale(1, HALF_EVEN))
     }
+  }
+
+  @Test
+  def sorting {
+    val mymap = getClientMap[String, Int]()
+    ('a' to 'z') foreach { c =>
+      mymap.set(c.toString, c - 'a')
+    }
+    val descStrings = mymap.map(_.key).sorted.reverse.take(3).fetch().await
+    assertEquals(IndexedSeq("z", "y", "x"), descStrings)
+    val descInts = mymap.map(_.value).sorted.reverse.take(3).fetch().await
+    assertEquals(IndexedSeq(25, 24, 23), descInts)
   }
 
 }

@@ -10,14 +10,31 @@ import com.hazelcast.query._
 import collection.JavaConverters._
 import java.util.concurrent.{ Future => jFuture }
 
-private[Scala] class AggrMapDDS[E](dds: MapDDS[_, _, E]) extends AggrDDS[E] {
+private[Scala] class AggrMapDDS[E: ClassTag](dds: MapDDS[_, _, E], sorted: Option[Sorted[E]] = None) extends AggrDDS[E] {
+
+  def this(dds: MapDDS[_, _, E], sorted: Sorted[E]) = this(dds, Option(sorted))
+
   final def submit[Q, W, R](
-    aggr: Aggregator[Q, E, W, R],
+    aggregator: Aggregator[Q, E, W, R],
     es: IExecutorService)(implicit ec: ExecutionContext): Future[R] = {
+
     val hz = dds.imap.getHZ
     val keysByMember = dds.keySet.map(hz.groupByMember)
     val exec = if (es == null) hz.queryPool else es
-    AggrMapDDS.aggregate(dds.imap.getName, keysByMember, dds.predicate, dds.pipe, exec, aggr)
+
+    aggregator match {
+      case null =>
+        val aggregator = aggr.Fetch(sorted)
+        AggrMapDDS.aggregate(dds.imap.getName, keysByMember, dds.predicate, dds.pipe, exec, aggregator).asInstanceOf[Future[R]]
+      case aggregator =>
+        sorted match {
+          case None =>
+            AggrMapDDS.aggregate(dds.imap.getName, keysByMember, dds.predicate, dds.pipe, exec, aggregator)
+          case Some(sorted) =>
+            AggrMapDDS.aggregate(dds.imap.getName, keysByMember, dds.predicate, dds.pipe, exec, new aggr.Fetch.Adapter(aggregator, sorted))
+        }
+    }
+    //    AggrMapDDS.aggregate(dds.imap.getName, keysByMember, dds.predicate, dds.pipe, exec, aggregator)
   }
 
 }
@@ -28,14 +45,20 @@ private[Scala] class AggrGroupMapDDS[G, E](dds: MapDDS[_, _, (G, E)]) extends Ag
     es: IExecutorService)(implicit ec: ExecutionContext): Future[cMap[G, GR]] = dds.submit(aggr, es)
 }
 
-private[Scala] class OrderingMapDDS[O: Ordering](dds: MapDDS[_, _, O]) extends AggrMapDDS(dds) with OrderingDDS[O] {
+private[Scala] class OrderingMapDDS[O: Ordering: ClassTag](
+  dds: MapDDS[_, _, O], sorted: Option[Sorted[O]] = None)
+    extends AggrMapDDS(dds, sorted) with OrderingDDS[O] {
+  def this(dds: MapDDS[_, _, O], sorted: Sorted[O]) = this(dds, Option(sorted))
   final protected def ord = implicitly[Ordering[O]]
 }
 private[Scala] class OrderingGroupMapDDS[G, O: Ordering](dds: MapDDS[_, _, (G, O)]) extends AggrGroupMapDDS(dds) with OrderingGroupDDS[G, O] {
   final protected def ord = implicitly[Ordering[O]]
 }
 
-private[Scala] class NumericMapDDS[N: Numeric](dds: MapDDS[_, _, N]) extends OrderingMapDDS(dds) with NumericDDS[N] {
+private[Scala] class NumericMapDDS[N: Numeric: ClassTag](
+  dds: MapDDS[_, _, N], sorted: Option[Sorted[N]] = None)
+    extends OrderingMapDDS(dds, sorted) with NumericDDS[N] {
+  def this(dds: MapDDS[_, _, N], sorted: Sorted[N]) = this(dds, Option(sorted))
   final protected def num = implicitly[Numeric[N]]
 }
 private[Scala] class NumericGroupMapDDS[G, N: Numeric](dds: MapDDS[_, _, (G, N)]) extends OrderingGroupMapDDS(dds) with NumericGroupDDS[G, N] {
