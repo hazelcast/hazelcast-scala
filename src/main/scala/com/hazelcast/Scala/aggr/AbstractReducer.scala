@@ -2,7 +2,7 @@ package com.hazelcast.Scala.aggr
 
 import com.hazelcast.Scala.Aggregator
 
-trait AbstractReducer[T, R] extends Aggregator[T, T, T, R] {
+trait AbstractReducer[T] extends Aggregator[T, T, T] {
   def init: T
   def reduce(x: T, y: T): T
   final def remoteInit = init

@@ -11,7 +11,7 @@ object Distribution {
 
   def apply[T]() = new Distribution[T]
 
-  class Distribution[T] extends Aggregator[Q[T], T, W[T], R[T]] {
+  class Distribution[T] extends Aggregator[Q[T], T, W[T]] {
     type Q = Distribution.Q[T]
     type R = Distribution.R[T]
 

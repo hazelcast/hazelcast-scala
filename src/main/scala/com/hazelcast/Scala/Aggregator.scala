@@ -1,6 +1,7 @@
 package com.hazelcast.Scala
 
-trait Aggregator[Q, -T, W, R] extends Serializable {
+trait Aggregator[Q, -T, W] extends Serializable {
+  type R
   def remoteInit: Q
   def remoteFold(q: Q, t: T): Q
   def remoteCombine(x: Q, y: Q): Q
@@ -15,16 +16,19 @@ object Aggregator {
   type JM[G, V] = java.util.HashMap[G, V]
   type SM[G, V] = collection.mutable.Map[G, V]
 
-  def groupAll[G, Q, T, W, R](aggr: Aggregator[Q, T, W, R]) = new Grouped[G, Q, T, W, R, R](aggr, (_: R) => true, (r: R) => r)
-  def groupSome[G, Q, T, W, R](aggr: Aggregator[Q, T, W, Option[R]]) = new Grouped[G, Q, T, W, Option[R], R](aggr, (opt: Option[R]) => opt.isDefined, (opt: Option[R]) => opt.get)
+  def groupAll[G, Q, T, W, AR](aggr: Aggregator[Q, T, W] { type R = AR }) =
+    new Grouped[G, Q, T, W, AR, AR](aggr, PartialFunction(identity))
+  def groupSome[G, Q, T, W, AR](aggr: Aggregator[Q, T, W] { type R = Option[AR] }) =
+    new Grouped[G, Q, T, W, Option[AR], AR](aggr, {
+      case Some(value) => value
+    })
 
   class Grouped[G, Q, T, W, AR, GR](
-    aggr: Aggregator[Q, T, W, AR],
-    includeResult: AR => Boolean, mapResult: AR => GR)
-      extends Aggregator[JM[G, Q], (G, T), JM[G, W], SM[G, GR]] {
+    aggr: Aggregator[Q, T, W] { type R = AR }, pf: PartialFunction[AR, GR])
+      extends Aggregator[JM[G, Q], (G, T), JM[G, W]] {
 
     import collection.JavaConverters._
-
+    type R = SM[G, GR]
     type Map[V] = JM[G, V]
     type Tuple = (G, T)
 
@@ -65,10 +69,10 @@ object Aggregator {
     def remoteCombine(x: Map[Q], y: Map[Q]): Map[Q] = combine(x, y)(aggr.remoteCombine)
     def remoteFinalize(q: Map[Q]): Map[W] = finalize(q)(aggr.remoteFinalize)
     def localCombine(x: Map[W], y: Map[W]): Map[W] = combine(x, y)(aggr.localCombine)
-    def localFinalize(w: Map[W]): SM[G, GR] = {
+    def localFinalize(w: Map[W]): R = {
       val finalized = finalize(w) { w =>
         val ar = aggr.localFinalize(w)
-        if (includeResult(ar)) mapResult(ar)
+        if (pf.isDefinedAt(ar)) pf(ar)
         else null.asInstanceOf[GR]
       }
       finalized.asScala

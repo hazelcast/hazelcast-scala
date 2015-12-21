@@ -35,8 +35,8 @@ private[dds] object AggrDDS {
 }
 
 trait AggrDDS[E] {
-  def submit[Q, W, R](aggregator: Aggregator[Q, E, W, R], es: IExecutorService = null)(implicit ec: ExecutionContext): Future[R]
-  def fetch()(implicit classTag: ClassTag[E], ec: ExecutionContext): Future[IndexedSeq[E]] = submit(null)
+  def submit[Q, W, AR](aggregator: Aggregator[Q, E, W] { type R = AR }, es: IExecutorService = null)(implicit ec: ExecutionContext): Future[AR]
+  def fetch()(implicit classTag: ClassTag[E], ec: ExecutionContext): Future[IndexedSeq[E]] = this.submit(aggr.Fetch[E]())
   def distinct()(implicit ec: ExecutionContext): Future[Set[E]] = this submit aggr.Distinct()
   def distribution()(implicit ec: ExecutionContext): Future[cMap[E, Freq]] = this submit aggr.Distribution()
   def count()(implicit ec: ExecutionContext): Future[Int] = submit(aggr.Count)
@@ -48,16 +48,14 @@ trait AggrDDS[E] {
 }
 
 trait AggrGroupDDS[G, E] {
-  def submit[Q, W, AR, GR](aggr: Aggregator.Grouped[G, Q, E, W, AR, GR], es: IExecutorService = null)(implicit ec: ExecutionContext): Future[cMap[G, GR]]
+  def submitGrouped[Q, W, AR, GR](aggr: Aggregator.Grouped[G, Q, E, W, AR, GR], es: IExecutorService = null)(implicit ec: ExecutionContext): Future[cMap[G, GR]]
 
-  def submitGrouped[Q, W, R](aggr: Aggregator[Q, E, W, R], es: IExecutorService)(implicit ec: ExecutionContext): Future[cMap[G, R]] =
-    submit[Q, W, R, R](Aggregator.groupAll(aggr), es)
-  def submitGrouped[Q, W, R](aggr: Aggregator[Q, E, W, R])(implicit ec: ExecutionContext): Future[cMap[G, R]] =
-    submit[Q, W, R, R](Aggregator.groupAll(aggr))
+  final def submit[Q, W](aggr: Aggregator[Q, E, W], es: IExecutorService = null)(implicit ec: ExecutionContext): Future[cMap[G, aggr.R]] =
+    submitGrouped[Q, W, aggr.R, aggr.R](Aggregator.groupAll(aggr), es)
 
-  def distinct()(implicit ec: ExecutionContext): Future[cMap[G, Set[E]]] = submitGrouped(aggr.Distinct[E]())
-  def distribution()(implicit ec: ExecutionContext): Future[cMap[G, cMap[E, Freq]]] = submitGrouped(aggr.Distribution[E]())
-  def count()(implicit ec: ExecutionContext): Future[cMap[G, Int]] = submitGrouped(aggr.Count)
+  def distinct()(implicit ec: ExecutionContext): Future[cMap[G, Set[E]]] = submit(aggr.Distinct[E]())
+  def distribution()(implicit ec: ExecutionContext): Future[cMap[G, cMap[E, Freq]]] = submit(aggr.Distribution[E]())
+  def count()(implicit ec: ExecutionContext): Future[cMap[G, Int]] = submit(aggr.Count)
   def mode()(implicit ec: ExecutionContext): Future[cMap[G, Set[E]]] = distribution() map (_.mapValues(AggrDDS.mode))
   def frequency(top: Int = -1)(implicit ec: ExecutionContext): Future[cMap[G, SortedMap[Freq, Set[E]]]] = {
     if (top == 0) Future successful cMap.empty

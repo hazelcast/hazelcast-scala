@@ -9,7 +9,7 @@ object Variance {
   def apply[N: Numeric] = new Variance
 
   class Variance[N: Numeric]
-      extends Aggregator[Acc[N], N, Acc[N], Option[N]]
+      extends Aggregator[Acc[N], N, Acc[N]]
       with DivisionSupport[N] {
 
     protected final def num = implicitly[Numeric[N]]
@@ -18,7 +18,7 @@ object Variance {
     type Q = Acc[N]
     type T = N
     type W = Q
-    type R = N
+    type R = Option[N]
 
     def remoteInit: Q = (0, num.zero, num.zero)
     def remoteFold(q: Q, x: T): Q = q match {
@@ -51,7 +51,7 @@ object Variance {
     def remoteCombine(x: Q, y: Q): Q = combine(x, y)
     def remoteFinalize(q: Q): W = q
     def localCombine(x: W, y: W): W = combine(x, y)
-    def localFinalize(w: W): Option[N] = w match {
+    def localFinalize(w: W): R = w match {
       case (0, _, _) => None
       case (1, _, _) => Some(num.zero)
       case (count, _, s) => Some(div(s, num.fromInt(count - 1)))

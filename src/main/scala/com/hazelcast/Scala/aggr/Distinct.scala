@@ -9,10 +9,10 @@ object Distinct {
 
   def apply[T]() = new Distinct[T]
 
-  class Distinct[T] extends Aggregator[Q[T], T, W[T], R[T]] {
+  class Distinct[T] extends Aggregator[Q[T], T, W[T]] {
     type Q = Distinct.Q[T]
-    type W = Q
-    type R = W
+    type W = Distinct.Q[T]
+    type R = Distinct.R[T]
     def remoteInit = Set.empty[T]
     def remoteFold(set: Q, t: T) = set + t
     def remoteCombine(x: Q, y: Q) = x ++ y

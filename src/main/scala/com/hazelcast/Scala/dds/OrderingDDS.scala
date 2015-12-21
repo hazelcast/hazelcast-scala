@@ -58,8 +58,8 @@ trait OrderingDDS[O] extends AggrDDS[O] {
 trait OrderingGroupDDS[G, O] extends AggrGroupDDS[G, O] {
   implicit protected def ord: Ordering[O]
 
-  def max()(implicit ec: ExecutionContext): Future[cMap[G, O]] = submit(Aggregator.groupSome(new aggr.Max))
-  def min()(implicit ec: ExecutionContext): Future[cMap[G, O]] = submit(Aggregator.groupSome(new aggr.Min))
-  def minMax()(implicit ec: ExecutionContext): Future[cMap[G, (O, O)]] = submit(Aggregator.groupSome(new aggr.MinMax))
+  def max()(implicit ec: ExecutionContext): Future[cMap[G, O]] = submitGrouped(Aggregator.groupSome(new aggr.Max))
+  def min()(implicit ec: ExecutionContext): Future[cMap[G, O]] = submitGrouped(Aggregator.groupSome(new aggr.Min))
+  def minMax()(implicit ec: ExecutionContext): Future[cMap[G, (O, O)]] = submitGrouped(Aggregator.groupSome(new aggr.MinMax))
   def medianValues()(implicit ec: ExecutionContext): Future[cMap[G, (O, O)]] = distribution().map(_.mapValues(OrderingDDS.medianValues[O](_).get))
 }
