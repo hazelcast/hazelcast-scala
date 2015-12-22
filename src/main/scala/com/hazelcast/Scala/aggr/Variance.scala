@@ -6,9 +6,11 @@ object Variance {
 
   type Acc[N] = (Int, N, N)
 
-  def apply[N: Numeric] = new Variance
+  def NoCorrection[N: Numeric]: Int => N = (n: Int) => implicitly[Numeric[N]].fromInt(n)
 
-  class Variance[N: Numeric]
+  def apply[N: Numeric](nCorrection: (Int) => N) = new Variance(nCorrection)
+
+  class Variance[N: Numeric] private[aggr] (nCorrection: (Int) => N)
       extends Aggregator[Acc[N], N, Acc[N]]
       with DivisionSupport[N] {
 
@@ -51,10 +53,17 @@ object Variance {
     def remoteCombine(x: Q, y: Q): Q = combine(x, y)
     def remoteFinalize(q: Q): W = q
     def localCombine(x: W, y: W): W = combine(x, y)
-    def localFinalize(w: W): R = w match {
-      case (0, _, _) => None
-      case (1, _, _) => Some(num.zero)
-      case (count, _, s) => Some(div(s, num.fromInt(count - 1)))
+    def localFinalize(w: W): R = {
+      w match {
+        case (0, _, _) => None
+        case (1, _, _) => Some(num.zero)
+        case (count, _, s) =>
+          val corrected = nCorrection(count)
+          val gt0 =
+            if (num.gt(corrected, num.zero)) corrected
+            else num.fromInt(count) // FIXME: How to handle small sample size?
+          Some(div(s, gt0))
+      }
     }
   }
 

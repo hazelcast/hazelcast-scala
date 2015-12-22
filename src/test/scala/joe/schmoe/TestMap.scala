@@ -610,22 +610,42 @@ class TestMap {
 
   @Test
   def variance {
-    val dMap = getClientMap[Int, BigDecimal]()
+    val bdMap = getClientMap[Int, BigDecimal]()
     1 to 120 foreach { n =>
-      dMap.set(n, n)
+      bdMap.set(n, n)
     }
-    val variance = dMap.map(_.value).variance().await.get
+    val variance = bdMap.map(_.value).variance(_ - 1).await.get
     assertEquals(BigDecimal(1210), variance)
-    val grouped = dMap.map(_.value).groupBy { n =>
+    val grouped = bdMap.map(_.value).groupBy { n =>
       if (n <= 30) "a"
       else if (n <= 60) "b"
       else if (n <= 90) "c"
       else "d"
-    }.variance().await
+    }.variance(_ - 1).await
     assertEquals(4, grouped.size)
     grouped.values.foreach { variance =>
       assertEquals(BigDecimal(77.5d), variance.setScale(1, HALF_EVEN))
     }
+
+    val dMap = getClientMap[String, Double]()
+    val marks = Seq(2, 4, 4, 4, 5, 5, 7, 9).map(_.toDouble)
+    val keys = marks.zipWithIndex.foldLeft(Set.empty[String]) {
+      case (keys, (m, idx)) =>
+        val key = s"s$idx"
+        dMap.set(key, m)
+        keys + key
+    }
+    val err = 0.005d
+    val mean = dMap.filterKeys(keys).map(_.value).mean.await.get
+    assertEquals(5d, mean, err)
+    val stdDev = dMap.filterKeys(keys).map(_.value).variance().await.map(math.sqrt).get
+    assertEquals(2d, stdDev, err)
+
+    dMap.set("foo", 5d)
+    val varianceSingleEntry = dMap.filterKeys("foo").map(_.value).variance(_ - 1).await.get
+    assertEquals(0d, varianceSingleEntry, err)
+    val varianceNoEntry = dMap.filterKeys("bar").map(_.value).variance().await
+    assertEquals(None, varianceNoEntry)
   }
 
   @Test

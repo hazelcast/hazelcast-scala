@@ -46,7 +46,8 @@ trait NumericDDS[N] extends OrderingDDS[N] {
     }
   }
 
-  def variance()(implicit ec: ExecutionContext): Future[Option[N]] = submit(aggr.Variance[N])
+  def variance(nCorrection: (Int) => N = aggr.Variance.NoCorrection[N])(implicit ec: ExecutionContext): Future[Option[N]] =
+    submit(aggr.Variance[N](nCorrection))
 
 }
 
@@ -73,6 +74,7 @@ trait NumericGroupDDS[G, N] extends OrderingGroupDDS[G, N] {
     }
   }
 
-  def variance()(implicit ec: ExecutionContext): Future[cMap[G, N]] = submitGrouped(Aggregator groupSome aggr.Variance[N])
+  def variance(nCorrection: (Int) => N = aggr.Variance.NoCorrection[N])(implicit ec: ExecutionContext): Future[cMap[G, N]] =
+    submitGrouped(Aggregator groupSome aggr.Variance[N](nCorrection))
 
 }
