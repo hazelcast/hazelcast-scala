@@ -29,7 +29,9 @@ object TestMap extends ClusterSetup {
   def init {
     TestSerializers.register(clientConfig.getSerializationConfig)
     TestSerializers.register(memberConfig.getSerializationConfig)
-    memberConfig.getMapConfig("employees").addMapIndexConfig(new MapIndexConfig("salary", true)).setInMemoryFormat(InMemoryFormat.OBJECT)
+    memberConfig.getMapConfig("employees").
+      addMapIndexConfig(new MapIndexConfig("salary", true)).
+      setInMemoryFormat(InMemoryFormat.OBJECT)
     memberConfig.getSerializationConfig.setAllowUnsafe(true)
     clientConfig.getSerializationConfig.setAllowUnsafe(true)
   }
@@ -310,6 +312,33 @@ class TestMap {
     val (cCount, cCountMs) = timed()(clientMap.filter(where("salary") > 495000).count.await)
     println(s"Filter: $fCount employees make more than $$495K ($fCountMs ms)")
     println(s"Predicate: $cCount employees make more than $$495K ($cCountMs ms) <- Predicates are faster with indexing.")
+
+    val pageSize = 20
+    val (javaPage, javaTime) = timed() {
+      val comp = new java.util.Comparator[Entry[_, Employee]] with java.io.Serializable {
+        def compare(e1: Entry[_, Employee], e2: Entry[_, Employee]): Int = {
+          val s1 = e1.value.salary
+          val s2 = e2.value.salary
+          if (s1 < s2) -1
+          else if (s1 > s2) 1
+          else 0
+        }
+      }
+      val revComp = java.util.Collections.reverseOrder(comp).asInstanceOf[java.util.Comparator[Entry[_, _]]]
+      val pp = new com.hazelcast.query.PagingPredicate(revComp, pageSize)
+      pp.nextPage()
+      clientMap.values(pp)
+    }
+    val (scalaPage, scalaTime) = timed() { clientMap.map(_.value).sortBy(_.salary).reverse.drop(pageSize).take(pageSize).fetch().await }
+    println(s"Paging timings: $scalaTime ms (Scala), $javaTime ms (Java), factor: ${scalaTime / javaTime.toFloat}")
+    assertEquals(pageSize, javaPage.size)
+    assertEquals(javaPage.size, scalaPage.size)
+    val javaSal = javaPage.asScala.map(_.salary).toIndexedSeq
+    val scalaSal = scalaPage.map(_.salary)
+    println(s"First salary: $$${scalaSal(0)} (Scala), $$${javaSal(0)} (Java)")
+    (0 until javaSal.size).foreach { idx =>
+      assertEquals(idx -> javaSal(idx), idx -> scalaSal(idx))
+    }
   }
 
   //  @Test @Ignore

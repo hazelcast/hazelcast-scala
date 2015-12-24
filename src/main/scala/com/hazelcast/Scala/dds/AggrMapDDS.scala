@@ -10,6 +10,7 @@ import com.hazelcast.query._
 import collection.JavaConverters._
 import java.util.concurrent.{ Future => jFuture }
 import language.existentials
+import java.util.Map.Entry
 
 private[Scala] class AggrMapDDS[E: ClassTag](dds: MapDDS[_, _, E], sorted: Option[Sorted[E]] = None) extends AggrDDS[E] {
 
@@ -32,7 +33,7 @@ private[Scala] class AggrMapDDS[E: ClassTag](dds: MapDDS[_, _, E], sorted: Optio
             val fetch = aggr.Fetch(sorted)
             AggrMapDDS.aggregate(dds.imap.getName, keysByMember, dds.predicate, dds.pipe, exec, fetch)
           case _ =>
-            val adapter = new aggr.Fetch.Adapter[Q, E, W, aggregator.R](aggregator, sorted)
+            val adapter = aggr.Fetch.Adapter[Q, E, W, aggregator.R](aggregator, sorted)
             AggrMapDDS.aggregate(dds.imap.getName, keysByMember, dds.predicate, dds.pipe, exec, adapter)
         }
     }
@@ -109,7 +110,7 @@ private object AggrMapDDS {
     val imap = hz.getMap[K, Any](mapName)
     val (localKeys, includeEntry) = keysByMemberId.get(hz.getCluster.getLocalMember.getUuid) match {
       case None =>
-        assert(keysByMemberId.isEmpty)
+        assert(keysByMemberId.isEmpty) // If keys are known, this code should not be running on this member
         predicate.map(imap.localKeySet(_)).getOrElse(imap.localKeySet).asScala -> TruePredicate.INSTANCE.asInstanceOf[Predicate[K, Any]]
       case Some(keys) =>
         keys -> predicate.getOrElse(TruePredicate.INSTANCE).asInstanceOf[Predicate[K, Any]]
@@ -118,18 +119,15 @@ private object AggrMapDDS {
     else {
       val remoteFold = aggr.remoteFold _
       val entryFold = pipe.prepare[Q](hz)
-      val values = localKeys.par.toSeq.map(key => key -> imap.getAsync(key))
-      val seqop = (reduction: Q, kv: (K, jFuture[Any])) => {
-        kv._2.await match {
-          case null => reduction
-          case value =>
-            val entry = new ImmutableEntry(kv._1, value)
-            if (includeEntry(entry)) {
-              entryFold.foldEntry(reduction, entry)(remoteFold)
-            } else reduction
-        }
+      val seqop = (acc: Q, entry: Entry[K, Any]) => {
+        if (includeEntry(entry)) {
+          entryFold.foldEntry(acc, entry)(remoteFold)
+        } else acc
       }
-      values.aggregate(aggr.remoteInit)(seqop, aggr.remoteCombine)
+      val partSvc = hz.getPartitionService
+      val keysByPartId = localKeys.groupBy(partSvc.getPartition(_).getPartitionId)
+      val entries = keysByPartId.values.par.map(parKeys => blocking(imap.getAll(parKeys.asJava))).flatMap(_.entrySet.asScala)
+      entries.aggregate(aggr.remoteInit)(seqop, aggr.remoteCombine)
     }
   }
 
