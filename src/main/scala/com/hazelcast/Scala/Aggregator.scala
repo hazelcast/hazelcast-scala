@@ -1,14 +1,32 @@
 package com.hazelcast.Scala
 
+/**
+ * Generalized aggregation interface.
+ * @tparam Q Accumulator type
+ * @tparam T DDS type
+ * @tparam W Accumulation wire format
+ */
 trait Aggregator[Q, -T, W] extends Serializable {
+  /** Final result type. */
   type R
+
+  // `remote` functions are executed locally
+  // on the nodes where the data resides, but
+  // remotely seen from the perspective of the
+  // node or client that submits the aggregation
+
   def remoteInit: Q
   def remoteFold(q: Q, t: T): Q
   def remoteCombine(x: Q, y: Q): Q
   def remoteFinalize(q: Q): W
 
+  // `local` functions are executed locally
+  // on the node or client that submits the
+  // aggregation
+
   def localCombine(x: W, y: W): W
   def localFinalize(w: W): R
+
 }
 
 object Aggregator {
@@ -16,8 +34,10 @@ object Aggregator {
   type JM[G, V] = java.util.HashMap[G, V]
   type SM[G, V] = collection.mutable.Map[G, V]
 
+  /** Group into `Map` according to Aggregator result type. */
   def groupAll[G, Q, T, W, AR](aggr: Aggregator[Q, T, W] { type R = AR }) =
     new Grouped[G, Q, T, W, AR, AR](aggr, PartialFunction(identity))
+  /** Group into `Map` according to Aggregator result type inside `Option`. */
   def groupSome[G, Q, T, W, AR](aggr: Aggregator[Q, T, W] { type R = Option[AR] }) =
     new Grouped[G, Q, T, W, Option[AR], AR](aggr, {
       case Some(value) => value
