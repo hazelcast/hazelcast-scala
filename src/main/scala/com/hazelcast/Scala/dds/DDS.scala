@@ -17,8 +17,6 @@ import com.hazelcast.Scala._
 /** Distributed data structure. */
 sealed trait DDS[E] {
 
-//  private[Scala] def classTag: ClassTag[E]
-
   def filter(f: E => Boolean): DDS[E]
   def map[F: ClassTag](m: E => F): DDS[F]
   def collect[F: ClassTag](pf: PartialFunction[E, F]): DDS[F]
@@ -30,10 +28,10 @@ sealed trait DDS[E] {
   def sortBy[S: Ordering](sf: E => S): SortDDS[E]
   def sorted()(implicit ord: Ordering[E]): SortDDS[E]
 
-  //  def innerJoinOne[JK, JV](join: IMap[JK, JV], on: E => Option[JK]): DDS[(E, JV)]
-  //  def innerJoinMany[JK, JV](join: IMap[JK, JV], on: E => Set[JK]): DDS[(E, Map[JK, JV])]
-  //  def outerJoinOne[JK, JV](join: IMap[JK, JV], on: E => Option[JK]): DDS[(E, Option[JV])]
-  //  def outerJoinMany[JK, JV](join: IMap[JK, JV], on: E => Set[JK]): DDS[(E, Map[JK, JV])]
+  def innerJoinOne[JK, JV](join: IMap[JK, JV], on: E => Option[JK]): DDS[(E, JV)]
+  def innerJoinMany[JK, JV](join: IMap[JK, JV], on: E => Set[JK]): DDS[(E, collection.Map[JK, JV])]
+  def outerJoinOne[JK, JV](join: IMap[JK, JV], on: E => Option[JK]): DDS[(E, Option[JV])]
+  def outerJoinMany[JK, JV](join: IMap[JK, JV], on: E => Set[JK]): DDS[(E, collection.Map[JK, JV])]
 }
 
 sealed trait SortDDS[E] {
@@ -114,14 +112,14 @@ private[Scala] final class MapDDS[K, V, E: ClassTag](
     new MapSortDDS[K, V, E](this, ord)
   }
 
-  //  private def withJoin[J <: Join[E, _, _]](join: J): DDS[(E, J#T)] = {
-  //    val prevPipe = this.pipe getOrElse PassThroughPipe[E]
-  //    val pipe = new JoinPipe[E, (E, J#T)](join, prevPipe)
-  //    new MapDDS[K, V, (E, J#T)](hz, name, predicate, keySet, Some(pipe))
-  //  }
-  //  def innerJoinOne[JK, JV](join: IMap[JK, JV], on: E => Option[JK]): DDS[(E, JV)] = withJoin(InnerOne[E, JK, JV](join.getName, on))
-  //  def innerJoinMany[JK, JV](join: IMap[JK, JV], on: E => Set[JK]): DDS[(E, Map[JK, JV])]
-  //  def outerJoinOne[JK, JV](join: IMap[JK, JV], on: E => Option[JK]): DDS[(E, Option[JV])]
-  //  def outerJoinMany[JK, JV](join: IMap[JK, JV], on: E => Set[JK]): DDS[(E, Map[JK, JV])]
+  private def withJoin[JT](join: Join[E, _, _] { type T = (E, JT) }): DDS[(E, JT)] = {
+    val prevPipe = this.pipe getOrElse PassThroughPipe[E]
+    val pipe = new JoinPipe[E, (E, JT)](join, prevPipe)
+    new MapDDS[K, V, (E, JT)](imap, predicate, keySet, Some(pipe))
+  }
+  def innerJoinOne[JK, JV](join: IMap[JK, JV], on: E => Option[JK]): DDS[(E, JV)] = withJoin(InnerOne(join.getName, on))
+  def innerJoinMany[JK, JV](join: IMap[JK, JV], on: E => Set[JK]): DDS[(E, collection.Map[JK, JV])] = withJoin(InnerMany(join.getName, on))
+  def outerJoinOne[JK, JV](join: IMap[JK, JV], on: E => Option[JK]): DDS[(E, Option[JV])] = withJoin(OuterOne(join.getName, on))
+  def outerJoinMany[JK, JV](join: IMap[JK, JV], on: E => Set[JK]): DDS[(E, collection.Map[JK, JV])] = withJoin(OuterMany(join.getName, on))
 
 }

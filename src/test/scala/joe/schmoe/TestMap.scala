@@ -39,14 +39,14 @@ object TestMap extends ClusterSetup {
 
   case class MyNumber(num: Int)
 
-  case class Id[T](uuid: UUID = UUID.randomUUID)
-  type Price = BigDecimal
-  type ProdId = Id[Product]
-  type CustId = Id[Customer]
-  type OrdId = Id[Order]
-  case class Product(id: ProdId, name: String, price: Price)
-  case class Customer(id: CustId, name: String)
-  case class Order(id: OrdId, products: Map[ProdId, Int], customer: CustId)
+//  case class Id[T](uuid: UUID = UUID.randomUUID)
+//  type Price = BigDecimal
+//  type ProdId = Id[Product]
+//  type CustId = Id[Customer]
+//  type OrdId = Id[Order]
+//  case class Product(id: ProdId, name: String, price: Price)
+//  case class Customer(id: CustId, name: String)
+//  case class Order(id: OrdId, products: Map[ProdId, Int], customer: CustId)
 
 }
 
@@ -340,48 +340,6 @@ class TestMap {
       assertEquals(idx -> javaSal(idx), idx -> scalaSal(idx))
     }
   }
-
-  //  @Test @Ignore
-  //  def `let's join maps` {
-  //    val customerMap = {
-  //      val map = getClientMap[CustId, Customer]("customers")
-  //      List("Alice", "Bob", "Carl").foreach { name =>
-  //        val c = new Customer(new CustId(), name)
-  //        map.set(c.id, c)
-  //      }
-  //      map
-  //    }
-  //    val productMap = {
-  //      val map = getClientMap[ProdId, Product]("products")
-  //      List("Aged Cheese, 1 kg" -> 35d, "Dark Chocolate, 250 grams" -> 4.5, "Red Wine, 1 liter" -> 9.75).foreach {
-  //        case (name, price) =>
-  //          val p = new Product(new ProdId(), name, BigDecimal(price))
-  //      }
-  //      map
-  //    }
-  //    val orderId = new OrdId()
-  //    val orderMap = {
-  //      val map = getClientMap[OrdId, Order]("orders")
-  //      val bobId = customerMap.filter(where"name = 'Bob'").fetch().head._1
-  //      val productQtys = productMap.keySet().asScala.zipWithIndex.map {
-  //        case (productId, idx) => productId -> (idx + 1) * 3
-  //      }.toMap
-  //      val order = Order(orderId, productQtys, bobId)
-  //      map.set(order.id, order)
-  //      map
-  //    }
-  //    val (order, customer, products) =
-  //      orderMap.filterKeys(orderId)
-  //        .innerJoinOne(customerMap, o => Some(o.customer))
-  //        .innerJoinMany(productMap, _._1.products.keySet).collectValues {
-  //          case ((order, customer), products) =>
-  //            val prodQty = order.products.toSeq.map {
-  //              case (prodId, qty) => products(prodId) -> qty
-  //            }
-  //            (order, customer, prodQty)
-  //        }.fetch().values.head
-  //    val avgOrderQty = orderMap.mapValues(_.products.map(_._2))
-  //  }
 
   @Test
   def median {
