@@ -58,7 +58,7 @@ class EntryMapDDS[K, V](private val dds: MapDDS[K, V, Entry[K, V]]) extends AnyV
     val (singleKey, predicate) = dds.keySet match {
       case None =>
         None -> dds.predicate.getOrElse(TruePredicate.INSTANCE).asInstanceOf[Predicate[K, V]]
-      case Some(keys) if keys.size == 1 =>
+      case Some(keys) if keys.size <= 1 =>
         keys.headOption -> dds.predicate.getOrElse(TruePredicate.INSTANCE).asInstanceOf[Predicate[K, V]]
       case Some(keys) =>
         None -> (dds.predicate match {

@@ -1,7 +1,5 @@
 package com.hazelcast.Scala.aggr
 
-import com.hazelcast.Scala.Aggregation
-
 trait DivisionSupport[N] {
   protected def num: Numeric[N]
   protected final def divOp = {

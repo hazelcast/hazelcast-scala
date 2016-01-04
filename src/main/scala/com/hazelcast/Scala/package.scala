@@ -2,11 +2,9 @@ package com.hazelcast
 
 import java.util.AbstractMap
 import java.util.Map.Entry
-
 import _root_.scala.concurrent.{ Await, Future, blocking }
 import _root_.scala.concurrent.duration.{ DurationInt, FiniteDuration }
 import _root_.scala.language.implicitConversions
-
 import Scala._
 import Scala.dds._
 import cache.ICache
@@ -14,6 +12,8 @@ import core.{ Hazelcast, HazelcastInstance, ICollection, ICompletableFuture, IEx
 import client.HazelcastClient
 import memory.{ MemorySize, MemoryUnit }
 import query.{ EntryObject, Predicate, PredicateBuilder, Predicates, SqlPredicate }
+import scala.util.control.NonFatal
+import scala.reflect.ClassTag
 
 package Scala {
 
@@ -51,19 +51,25 @@ package Scala {
   }
 
   trait LowPriorityImplicits {
-    @inline implicit def dds2aggrDds[E](dds: DDS[E]): AggrDDS[E] = dds match {
+    @inline implicit def dds2aggrDds[E: ClassTag](dds: DDS[E]): AggrDDS[E] = dds match {
       case dds: MapDDS[_, _, E] => new AggrMapDDS(dds)
     }
+    @inline implicit def sortdds2aggrDds[E: ClassTag](dds: SortDDS[E]): AggrDDS[E] = dds match {
+      case dds: MapSortDDS[_, _, E] => new AggrMapDDS(dds.dds, Sorted(dds.ord, dds.skip, dds.limit))
+    }
     @inline implicit def dds2AggrGrpDds[G, E](dds: GroupDDS[G, E]): AggrGroupDDS[G, E] = dds match {
-      case grpDDS: MapGroupDDS[_, _, G, E] => new AggrGroupMapDDS(grpDDS.dds)
+      case dds: MapGroupDDS[_, _, G, E] => new AggrGroupMapDDS(dds.dds)
     }
   }
   trait MediumPriorityImplicits extends LowPriorityImplicits {
-    @inline implicit def dds2ordDds[O: Ordering](dds: DDS[O]): OrderingDDS[O] = dds match {
+    @inline implicit def dds2ordDds[O: Ordering: ClassTag](dds: DDS[O]): OrderingDDS[O] = dds match {
       case dds: MapDDS[_, _, O] => new OrderingMapDDS(dds)
     }
+    @inline implicit def sortdds2ordDds[O: Ordering: ClassTag](dds: SortDDS[O]): OrderingDDS[O] = dds match {
+      case dds: MapSortDDS[_, _, O] => new OrderingMapDDS(dds.dds, Sorted(dds.ord, dds.skip, dds.limit))
+    }
     @inline implicit def dds2OrdGrpDds[G, O: Ordering](dds: GroupDDS[G, O]): OrderingGroupDDS[G, O] = dds match {
-      case grpDDS: MapGroupDDS[_, _, G, O] => new OrderingGroupMapDDS(grpDDS.dds)
+      case dds: MapGroupDDS[_, _, G, O] => new OrderingGroupMapDDS(dds.dds)
     }
   }
   trait HighPriorityImplicits extends MediumPriorityImplicits {
@@ -74,14 +80,17 @@ package Scala {
     @inline implicit def icache2scala[K, V](icache: ICache[K, V]) = new HzCache[K, V](icache)
     @inline implicit def vfunc2pred[K, V](f: V => Boolean): Predicate[_, V] = new ScalaValuePredicate(f)
     @inline implicit def kfunc2pred[K, V](f: K => Boolean): Predicate[K, _] = new ScalaKeyPredicate(f)
-    @inline implicit def dds2numDds[N: Numeric](dds: DDS[N]): NumericDDS[N] = dds match {
+    @inline implicit def dds2numDds[N: Numeric: ClassTag](dds: DDS[N]): NumericDDS[N] = dds match {
       case dds: MapDDS[_, _, N] => new NumericMapDDS(dds)
+    }
+    @inline implicit def sortdds2numDds[N: Numeric: ClassTag](dds: SortDDS[N]): NumericDDS[N] = dds match {
+      case dds: MapSortDDS[_, _, N] => new NumericMapDDS(dds.dds, Sorted(dds.ord, dds.skip, dds.limit))
     }
     @inline implicit def dds2NumGrpDds[G, N: Numeric](dds: GroupDDS[G, N]): NumericGroupDDS[G, N] = dds match {
       case grpDDS: MapGroupDDS[_, _, G, N] => new NumericGroupMapDDS(grpDDS.dds)
     }
     @inline implicit def dds2entryDds[K, V](dds: DDS[Entry[K, V]]): EntryMapDDS[K, V] = dds match {
-      case dds: MapDDS[K, V, Entry[K, V]] => new EntryMapDDS(dds)
+      case dds: MapDDS[K, V, Entry[K, V]] @unchecked => new EntryMapDDS(dds)
     }
     @inline implicit def imap2entryDds[K, V](imap: IMap[K, V]): EntryMapDDS[K, V] = new EntryMapDDS(new MapDDS(imap))
   }
@@ -128,22 +137,26 @@ package object Scala extends HighPriorityImplicits {
 
   implicit class ScalaPredicate(private val pred: Predicate[_, _]) extends AnyVal {
     def &&(other: Predicate[_, _]): Predicate[_, _] = Predicates.and(pred, other)
+    def and(other: Predicate[_, _]): Predicate[_, _] = Predicates.and(pred, other)
     def ||(other: Predicate[_, _]): Predicate[_, _] = Predicates.or(pred, other)
+    def or(other: Predicate[_, _]): Predicate[_, _] = Predicates.or(pred, other)
     def unary_!(): Predicate[_, _] = Predicates.not(pred)
   }
 
   def where = new PredicateBuilder().getEntryObject
   def where(name: String) = new PredicateBuilder().getEntryObject.get(name)
   implicit class ScalaEntryObject(private val eo: EntryObject) extends AnyVal {
-    def apply(name: String) = eo.get(name)
-    def key(name: String) = eo.key().get(name)
-    def value = eo.get("this")
-    def >(value: Comparable[_]) = eo.greaterThan(value)
-    def <(value: Comparable[_]) = eo.lessThan(value)
-    def >=(value: Comparable[_]) = eo.greaterEqual(value)
-    def <=(value: Comparable[_]) = eo.lessEqual(value)
-    def ===(value: Comparable[_]) = eo.equal(value)
-    def <>(value: Comparable[_]) = eo.notEqual(value)
+    def apply(name: String): EntryObject = eo.get(name)
+    def key(name: String): EntryObject = eo.key().get(name)
+    def value: EntryObject = eo.get("this")
+    def value_=(value: Comparable[_]): PredicateBuilder = eo.get("this").equal(value)
+    def >(value: Comparable[_]): PredicateBuilder = eo.greaterThan(value)
+    def <(value: Comparable[_]): PredicateBuilder = eo.lessThan(value)
+    def >=(value: Comparable[_]): PredicateBuilder = eo.greaterEqual(value)
+    def <=(value: Comparable[_]): PredicateBuilder = eo.lessEqual(value)
+    def update(name: String, value: Comparable[_]): PredicateBuilder = apply(name).equal(value)
+    def update(value: Comparable[_]): PredicateBuilder = eo.equal(value)
+    def <>(value: Comparable[_]): PredicateBuilder = eo.notEqual(value)
   }
 
   implicit class WhereString(private val sc: StringContext) extends AnyVal {
@@ -161,7 +174,7 @@ package object Scala extends HighPriorityImplicits {
     @inline def await: T = await(DefaultFutureTimeout)
     @inline def await(dur: FiniteDuration): T = if (jFuture.isDone) jFuture.get else blocking(jFuture.get(dur.length, dur.unit))
     def asScala[U](implicit ev: T => U): Future[U] = {
-      if (jFuture.isDone) try Future successful jFuture.get catch { case t => Future failed t }
+      if (jFuture.isDone) try Future successful jFuture.get catch { case NonFatal(t) => Future failed t }
       else {
         val callback = new FutureCallback[T, U]()
         jFuture match {
@@ -172,7 +185,7 @@ package object Scala extends HighPriorityImplicits {
       }
     }
     def asScalaOpt[U](implicit ev: T <:< U): Future[Option[U]] = {
-      if (jFuture.isDone) try Future successful Option(jFuture.get) catch { case t => Future failed t }
+      if (jFuture.isDone) try Future successful Option(jFuture.get) catch { case NonFatal(t) => Future failed t }
       else {
         val callback = new FutureCallback[T, Option[U]](None)(Some(_))
         jFuture match {

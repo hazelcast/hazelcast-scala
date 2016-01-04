@@ -46,15 +46,16 @@ trait NumericDDS[N] extends OrderingDDS[N] {
     }
   }
 
-  def variance()(implicit ec: ExecutionContext): Future[Option[N]] = submit(aggr.Variance())
+  def variance(nCorrection: (Int) => N = aggr.Variance.NoCorrection[N])(implicit ec: ExecutionContext): Future[Option[N]] =
+    submit(aggr.Variance[N](nCorrection))
 
 }
 
 trait NumericGroupDDS[G, N] extends OrderingGroupDDS[G, N] {
   implicit protected def num: Numeric[N]
 
-  def sum()(implicit ec: ExecutionContext): Future[cMap[G, N]] = submitGrouped(new aggr.Sum)
-  def mean()(implicit ec: ExecutionContext): Future[cMap[G, N]] = submit(Aggregation.groupSome(new aggr.Mean))
+  def sum()(implicit ec: ExecutionContext): Future[cMap[G, N]] = submit(new aggr.Sum)
+  def mean()(implicit ec: ExecutionContext): Future[cMap[G, N]] = submitGrouped(Aggregator.groupSome(new aggr.Mean))
 
   def range()(implicit ec: ExecutionContext): Future[cMap[G, N]] = {
     val n = num
@@ -73,6 +74,7 @@ trait NumericGroupDDS[G, N] extends OrderingGroupDDS[G, N] {
     }
   }
 
-  def variance()(implicit ec: ExecutionContext): Future[cMap[G, N]] = submit(Aggregation.groupSome(aggr.Variance()))
+  def variance(nCorrection: (Int) => N = aggr.Variance.NoCorrection[N])(implicit ec: ExecutionContext): Future[cMap[G, N]] =
+    submitGrouped(Aggregator groupSome aggr.Variance[N](nCorrection))
 
 }

@@ -1,8 +1,7 @@
 package com.hazelcast.Scala.aggr
 
-import com.hazelcast.Scala.Aggregation
-
-class SumCount[N: Numeric]
-    extends FinalizeAdapter2[N, (N, Int), N, N, N, Int, Int, Int](new Sum[N], Count) {
+final class SumCount[N: Numeric]
+    extends FinalizeAdapter2[N, N, N, N, Int, Int, Int](new Sum[N], Count) {
+  type R = (N, Int)
   def localFinalize(sumCount: (N, Int)) = sumCount
 }

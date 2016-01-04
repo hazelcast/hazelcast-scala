@@ -1,42 +1,54 @@
 package com.hazelcast.Scala
 
-trait Aggregation[Q, -T, W, +R] extends Serializable {
+/**
+ * Generalized aggregation interface.
+ * @tparam Q Accumulator type
+ * @tparam T DDS type
+ * @tparam W Accumulation wire format
+ */
+trait Aggregator[Q, -T, W] extends Serializable {
+  /** Final result type. */
+  type R
+
+  // `remote` functions are executed locally
+  // on the nodes where the data resides, but
+  // remotely seen from the perspective of the
+  // node or client that submits the aggregation
+
   def remoteInit: Q
   def remoteFold(q: Q, t: T): Q
   def remoteCombine(x: Q, y: Q): Q
   def remoteFinalize(q: Q): W
 
+  // `local` functions are executed locally
+  // on the node or client that submits the
+  // aggregation
+
   def localCombine(x: W, y: W): W
   def localFinalize(w: W): R
+
 }
 
-object Aggregation {
-  trait FinalizeSimple[T, R] extends Aggregation[T, T, T, R] {
-    def init: T
-    def reduce(x: T, y: T): T
-    final def remoteInit = init
-    final def remoteFold(a: T, t: T): T = reduce(a, t)
-    final def remoteCombine(x: T, y: T): T = reduce(x, y)
-    final def remoteFinalize(t: T): T = t
-    final def localCombine(x: T, y: T): T = reduce(x, y)
-  }
-  trait Simple[T] extends FinalizeSimple[T, T] {
-    final def localFinalize(t: T): T = t
-  }
+object Aggregator {
 
   type JM[G, V] = java.util.HashMap[G, V]
   type SM[G, V] = collection.mutable.Map[G, V]
 
-  def groupAll[G, Q, T, W, R](aggr: Aggregation[Q, T, W, R]) = new GroupAggregation[G, Q, T, W, R, R](aggr, (_: R) => true, (r: R) => r)
-  def groupSome[G, Q, T, W, R](aggr: Aggregation[Q, T, W, Option[R]]) = new GroupAggregation[G, Q, T, W, Option[R], R](aggr, (opt: Option[R]) => opt.isDefined, (opt: Option[R]) => opt.get)
+  /** Group into `Map` according to Aggregator result type. */
+  def groupAll[G, Q, T, W, AR](aggr: Aggregator[Q, T, W] { type R = AR }) =
+    new Grouped[G, Q, T, W, AR, AR](aggr, PartialFunction(identity))
+  /** Group into `Map` according to Aggregator result type inside `Option`. */
+  def groupSome[G, Q, T, W, AR](aggr: Aggregator[Q, T, W] { type R = Option[AR] }) =
+    new Grouped[G, Q, T, W, Option[AR], AR](aggr, {
+      case Some(value) => value
+    })
 
-  class GroupAggregation[G, Q, T, W, AR, GR](
-    aggr: Aggregation[Q, T, W, AR],
-    includeResult: AR => Boolean, mapResult: AR => GR)
-      extends Aggregation[JM[G, Q], (G, T), JM[G, W], SM[G, GR]] {
+  class Grouped[G, Q, T, W, AR, GR](
+    aggr: Aggregator[Q, T, W] { type R = AR }, pf: PartialFunction[AR, GR])
+      extends Aggregator[JM[G, Q], (G, T), JM[G, W]] {
 
     import collection.JavaConverters._
-
+    type R = SM[G, GR]
     type Map[V] = JM[G, V]
     type Tuple = (G, T)
 
@@ -51,7 +63,7 @@ object Aggregation {
       combined.putAll(yOnly.asJava)
       combined
     }
-    protected def finalize[A, B](map: Map[A])(fin: A => B): Map[B] = {
+    private def finalize[A, B](map: Map[A])(fin: A => B): Map[B] = {
       val iter = map.asInstanceOf[Map[Any]].entrySet().iterator()
       while (iter.hasNext) {
         val entry = iter.next
@@ -77,10 +89,10 @@ object Aggregation {
     def remoteCombine(x: Map[Q], y: Map[Q]): Map[Q] = combine(x, y)(aggr.remoteCombine)
     def remoteFinalize(q: Map[Q]): Map[W] = finalize(q)(aggr.remoteFinalize)
     def localCombine(x: Map[W], y: Map[W]): Map[W] = combine(x, y)(aggr.localCombine)
-    def localFinalize(w: Map[W]): SM[G, GR] = {
+    def localFinalize(w: Map[W]): R = {
       val finalized = finalize(w) { w =>
         val ar = aggr.localFinalize(w)
-        if (includeResult(ar)) mapResult(ar)
+        if (pf.isDefinedAt(ar)) pf(ar)
         else null.asInstanceOf[GR]
       }
       finalized.asScala
