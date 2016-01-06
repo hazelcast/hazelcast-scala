@@ -1,12 +1,9 @@
 package com.hazelcast.Scala
 
-import java.util.Map.Entry
-import scala.concurrent.{ Future, Promise }
-import scala.concurrent.duration.Duration
-import scala.util.Try
-import com.hazelcast.core.{ ExecutionCallback, IMap }
-import com.hazelcast.map.AbstractEntryProcessor
+import scala.concurrent.Future
+
 import com.hazelcast.cache.ICache
+
 import javax.cache.expiry.ExpiryPolicy
 
 class AsyncCache[K, V] private[Scala] (private val icache: ICache[K, V]) extends AnyVal {
