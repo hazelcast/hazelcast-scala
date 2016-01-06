@@ -14,19 +14,15 @@ import scala.collection.immutable.Nil
 
 object DefaultSerializers extends SerializerEnum(-987654321) {
 
-  val OptionSer = new OptionSerializer[Option[_]]
   val SomeSer = new OptionSerializer[Some[_]]
   val NoneSer = new OptionSerializer[None.type]
 
-  val TrySer = new TrySerializer[Try[_]]
   val SuccessSer = new TrySerializer[Success[_]]
   val FailureSer = new TrySerializer[Failure[_]]
 
-  val EitherSer = new EitherSerializer[Either[_, _]]
   val LeftSer = new EitherSerializer[Left[_, _]]
   val RightSer = new EitherSerializer[Right[_, _]]
 
-  val ListSer = new ListSerializer[List[_]]
   val NilSer = new ListSerializer[Nil.type]
   val NEListSer = new ListSerializer[::[_]]
 
