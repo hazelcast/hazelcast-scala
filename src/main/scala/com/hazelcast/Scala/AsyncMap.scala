@@ -27,13 +27,6 @@ final class AsyncMap[K, V] private[Scala] (private val imap: IMap[K, V]) extends
     Future.sequence(fResults).map(_.flatten.toMap)
   }
 
-  def query[T](pred: Predicate[_, _])(mf: V => T)(implicit ec: ExecutionContext): Future[mMap[K, T]] = {
-    val ep = new AbstractEntryProcessor[K, V](false) {
-      def process(entry: Entry[K, V]): Object = mf(entry.value).asInstanceOf[Object]
-    }
-    Future(blocking(imap.executeOnEntries(ep, pred).asScala.asInstanceOf[mMap[K, T]]))
-  }
-
   def put(key: K, value: V, ttl: Duration = Duration.Zero): Future[Option[V]] =
     if (ttl.isFinite && ttl.length > 0) {
       imap.putAsync(key, value, ttl.length, ttl.unit).asScalaOpt
