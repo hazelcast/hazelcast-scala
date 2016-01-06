@@ -18,7 +18,7 @@ import com.hazelcast.Scala._
 sealed trait DDS[E] {
 
   def filter(f: E => Boolean): DDS[E]
-  def map[F: ClassTag](m: E => F): DDS[F]
+  def map[F](m: E => F): DDS[F]
   def collect[F: ClassTag](pf: PartialFunction[E, F]): DDS[F]
   def flatMap[F: ClassTag](fm: E => Traversable[F]): DDS[F]
 
@@ -62,13 +62,12 @@ sealed trait GroupDDS[G, E]
 private[Scala] final class MapGroupDDS[K, V, G, E](val dds: MapDDS[K, V, (G, E)])
   extends GroupDDS[G, E]
 
-private[Scala] final class MapDDS[K, V, E: ClassTag](
+private[Scala] final class MapDDS[K, V, E](
     val imap: IMap[K, V],
     val predicate: Option[Predicate[_, _]],
     val keySet: Option[collection.Set[K]],
     val pipe: Option[Pipe[E]]) extends DDS[E] {
 
-  private[Scala] def classTag = implicitly[ClassTag[E]]
   private[Scala] def this(imap: IMap[K, V], predicate: Predicate[_, _] = null) = this(imap, Option(predicate), None, None)
 
   def groupBy[G, F](gf: E => G, mf: E => F): GroupDDS[G, F] = {
@@ -78,7 +77,7 @@ private[Scala] final class MapDDS[K, V, E: ClassTag](
   }
 
   def filter(f: E => Boolean): DDS[E] = {
-    if (this.pipe.isEmpty && classOf[Entry[_, _]].isAssignableFrom(classTag.runtimeClass)) {
+    if (this.pipe.isEmpty) {
       val filter = f.asInstanceOf[Entry[_, _] => Boolean]
       val predicate = new ScalaEntryPredicate(filter, this.predicate.orNull.asInstanceOf[Predicate[Object, Object]])
       new MapDDS[K, V, E](this.imap, Some(predicate), this.keySet, this.pipe)
@@ -88,7 +87,7 @@ private[Scala] final class MapDDS[K, V, E: ClassTag](
       new MapDDS[K, V, E](this.imap, this.predicate, this.keySet, Some(pipe))
     }
   }
-  def map[F: ClassTag](mf: E => F): DDS[F] = {
+  def map[F](mf: E => F): DDS[F] = {
     val prev = this.pipe getOrElse PassThroughPipe[E]
     val pipe = new MapPipe(mf, prev)
     new MapDDS[K, V, F](imap, predicate, keySet, Some(pipe))
