@@ -1,10 +1,11 @@
 package com.hazelcast.Scala
 
-import collection.JavaConverters._
+import scala.collection.JavaConverters._
+import scala.collection.Map
+import scala.concurrent._
+
 import com.hazelcast.core.HazelcastInstance
 import com.hazelcast.core.IMap
-import scala.concurrent._
-import scala.collection.Map
 
 private[Scala] sealed trait Join[V, JK, JV] {
   type T
@@ -25,7 +26,7 @@ private[Scala] final case class InnerOne[V, JK, JV](mapName: String, on: V => Op
     on(value) match {
       case None => acc
       case Some(jk) =>
-        joinMap.get(jk) match {
+        blocking(joinMap get jk) match {
           case null => acc
           case jv => callback(acc, value -> jv)
         }
@@ -37,7 +38,7 @@ private[Scala] final case class OuterOne[V, JK, JV](mapName: String, on: V => Op
   type T = (V, Option[JV])
   type R = T
   def join[A](joinMap: IMap[JK, JV])(acc: A, value: V, callback: (A, T) => A): A = {
-    val jv = on(value).flatMap(jk => Option(joinMap get jk))
+    val jv = on(value).flatMap(jk => Option(blocking(joinMap get jk)))
     callback(acc, value -> jv)
   }
 }
@@ -49,7 +50,7 @@ private[Scala] final case class InnerMany[V, JK, JV](mapName: String, on: V => S
     val fks = on(value)
     if (fks.isEmpty) acc
     else {
-      val jvs = joinMap.getAll(fks.asJava)
+      val jvs = blocking(joinMap getAll fks.asJava)
       if (jvs.isEmpty) acc
       else callback(acc, value -> jvs.asScala)
     }
@@ -60,7 +61,7 @@ private[Scala] final case class OuterMany[V, JK, JV](mapName: String, on: V => S
   type R = T
   def join[A](joinMap: IMap[JK, JV])(acc: A, value: V, callback: (A, T) => A): A = {
     val fks = on(value)
-    val fvs = if (fks.isEmpty) Map.empty[JK, JV] else joinMap.getAll(fks.asJava).asScala
+    val fvs = if (fks.isEmpty) Map.empty[JK, JV] else blocking(joinMap getAll fks.asJava).asScala
     callback(acc, value -> fvs)
   }
 }
