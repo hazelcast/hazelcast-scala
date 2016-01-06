@@ -39,15 +39,6 @@ object TestMap extends ClusterSetup {
 
   case class MyNumber(num: Int)
 
-//  case class Id[T](uuid: UUID = UUID.randomUUID)
-//  type Price = BigDecimal
-//  type ProdId = Id[Product]
-//  type CustId = Id[Customer]
-//  type OrdId = Id[Order]
-//  case class Product(id: ProdId, name: String, price: Price)
-//  case class Customer(id: CustId, name: String)
-//  case class Order(id: OrdId, products: Map[ProdId, Int], customer: CustId)
-
 }
 
 class TestMap {
