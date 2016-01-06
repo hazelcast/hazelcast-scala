@@ -27,6 +27,7 @@ trait NumericDDS[N] extends OrderingDDS[N] {
   implicit protected def num: Numeric[N]
 
   def sum()(implicit ec: ExecutionContext): Future[N] = submit(new aggr.Sum)
+  def product()(implicit ec: ExecutionContext): Future[N] = submit(new aggr.Product)
   def mean()(implicit ec: ExecutionContext): Future[Option[N]] = submit(new aggr.Mean)
 
   def range()(implicit ec: ExecutionContext): Future[Option[N]] = {
@@ -55,6 +56,7 @@ trait NumericGroupDDS[G, N] extends OrderingGroupDDS[G, N] {
   implicit protected def num: Numeric[N]
 
   def sum()(implicit ec: ExecutionContext): Future[cMap[G, N]] = submit(new aggr.Sum)
+  def product()(implicit ec: ExecutionContext): Future[cMap[G, N]] = submit(new aggr.Product)
   def mean()(implicit ec: ExecutionContext): Future[cMap[G, N]] = submitGrouped(Aggregator.groupSome(new aggr.Mean))
 
   def range()(implicit ec: ExecutionContext): Future[cMap[G, N]] = {
