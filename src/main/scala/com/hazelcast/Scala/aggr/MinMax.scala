@@ -2,8 +2,7 @@ package com.hazelcast.Scala.aggr
 
 import com.hazelcast.Scala.Aggregator
 
-class Min[O: Ordering] extends AbstractReducer[O] {
-  type R = Option[O]
+class Min[O: Ordering] extends AbstractReducer[O, Option[O]] {
   @inline private def o = implicitly[Ordering[O]]
   def init = null.asInstanceOf[O]
   def reduce(x: O, y: O): O =
@@ -12,8 +11,7 @@ class Min[O: Ordering] extends AbstractReducer[O] {
     else o.min(x, y)
   def localFinalize(o: O) = Option(o)
 }
-class Max[O: Ordering] extends AbstractReducer[O] {
-  type R = Option[O]
+class Max[O: Ordering] extends AbstractReducer[O, Option[O]] {
   @inline private def o = implicitly[Ordering[O]]
   def init = null.asInstanceOf[O]
   def reduce(x: O, y: O): O =
@@ -23,10 +21,11 @@ class Max[O: Ordering] extends AbstractReducer[O] {
   def localFinalize(o: O) = Option(o)
 }
 
-class MinMax[O: Ordering] extends Aggregator[(O, O), O, (O, O)] {
-  type R = Option[(O, O)]
+class MinMax[O: Ordering] extends Aggregator[O, Option[(O, O)]] {
+  type Q = (O, O)
+  type W = (O, O)
   @inline private def o = implicitly[Ordering[O]]
-  def remoteInit = null.asInstanceOf[(O, O)]
+  def remoteInit = null
   def remoteFold(minMax: (O, O), value: O): (O, O) = if (minMax == null) (value, value) else (o.min(minMax._1, value), o.max(minMax._2, value))
   def remoteCombine(x: (O, O), y: (O, O)): (O, O) = reduce(x, y)
   def remoteFinalize(minMax: (O, O)): (O, O) = minMax

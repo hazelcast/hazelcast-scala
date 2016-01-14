@@ -1,14 +1,15 @@
 package com.hazelcast.Scala
 
 /**
- * Generalized aggregation interface.
- * @tparam Q Accumulator type
- * @tparam T DDS type
- * @tparam W Accumulation wire format
- */
-trait Aggregator[Q, -T, W] extends Serializable {
-  /** Final result type. */
-  type R
+  * Generalized aggregation interface.
+  * @tparam T DDS type
+  * @tparam R Final result type
+  */
+trait Aggregator[-T, +R] extends Serializable {
+  /** Accumulator type. */
+  type Q
+  /** Accumulator serialization type. */
+  type W
 
   // `remote` functions are executed locally
   // on the nodes where the data resides, but
@@ -35,36 +36,45 @@ object Aggregator {
   type SM[G, V] = collection.mutable.Map[G, V]
 
   /** Group into `Map` according to Aggregator result type. */
-  def groupAll[G, Q, T, W, AR](aggr: Aggregator[Q, T, W] { type R = AR }) =
-    new Grouped[G, Q, T, W, AR, AR](aggr, PartialFunction(identity))
+  def groupAll[G, T, R](aggr: Aggregator[T, R]) =
+    new Grouped[G, T, R, R](aggr, PartialFunction(identity))
   /** Group into `Map` according to Aggregator result type inside `Option`. */
-  def groupSome[G, Q, T, W, AR](aggr: Aggregator[Q, T, W] { type R = Option[AR] }) =
-    new Grouped[G, Q, T, W, Option[AR], AR](aggr, {
+  def groupSome[G, T, R](aggr: Aggregator[T, Option[R]]) =
+    new Grouped[G, T, Option[R], R](aggr, {
       case Some(value) => value
     })
 
-  class Grouped[G, Q, T, W, AR, GR](
-    aggr: Aggregator[Q, T, W] { type R = AR }, pf: PartialFunction[AR, GR])
-      extends Aggregator[JM[G, Q], (G, T), JM[G, W]] {
+  class Grouped[G, T, R, GR](
+    val aggr: Aggregator[T, R], pf: PartialFunction[R, GR])
+      extends Aggregator[(G, T), SM[G, GR]] {
 
     import collection.JavaConverters._
-    type R = SM[G, GR]
+    type AQ = aggr.Q
+    type AW = aggr.W
+    type Q = JM[G, AQ]
+    type W = JM[G, AW]
     type Map[V] = JM[G, V]
     type Tuple = (G, T)
 
     private def combine[V](jx: Map[V], jy: Map[V])(comb: (V, V) => V) = {
-      val sy = jy.asScala
-      val (intersection, yOnly) = sy.partition(e => jx.containsKey(e._1))
-      val combined = intersection.foldLeft(jx) {
-        case (map, entry) =>
-          map.put(entry._1, comb(map.get(entry._1), entry._2))
-          map
+      val fold =
+        if (jx.size < jy.size) {
+          jx.entrySet.iterator.asScala.foldLeft(jy) _
+        } else {
+          jy.entrySet.iterator.asScala.foldLeft(jx) _
+        }
+      fold {
+        case (jmap, entry) =>
+          jmap.put(entry.key, entry.value) match {
+            case null => // Ok, no previous value
+            case prev =>
+              jmap.put(entry.key, comb(prev, entry.value))
+          }
+          jmap
       }
-      combined.putAll(yOnly.asJava)
-      combined
     }
     private def finalize[A, B](map: Map[A])(fin: A => B): Map[B] = {
-      val iter = map.asInstanceOf[Map[Any]].entrySet().iterator()
+      val iter = map.asInstanceOf[Map[Any]].entrySet.iterator
       while (iter.hasNext) {
         val entry = iter.next
         fin(entry.value.asInstanceOf[A]) match {
@@ -77,8 +87,8 @@ object Aggregator {
       map.asInstanceOf[Map[B]]
     }
 
-    def remoteInit = new Map[Q](64)
-    def remoteFold(map: Map[Q], t: Tuple): Map[Q] = {
+    def remoteInit = new Map[AQ](64)
+    def remoteFold(map: Map[AQ], t: Tuple): Map[AQ] = {
       val acc = map.get(t._1) match {
         case null => aggr.remoteInit
         case acc => acc
@@ -86,10 +96,10 @@ object Aggregator {
       map.put(t._1, aggr.remoteFold(acc, t._2))
       map
     }
-    def remoteCombine(x: Map[Q], y: Map[Q]): Map[Q] = combine(x, y)(aggr.remoteCombine)
-    def remoteFinalize(q: Map[Q]): Map[W] = finalize(q)(aggr.remoteFinalize)
-    def localCombine(x: Map[W], y: Map[W]): Map[W] = combine(x, y)(aggr.localCombine)
-    def localFinalize(w: Map[W]): R = {
+    def remoteCombine(x: Map[AQ], y: Map[AQ]): Map[AQ] = combine(x, y)(aggr.remoteCombine)
+    def remoteFinalize(q: Map[AQ]): Map[AW] = finalize(q)(aggr.remoteFinalize)
+    def localCombine(x: Map[AW], y: Map[AW]): Map[AW] = combine(x, y)(aggr.localCombine)
+    def localFinalize(w: Map[AW]): SM[G, GR] = {
       val finalized = finalize(w) { w =>
         val ar = aggr.localFinalize(w)
         if (pf.isDefinedAt(ar)) pf(ar)

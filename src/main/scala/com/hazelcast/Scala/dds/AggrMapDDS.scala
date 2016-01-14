@@ -12,13 +12,13 @@ import java.util.concurrent.{ Future => jFuture }
 import language.existentials
 import java.util.Map.Entry
 
-private[Scala] class AggrMapDDS[E: ClassTag](dds: MapDDS[_, _, E], sorted: Option[Sorted[E]] = None) extends AggrDDS[E] {
+private[Scala] class AggrMapDDS[K, E](val dds: MapDDS[K, _, E], sorted: Option[Sorted[E]] = None) extends AggrDDS[E] {
 
-  def this(dds: MapDDS[_, _, E], sorted: Sorted[E]) = this(dds, Option(sorted))
+  def this(dds: MapDDS[K, _, E], sorted: Sorted[E]) = this(dds, Option(sorted))
 
-  final def submit[Q, W, AR](
-    aggregator: Aggregator[Q, E, W] { type R = AR },
-    es: IExecutorService)(implicit ec: ExecutionContext): Future[AR] = {
+  final def submit[R](
+    aggregator: Aggregator[E, R],
+    es: IExecutorService)(implicit ec: ExecutionContext): Future[R] = {
 
     val hz = dds.imap.getHZ
     val keysByMember = dds.keySet.map(hz.groupByMember)
@@ -26,15 +26,15 @@ private[Scala] class AggrMapDDS[E: ClassTag](dds: MapDDS[_, _, E], sorted: Optio
 
     sorted match {
       case None =>
-        AggrMapDDS.aggregate(dds.imap.getName, keysByMember, dds.predicate, dds.pipe, exec, aggregator)
+        AggrMapDDS.aggregate[K, E, R, aggregator.W](dds.imap.getName, keysByMember, dds.predicate, dds.pipe, exec, aggregator)
       case Some(sorted) =>
         aggregator match {
           case _: Fetch.Complete[_] =>
             val fetch = aggr.Fetch(sorted)
             AggrMapDDS.aggregate(dds.imap.getName, keysByMember, dds.predicate, dds.pipe, exec, fetch)
           case _ =>
-            val adapter = aggr.Fetch.Adapter[Q, E, W, aggregator.R](aggregator, sorted)
-            AggrMapDDS.aggregate(dds.imap.getName, keysByMember, dds.predicate, dds.pipe, exec, adapter)
+            val adapter = aggr.Fetch.Adapter(aggregator, sorted)
+            AggrMapDDS.aggregate[K, E, R, adapter.W](dds.imap.getName, keysByMember, dds.predicate, dds.pipe, exec, adapter)
         }
     }
   }
@@ -42,25 +42,25 @@ private[Scala] class AggrMapDDS[E: ClassTag](dds: MapDDS[_, _, E], sorted: Optio
 }
 
 private[Scala] class AggrGroupMapDDS[G, E](dds: MapDDS[_, _, (G, E)]) extends AggrGroupDDS[G, E] {
-  def submitGrouped[Q, W, AR, GR](
-    aggr: Aggregator.Grouped[G, Q, E, W, AR, GR],
+  def submitGrouped[AR, GR](
+    aggr: Aggregator.Grouped[G, E, AR, GR],
     es: IExecutorService)(implicit ec: ExecutionContext): Future[cMap[G, GR]] = dds.submit(aggr, es)
 }
 
-private[Scala] class OrderingMapDDS[O: Ordering: ClassTag](
-  dds: MapDDS[_, _, O], sorted: Option[Sorted[O]] = None)
+private[Scala] class OrderingMapDDS[K, O: Ordering](
+  dds: MapDDS[K, _, O], sorted: Option[Sorted[O]] = None)
     extends AggrMapDDS(dds, sorted) with OrderingDDS[O] {
-  def this(dds: MapDDS[_, _, O], sorted: Sorted[O]) = this(dds, Option(sorted))
+  def this(dds: MapDDS[K, _, O], sorted: Sorted[O]) = this(dds, Option(sorted))
   final protected def ord = implicitly[Ordering[O]]
 }
 private[Scala] class OrderingGroupMapDDS[G, O: Ordering](dds: MapDDS[_, _, (G, O)]) extends AggrGroupMapDDS(dds) with OrderingGroupDDS[G, O] {
   final protected def ord = implicitly[Ordering[O]]
 }
 
-private[Scala] class NumericMapDDS[N: Numeric: ClassTag](
-  dds: MapDDS[_, _, N], sorted: Option[Sorted[N]] = None)
+private[Scala] class NumericMapDDS[K, N: Numeric](
+  dds: MapDDS[K, _, N], sorted: Option[Sorted[N]] = None)
     extends OrderingMapDDS(dds, sorted) with NumericDDS[N] {
-  def this(dds: MapDDS[_, _, N], sorted: Sorted[N]) = this(dds, Option(sorted))
+  def this(dds: MapDDS[K, _, N], sorted: Sorted[N]) = this(dds, Option(sorted))
   final protected def num = implicitly[Numeric[N]]
 }
 private[Scala] class NumericGroupMapDDS[G, N: Numeric](dds: MapDDS[_, _, (G, N)]) extends OrderingGroupMapDDS(dds) with NumericGroupDDS[G, N] {
@@ -68,13 +68,13 @@ private[Scala] class NumericGroupMapDDS[G, N: Numeric](dds: MapDDS[_, _, (G, N)]
 }
 
 private object AggrMapDDS {
-  private def aggregate[K, E, Q, W](
+  private def aggregate[K, E, R, AW](
     mapName: String,
     keysByMember: Option[Map[Member, collection.Set[K]]],
     predicate: Option[Predicate[_, _]],
     pipe: Option[Pipe[E]],
     es: IExecutorService,
-    aggr: Aggregator[Q, E, W])(implicit ec: ExecutionContext): Future[aggr.R] = {
+    aggr: Aggregator[E, R] { type W = AW })(implicit ec: ExecutionContext): Future[R] = {
 
     val (keysByMemberId, submitTo) = keysByMember match {
       case None => Map.empty[String, Set[K]] -> ToAll
@@ -88,25 +88,25 @@ private object AggrMapDDS {
     val reduced = Future.reduce(values)(aggr.localCombine)
     reduced.map(aggr.localFinalize(_))(SameThread)
   }
-  private def submitFold[K, E, Q, W](
+  private def submitFold[K, E](
     es: IExecutorService,
     submitTo: MultipleMembers,
     mapName: String,
     keysByMemberId: Map[String, collection.Set[K]],
     predicate: Option[Predicate[_, _]],
     pipe: Pipe[E],
-    aggr: Aggregator[Q, E, W]): Iterable[Future[W]] = {
+    aggr: Aggregator[E, _]): Iterable[Future[aggr.W]] = {
 
     val results = es.submitInstanceAware(submitTo) { hz =>
-      val folded = processLocalData(hz, mapName, keysByMemberId, predicate, pipe, aggr)
+      val folded = processLocalData[K, E, aggr.Q](hz, mapName, keysByMemberId, predicate, pipe, aggr)
       aggr.remoteFinalize(folded)
     }.values
     results
   }
-  private def processLocalData[K, E, Q](hz: HazelcastInstance, mapName: String,
+  private def processLocalData[K, E, AQ](hz: HazelcastInstance, mapName: String,
                                         keysByMemberId: Map[String, collection.Set[K]],
                                         predicate: Option[Predicate[_, _]],
-                                        pipe: Pipe[E], aggr: Aggregator[Q, E, _]): Q = {
+                                        pipe: Pipe[E], aggr: Aggregator[E, _] {type Q = AQ}): aggr.Q = {
     val imap = hz.getMap[K, Any](mapName)
     val (localKeys, includeEntry) = keysByMemberId.get(hz.getCluster.getLocalMember.getUuid) match {
       case None =>
@@ -117,6 +117,7 @@ private object AggrMapDDS {
     }
     if (localKeys.isEmpty) aggr.remoteInit
     else {
+      type Q = aggr.Q
       val remoteFold = aggr.remoteFold _
       val entryFold = pipe.prepare[Q](hz)
       val seqop = (acc: Q, entry: Entry[K, Any]) => {

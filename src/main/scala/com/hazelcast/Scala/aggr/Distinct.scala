@@ -3,16 +3,12 @@ package com.hazelcast.Scala.aggr
 import com.hazelcast.Scala.Aggregator
 
 object Distinct {
-  type Q[T] = Set[T]
-  type W[T] = Q[T]
-  type R[T] = W[T]
 
-  def apply[T]() = new Distinct[T]
+  def apply[T](): Aggregator[T, Set[T]] = new Distinct[T]
 
-  class Distinct[T] extends Aggregator[Q[T], T, W[T]] {
-    type Q = Distinct.Q[T]
-    type W = Distinct.Q[T]
-    type R = Distinct.R[T]
+  class Distinct[T] extends Aggregator[T, Set[T]] {
+    type Q = Set[T]
+    type W = Set[T]
     def remoteInit = Set.empty[T]
     def remoteFold(set: Q, t: T) = set + t
     def remoteCombine(x: Q, y: Q) = x ++ y

@@ -246,6 +246,7 @@ class TestMap {
         val (distribution, distrTime) = timed(MICROSECONDS) { map.filterKeys(_ <= 100).map(_.value).distribution().await }
         val (distinct, distcTime) = timed(MICROSECONDS) { map.filter(where.key <= 100).map(_.value).distinct().await }
         assertEquals(distribution.keySet, distinct)
+        assertEquals(distribution.keySet, distinct)
         if (printTimings) println(s"Distribution: $distrTime μs, Distinct: $distcTime μs, using ${map.getClass.getSimpleName}")
         assertEquals(27, distribution("Fizz"))
         assertEquals(14, distribution("Buzz"))
@@ -268,7 +269,7 @@ class TestMap {
     val whereResult = map.values((where("active") = true) && (where("age") > 20 || where("salary") < 60000))
     assertEquals(sqlResult.asScala, whereResult.asScala)
     val sqlPredFirst = sqlResult.asScala.head
-    val firstByKey = map.values(where.key() = sqlPredFirst.id)
+    val firstByKey = map.values(where.key() = sqlPredFirst.id) // Generally, you wouldn't do this, since there's `get`
     assertEquals(sqlPredFirst, firstByKey.asScala.head)
     val sqlSalaries = sqlResult.asScala.map(e => e.id -> e.salary).toMap
     val querySalaryResult = map.query(sqlPred)(_.salary)
@@ -277,7 +278,7 @@ class TestMap {
 
   @Test
   def `large map test` {
-    val Thousands = 125
+    val Thousands = 750
     val clientMap = getClientMap[UUID, Employee]("employees")
     var allSalaries = 0L
     var empCount = 0
@@ -293,19 +294,29 @@ class TestMap {
     }
     assertEquals(Thousands * 1000, empCount)
     val localAvg = allSalaries / empCount
-    val (avg, ms) = timed() {
+    val (avg, avgMs) = timed() {
       // Deliberately inefficient, testing piped mapping
       clientMap.map(_.value).map(_.salary).map(_.toLong).mean.await.get
     }
-    println(s"Average salary : $$$avg ($ms ms)")
+    println(s"Average salary : $$$avg")
     assertEquals(localAvg, avg)
-    val (fCount, fCountMs) = timed()(clientMap.filterValues(_.salary > 495000).count.await)
-    val (cCount, cCountMs) = timed()(clientMap.filter(where("salary") > 495000).count.await)
+    val (mrAvg, mrMs) = timed() {
+      import com.hazelcast.mapreduce.aggregation._
+      val supplySalaryForAll = new Supplier[UUID, Employee, Long] {
+        def apply(entry: Entry[UUID, Employee]): Long = entry.value.salary.toLong
+      }
+      val averageAggr = Aggregations.longAvg.asInstanceOf[Aggregation[UUID, Long, Long]]
+      clientMap.aggregate(supplySalaryForAll, averageAggr)
+    }
+    assertEquals(avg, mrAvg)
+    println(s"Aggregation timings: $avgMs ms (Scala), $mrMs ms (Map/Reduce), factor: ${mrMs / avgMs.toFloat}")
+    val (fCount, fCountMs) = timed()(clientMap.filterValues(_.salary > 495000).count.await) // Function filter
+    val (cCount, cCountMs) = timed()(clientMap.filter(where("salary") > 495000).count.await) // Predicate filter
     println(s"Filter: $fCount employees make more than $$495K ($fCountMs ms)")
     println(s"Predicate: $cCount employees make more than $$495K ($cCountMs ms) <- Predicates are faster with indexing.")
 
     val pageSize = 20
-    val (javaPage, javaTime) = timed() {
+    val (javaPage, ppTime) = timed() {
       val comp = new java.util.Comparator[Entry[_, Employee]] with java.io.Serializable {
         def compare(e1: Entry[_, Employee], e2: Entry[_, Employee]): Int = {
           val s1 = e1.value.salary
@@ -321,7 +332,7 @@ class TestMap {
       clientMap.values(pp)
     }
     val (scalaPage, scalaTime) = timed() { clientMap.map(_.value).sortBy(_.salary).reverse.drop(pageSize).take(pageSize).fetch().await }
-    println(s"Paging timings: $scalaTime ms (Scala), $javaTime ms (Java), factor: ${scalaTime / javaTime.toFloat}")
+    println(s"Paging timings: $scalaTime ms (Scala), $ppTime ms (PagingPredicate), factor: ${ppTime / scalaTime.toFloat}")
     assertEquals(pageSize, javaPage.size)
     assertEquals(javaPage.size, scalaPage.size)
     val javaSal = javaPage.asScala.map(_.salary).toIndexedSeq
@@ -458,9 +469,17 @@ class TestMap {
       WordFinder.findAllMatchIn(chapter.toLowerCase).map(_.matched).toTraversable
     }
     val expectedTopTen = Map(1615 -> Set("the"), 870 -> Set("and"), 724 -> Set("to"), 627 -> Set("a"), 542 -> Set("i"), 541 -> Set("she"), 538 -> Set("it"), 513 -> Set("of"), 462 -> Set("said"), 411 -> Set("you"))
-    val topTen = words.frequency(top = 10).await
+    val (topTen, freqMs) = timed() {
+      words.frequency(top = 10).await
+    }
+    val (top10ByCount, countMs) = timed() {
+      val countByWord = words.groupBy(w => w).count().await
+      val foo = countByWord.groupBy(_._2)
+      foo.mapValues(_.keySet).toSeq.sortBy(_._1).reverseIterator.take(10).toMap
+    }
     assertEquals(expectedTopTen, topTen)
-    println(topTen)
+    assertEquals(expectedTopTen, top10ByCount)
+    println(s"frequency: $freqMs ms, group/count/sort: $countMs ms")
   }
 
   @Test
@@ -594,6 +613,8 @@ class TestMap {
     }
     val variance = bdMap.map(_.value).variance(_ - 1).await.get
     assertEquals(BigDecimal(1210), variance)
+    val dVar = bdMap.map(_.value.doubleValue).variance(_ - 1).await.get
+    assertEquals(1210d, dVar, 0.0001)
     val grouped = bdMap.map(_.value).groupBy { n =>
       if (n <= 30) "a"
       else if (n <= 60) "b"
@@ -613,9 +634,11 @@ class TestMap {
         dMap.set(key, m)
         keys + key
     }
-    val err = 0.005d
-    val mean = dMap.filterKeys(keys).map(_.value).mean.await.get
-    assertEquals(5d, mean, err)
+    val err = 0.000005d
+    val meanDbl = dMap.filterKeys(keys).map(_.value).mean.await.get
+    val meanBD = dMap.filterKeys(keys).map(e => BigDecimal(e.value)).mean.await.get
+    assertEquals(5d, meanDbl, err)
+    assertEquals(BigDecimal("5"), meanBD)
     val stdDev = dMap.filterKeys(keys).map(_.value).variance().await.map(math.sqrt).get
     assertEquals(2d, stdDev, err)
 
@@ -624,6 +647,17 @@ class TestMap {
     assertEquals(0d, varianceSingleEntry, err)
     val varianceNoEntry = dMap.filterKeys("bar").map(_.value).variance().await
     assertEquals(None, varianceNoEntry)
+
+    val localValues = (1 to 10000).map(_ => Random.nextInt(90)+(Random.nextDouble + 10d)).map(BigDecimal(_))
+    val m = localValues.sum / localValues.size
+    val localVariance = localValues.map(n => (n - m) * (n - m)).sum / localValues.size
+    val numMap = localValues.foldLeft(getClientMap[UUID, BigDecimal]()) {
+      case (map, bd) => map.set(UUID.randomUUID, bd); map
+    }
+    val hzVarianceDbl = numMap.map(_.value.toDouble).variance().await.get
+    val hzVarianceBD = numMap.map(_.value).variance().await.get
+    assertEquals(localVariance, hzVarianceBD)
+    assertEquals(localVariance.toDouble, hzVarianceDbl, 0.00001)
   }
 
   @Test

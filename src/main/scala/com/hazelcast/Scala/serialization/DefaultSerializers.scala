@@ -2,15 +2,16 @@ package com.hazelcast.Scala.serialization
 
 import java.math.{ MathContext, RoundingMode }
 import java.util.{ Comparator, UUID }
-
 import scala.annotation.tailrec
 import scala.collection.mutable.Builder
 import scala.reflect.ClassTag
 import scala.util.{ Either, Failure, Left, Right, Success, Try }
-
 import com.hazelcast.nio.{ ObjectDataInput, ObjectDataOutput }
-
 import scala.collection.immutable.Nil
+import scala.runtime.IntRef
+import scala.runtime.LongRef
+import scala.runtime.DoubleRef
+import scala.runtime.FloatRef
 
 object DefaultSerializers extends SerializerEnum(-987654321) {
 
@@ -25,6 +26,23 @@ object DefaultSerializers extends SerializerEnum(-987654321) {
 
   val NilSer = new ListSerializer[Nil.type]
   val NEListSer = new ListSerializer[::[_]]
+
+  val IntRefSer = new StreamSerializer[IntRef] {
+    def write(out: ObjectDataOutput, ref: IntRef) = out.writeInt(ref.elem)
+    def read(inp: ObjectDataInput): IntRef = new IntRef(inp.readInt)
+  }
+  val LongRefSer = new StreamSerializer[LongRef] {
+    def write(out: ObjectDataOutput, ref: LongRef) = out.writeLong(ref.elem)
+    def read(inp: ObjectDataInput): LongRef = new LongRef(inp.readLong)
+  }
+  val DoubleRefSer = new StreamSerializer[DoubleRef] {
+    def write(out: ObjectDataOutput, ref: DoubleRef) = out.writeDouble(ref.elem)
+    def read(inp: ObjectDataInput): DoubleRef = new DoubleRef(inp.readDouble)
+  }
+  val FloatRefSer = new StreamSerializer[FloatRef] {
+    def write(out: ObjectDataOutput, ref: FloatRef) = out.writeFloat(ref.elem)
+    def read(inp: ObjectDataInput): FloatRef = new FloatRef(inp.readFloat)
+  }
 
   val ClassTagSer = new StreamSerializer[ClassTag[_]] {
     def write(out: ObjectDataOutput, tag: ClassTag[_]): Unit = out.writeObject(tag.runtimeClass)
@@ -41,27 +59,37 @@ object DefaultSerializers extends SerializerEnum(-987654321) {
 
   private type IHashMap = collection.immutable.HashMap[Any, Any]
   val IHashMapSer = new StreamSerializer[IHashMap] {
-    def write(out: ObjectDataOutput, map: IHashMap): Unit = {
-      out.writeInt(map.size)
-      writeSMap(map, out)
-    }
+    def write(out: ObjectDataOutput, map: IHashMap): Unit = IMapSer.write(out, map)
     def read(inp: ObjectDataInput): IHashMap = {
       val len = inp.readInt()
       readIMap(len, new IHashMap, inp)
     }
   }
-  private type ITreeMap = collection.immutable.TreeMap[Any, Any]
-  val ITreeMapSer = new StreamSerializer[ITreeMap] {
-    def write(out: ObjectDataOutput, map: ITreeMap): Unit = {
-      out.writeObject(map.ordering)
+  private type IMap = collection.immutable.Map[Any, Any]
+  val IMapSer: StreamSerializer[IMap] = new StreamSerializer[IMap] {
+    def write(out: ObjectDataOutput, map: IMap): Unit = {
       out.writeInt(map.size)
       writeSMap(map, out)
     }
+    def read(inp: ObjectDataInput): IMap = IHashMapSer.read(inp)
+  }
+  private type ITreeMap = collection.immutable.TreeMap[Any, Any]
+  val ITreeMapSer = new StreamSerializer[ITreeMap] {
+    def write(out: ObjectDataOutput, map: ITreeMap): Unit = ISortedMapSer.write(out, map)
     def read(inp: ObjectDataInput): ITreeMap = {
       val ord = inp.readObject[Ordering[Any]]
       val len = inp.readInt()
       readIMap(len, new ITreeMap()(ord), inp)
     }
+  }
+  private type ISortedMap = collection.immutable.SortedMap[Any, Any]
+  val ISortedMapSer: StreamSerializer[ISortedMap] = new StreamSerializer[ISortedMap] {
+    def write(out: ObjectDataOutput, map: ISortedMap): Unit = {
+      out.writeObject(map.ordering)
+      out.writeInt(map.size)
+      writeSMap(map, out)
+    }
+    def read(inp: ObjectDataInput): ISortedMap = ITreeMapSer.read(inp)
   }
   private type CTrieMap = collection.concurrent.TrieMap[Any, Any]
   val CTrieMapSer = new StreamSerializer[CTrieMap] {
@@ -89,13 +117,28 @@ object DefaultSerializers extends SerializerEnum(-987654321) {
       readMutable(len, builder, () => Tuple2Ser.read(inp))
     }
   }
+  private type MMap = collection.mutable.Map[Any, Any]
+  val MMapSer = new StreamSerializer[MMap] {
+    def write(out: ObjectDataOutput, m: MMap): Unit = {
+      out.writeInt(m.size)
+      writeSMap(m, out)
+    }
+    def read(inp: ObjectDataInput): MMap = MHashMapSer.read(inp)
+  }
+  private type AMap = collection.Map[Any, Any]
+  val AMapSer = new StreamSerializer[AMap] {
+    def write(out: ObjectDataOutput, m: AMap): Unit = {
+      out.writeInt(m.size)
+      writeSMap(m, out)
+    }
+    def read(inp: ObjectDataInput): AMap = {
+      val size = inp.readInt()
+      readIMap(size, Map.empty, inp)
+    }
+  }
   private type MTreeSet = collection.mutable.TreeSet[Any]
   val MTreeSetSer = new StreamSerializer[MTreeSet] {
-    def write(out: ObjectDataOutput, s: MTreeSet): Unit = {
-      out.writeObject(s.ordering)
-      out.writeInt(s.size)
-      s.foreach(out.writeObject)
-    }
+    def write(out: ObjectDataOutput, s: MTreeSet): Unit = MSortedSetSer.write(out, s)
     def read(inp: ObjectDataInput): MTreeSet = {
       val ord = inp.readObject[Ordering[Any]]
       val len = inp.readInt()
@@ -104,6 +147,16 @@ object DefaultSerializers extends SerializerEnum(-987654321) {
       readMutable(len, builder, () => inp.readObject[Any])
     }
   }
+  private type MSortedSet = collection.mutable.SortedSet[Any]
+  val MSortedSetSer: StreamSerializer[MSortedSet] = new StreamSerializer[MSortedSet] {
+    def write(out: ObjectDataOutput, s: MSortedSet): Unit = {
+      out.writeObject(s.ordering)
+      out.writeInt(s.size)
+      s.foreach(out.writeObject)
+    }
+    def read(inp: ObjectDataInput): MSortedSet = MTreeSetSer.read(inp)
+  }
+
   private type ArrayBuffer = collection.mutable.ArrayBuffer[Any]
   val ArrayBufferSer = new StreamSerializer[ArrayBuffer] {
     def write(out: ObjectDataOutput, buf: ArrayBuffer): Unit = {
@@ -119,11 +172,7 @@ object DefaultSerializers extends SerializerEnum(-987654321) {
   }
   private type ITreeSet = collection.immutable.TreeSet[Any]
   val ITreeSetSer = new StreamSerializer[ITreeSet] {
-    def write(out: ObjectDataOutput, s: ITreeSet): Unit = {
-      out.writeObject(s.ordering)
-      out.writeInt(s.size)
-      s.foreach(out.writeObject)
-    }
+    def write(out: ObjectDataOutput, s: ITreeSet): Unit = ISortedSetSer.write(out, s)
     def read(inp: ObjectDataInput): ITreeSet = {
       val ord = inp.readObject[Ordering[Any]]
       val len = inp.readInt()
@@ -131,6 +180,15 @@ object DefaultSerializers extends SerializerEnum(-987654321) {
       builder.sizeHint(len)
       readMutable(len, builder, () => inp.readObject[Any])
     }
+  }
+  private type ISortedSet = collection.immutable.SortedSet[Any]
+  val ISortedSetSer: StreamSerializer[ISortedSet] = new StreamSerializer[ISortedSet] {
+    def write(out: ObjectDataOutput, s: ISortedSet): Unit = {
+      out.writeObject(s.ordering)
+      out.writeInt(s.size)
+      s.foreach(out.writeObject)
+    }
+    def read(inp: ObjectDataInput): ISortedSet = ITreeSetSer.read(inp)
   }
   private type JHashMap = java.util.HashMap[Any, Any]
   val JHashMapSer = new StreamSerializer[JHashMap] {

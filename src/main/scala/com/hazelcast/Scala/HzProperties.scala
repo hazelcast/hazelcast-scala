@@ -124,18 +124,6 @@ class HzMemberProperties(private val conf: Config) extends AnyVal {
     conf.setProperty(CONNECTION_MONITOR_MAX_FAULTS, max.toString)
   def setLicenseKey(key: String): Config =
     conf.setProperty(ENTERPRISE_LICENSE_KEY, key)
-  /** @see com.hazelcast.instance.GroupProperty.ENTERPRISE_WAN_REP_BATCH_SIZE */
-  def setWANReplicationBatchSize(size: Int): Config =
-    conf.setProperty(ENTERPRISE_WAN_REP_BATCH_SIZE, size.toString)
-  /** @see com.hazelcast.instance.GroupProperty.ENTERPRISE_WAN_REP_BATCH_FREQUENCY_SECONDS */
-  def setWANReplicationBatchFrequency(freq: FiniteDuration): Config =
-    conf.setProperty(ENTERPRISE_WAN_REP_BATCH_FREQUENCY_SECONDS, freq.toSeconds.toString)
-  /** @see com.hazelcast.instance.GroupProperty.ENTERPRISE_WAN_REP_OP_TIMEOUT_MILLIS */
-  def setWANReplicationOperationTimeout(timeout: FiniteDuration): Config =
-    conf.setProperty(ENTERPRISE_WAN_REP_OP_TIMEOUT_MILLIS, timeout.toMillis.toString)
-  /** @see com.hazelcast.instance.GroupProperty.ENTERPRISE_WAN_REP_QUEUE_CAPACITY */
-  def setWANReplicationQueueCapacity(capacity: Int): Config =
-    conf.setProperty(ENTERPRISE_WAN_REP_QUEUE_CAPACITY, capacity.toString)
   /** @see com.hazelcast.instance.GroupProperty.EVENT_QUEUE_CAPACITY */
   def setEventQueueCapacity(capacity: Int): Config =
     conf.setProperty(EVENT_QUEUE_CAPACITY, capacity.toString)

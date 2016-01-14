@@ -17,9 +17,10 @@ object Fetch {
       case Some(limit) => new SortedPartial(sorted.ordering, sorted.skip, limit)
     }
 
-  final class Complete[T: ClassTag] extends Aggregator[(Array[T], Int), T, (Array[T], Int)] {
+  final class Complete[T: ClassTag] extends Aggregator[T, IndexedSeq[T]] {
 
     type Q = (Array[T], Int)
+    type W = (Array[T], Int)
     type R = IndexedSeq[T]
 
     def remoteInit = new Array[T](64) -> 0
@@ -83,15 +84,15 @@ object Fetch {
     }
   }
 
-  private[Scala] sealed abstract class SortedFetcher[T, Q](init: => Q) extends Aggregator[Q, T, List[Array[AnyRef]]] {
+  private[Scala] sealed abstract class SortedFetcher[T, AQ](init: => AQ) extends Aggregator[T, IndexedSeq[T]] {
+    final type Q = AQ
+    final type W = List[Array[AnyRef]]
     final type R = IndexedSeq[T]
     final def remoteInit = init
   }
 
   private[Scala] final class SortedPartial[T](ordering: Ordering[T], skip: Int, limit: Int)
       extends SortedFetcher[T, (Array[AnyRef], Int)](new Array[AnyRef](skip + limit) -> 0) {
-
-    type Q = (Array[AnyRef], Int)
 
     private[this] val anyRefOrd = ordering.asInstanceOf[Ordering[AnyRef]]
     private def binarySearch(arr: Array[AnyRef], obj: T): Int = {
@@ -219,20 +220,18 @@ object Fetch {
     }
   }
 
-  def Adapter[Q, T, W, AR](
-    aggr: Aggregator[Q, T, W] { type R = AR },
+  def Adapter[T, R](
+    aggr: Aggregator[T, R],
     sorted: Sorted[T]) = {
     new Adapter(aggr, apply(sorted))
   }
 
-  final class Adapter[AQ, T, AW, AR, FQ] private[Fetch] (
-    aggr: Aggregator[AQ, T, AW] { type R = AR },
-    fetcher: SortedFetcher[T, FQ])
-      extends FinalizeAdapter[T, FQ, List[Array[AnyRef]], IndexedSeq[T]](fetcher) {
+  final class Adapter[T, R, Q] private[Fetch] (
+    aggr: Aggregator[T, R],
+    fetcher: SortedFetcher[T, Q])
+      extends FinalizeAdapter[T, R, IndexedSeq[T]](fetcher) {
 
-    type R = AR
-
-    def localFinalize(w: List[Array[AnyRef]]): R = {
+    def localFinalize(w: W): R = {
       val fetchFinalized = a1.localFinalize(w)
       val folded = fetchFinalized.foldLeft(aggr.remoteInit)(aggr.remoteFold)
       aggr.localFinalize(aggr.remoteFinalize(folded))
