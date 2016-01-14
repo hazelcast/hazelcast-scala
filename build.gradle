@@ -15,7 +15,7 @@ ext {
     junitVersion = '4.12'
     scalaMinorVersion = '2.11'
     scalaVersion = "$scalaMinorVersion.7"
-    hzVersion = '3.6-EA3'
+    hzVersion = '3.6-RC1'
     scoverageVersion = '1.1.0'
 }
 
