@@ -38,6 +38,7 @@ trait ClusterSetup {
     DefaultSerializers.register(memberConfig.getSerializationConfig)
     DefaultSerializers.register(clientConfig.getSerializationConfig)
     memberConfig.getGroupConfig.setName(group)
+    memberConfig.setGracefulShutdownMaxWait(1.second)
     memberConfig.setPhoneHomeEnabled(false)
     memberConfig.getMapConfig("default").setBackupCount(0).setStatisticsEnabled(false)
     memberConfig.setShutdownHookEnabled(false)
