@@ -32,7 +32,9 @@ class HzClientProperties(private val conf: ClientConfig) extends AnyVal {
   /** @see com.hazelcast.client.config.ClientProperties.SHUFFLE_MEMBER_LIST */
   def setShuffleMemberList(shuffle: Boolean): ClientConfig =
     conf.setProperty(SHUFFLE_MEMBER_LIST, shuffle.toString)
-
+  /** @see com.hazelcast.client.config.ClientProperties.MAX_CONCURRENT_INVOCATIONS */
+  def setMaxConcurrentInvocations(max: Int): ClientConfig =
+    conf.setProperty(MAX_CONCURRENT_INVOCATIONS, max.toString)
 }
 
 class HzMemberProperties(private val conf: Config) extends AnyVal {
@@ -60,7 +62,7 @@ class HzMemberProperties(private val conf: Config) extends AnyVal {
   def setPerfMonEnabled(enabled: Boolean): Config =
     conf.setProperty(PERFORMANCE_MONITOR_ENABLED, enabled.toString)
   /** @see com.hazelcast.instance.GroupProperty.PERFORMANCE_MONITOR_HUMAN_FRIENDLY_FORMAT */
-  def setPerfMonHumanFormat(enabled: Boolean): Config =
+  def setPerfMonHumanFormatEnabled(enabled: Boolean): Config =
     conf.setProperty(PERFORMANCE_MONITOR_HUMAN_FRIENDLY_FORMAT, enabled.toString)
   /** @see com.hazelcast.instance.GroupProperty.PERFORMANCE_MONITOR_MAX_ROLLED_FILE_COUNT */
   def setPerfMonMaxRolledFileCount(count: Int): Config =
@@ -80,6 +82,9 @@ class HzMemberProperties(private val conf: Config) extends AnyVal {
   /** @see com.hazelcast.instance.GroupProperty.DISCOVERY_SPI_ENABLED */
   def setDiscoverySPIEnabled(enabled: Boolean): Config =
     conf.setProperty(DISCOVERY_SPI_ENABLED, enabled.toString)
+  /** @see com.hazelcast.instance.GroupProperty.DISCOVERY_SPI_PUBLIC_IP_ENABLED */
+  def setDiscoverySPIPublicIPEnabled(enabled: Boolean): Config =
+    conf.setProperty(DISCOVERY_SPI_PUBLIC_IP_ENABLED, enabled.toString)
   /** @see com.hazelcast.instance.GroupProperty.CLIENT_HEARTBEAT_TIMEOUT_SECONDS */
   def setClientHeartbeatTimeout(timeout: FiniteDuration): Config =
     conf.setProperty(CLIENT_HEARTBEAT_TIMEOUT_SECONDS, timeout.toSeconds.toString)
@@ -340,4 +345,25 @@ class HzMemberProperties(private val conf: Config) extends AnyVal {
   /** @see com.hazelcast.instance.GroupProperty.PHONE_HOME_ENABLED */
   def setPhoneHomeEnabled(enabled: Boolean): Config =
     conf.setProperty(PHONE_HOME_ENABLED, enabled.toString)
+
+  /** @see com.hazelcast.instance.GroupProperty.MAP_INVALIDATION_MESSAGE_BATCH_ENABLED */
+  def setIMapNearCacheInvalidationBatchEnabled(enabled: Boolean): Config =
+    conf.setProperty(MAP_INVALIDATION_MESSAGE_BATCH_ENABLED, enabled.toString)
+  /** @see com.hazelcast.instance.GroupProperty.MAP_INVALIDATION_MESSAGE_BATCH_SIZE */
+  def setIMapNearCacheInvalidationBatchSize(size: Int): Config =
+    conf.setProperty(MAP_INVALIDATION_MESSAGE_BATCH_SIZE, size.toString)
+  /** @see com.hazelcast.instance.GroupProperty.MAP_INVALIDATION_MESSAGE_BATCH_FREQUENCY_SECONDS */
+  def setIMapNearCacheInvalidationBatchFrequency(freq: FiniteDuration): Config =
+    conf.setProperty(MAP_INVALIDATION_MESSAGE_BATCH_FREQUENCY_SECONDS, freq.toSeconds.toString)
+  /** @see com.hazelcast.instance.GroupProperty. */
+
+  /** @see com.hazelcast.instance.GroupProperty.CACHE_INVALIDATION_MESSAGE_BATCH_ENABLED */
+  def setJCacheNearCacheInvalidationBatchEnabled(enabled: Boolean): Config =
+    conf.setProperty(CACHE_INVALIDATION_MESSAGE_BATCH_ENABLED, enabled.toString)
+  /** @see com.hazelcast.instance.GroupProperty.CACHE_INVALIDATION_MESSAGE_BATCH_SIZE */
+  def setJCacheNearCacheInvalidationBatchSize(size: Int): Config =
+    conf.setProperty(CACHE_INVALIDATION_MESSAGE_BATCH_SIZE, size.toString)
+  /** @see com.hazelcast.instance.GroupProperty.CACHE_INVALIDATION_MESSAGE_BATCH_FREQUENCY_SECONDS */
+  def setJCacheNearCacheInvalidationBatchFrequency(freq: FiniteDuration): Config =
+    conf.setProperty(CACHE_INVALIDATION_MESSAGE_BATCH_FREQUENCY_SECONDS, freq.toSeconds.toString)
 }
