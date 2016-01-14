@@ -14,6 +14,7 @@ import memory.{ MemorySize, MemoryUnit }
 import query.{ EntryObject, Predicate, PredicateBuilder, Predicates, SqlPredicate }
 import scala.util.control.NonFatal
 import ringbuffer.Ringbuffer
+import query.PagingPredicate
 
 package Scala {
 
@@ -138,7 +139,7 @@ package object Scala extends HighPriorityImplicits {
     @inline def value_=(newValue: V) = entry.setValue(newValue)
   }
 
-  implicit class ScalaPredicate(private val pred: Predicate[_, _]) extends AnyVal {
+  implicit class HzPredicate(private val pred: Predicate[_, _]) extends AnyVal {
     def &&(other: Predicate[_, _]): Predicate[_, _] = Predicates.and(pred, other)
     def and(other: Predicate[_, _]): Predicate[_, _] = Predicates.and(pred, other)
     def ||(other: Predicate[_, _]): Predicate[_, _] = Predicates.or(pred, other)

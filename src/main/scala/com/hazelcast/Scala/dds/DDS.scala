@@ -22,11 +22,12 @@ sealed trait DDS[E] {
   def collect[F: ClassTag](pf: PartialFunction[E, F]): DDS[F]
   def flatMap[F: ClassTag](fm: E => Traversable[F]): DDS[F]
 
+  final def groupBy(): GroupDDS[E, E] = groupBy[E, E](identity, identity)
   final def groupBy[G](gf: E => G): GroupDDS[G, E] = groupBy[G, E](gf, identity)
   def groupBy[G, F](gf: E => G, mf: E => F): GroupDDS[G, F]
 
   def sortBy[S: Ordering](sf: E => S): SortDDS[E]
-  def sorted()(implicit ord: Ordering[E]): SortDDS[E]
+  final def sorted()(implicit ord: Ordering[E]): SortDDS[E] = sortBy(identity)
 
   def innerJoinOne[JK, JV](join: IMap[JK, JV], on: E => Option[JK]): DDS[(E, JV)]
   def innerJoinMany[JK, JV](join: IMap[JK, JV], on: E => Set[JK]): DDS[(E, collection.Map[JK, JV])]
@@ -106,9 +107,6 @@ private[Scala] final class MapDDS[K, V, E](
   def sortBy[S: Ordering](sf: E => S): SortDDS[E] = {
     val ord = implicitly[Ordering[S]].on(sf)
     new MapSortDDS(this, ord)
-  }
-  def sorted()(implicit ord: Ordering[E]): SortDDS[E] = {
-    new MapSortDDS[K, V, E](this, ord)
   }
 
   private def withJoin[JT](join: Join[E, _, _] { type T = (E, JT) }): DDS[(E, JT)] = {

@@ -232,7 +232,7 @@ object Fetch {
       extends FinalizeAdapter[T, R, IndexedSeq[T]](fetcher) {
 
     def localFinalize(w: W): R = {
-      val fetchFinalized = a1.localFinalize(w)
+      val fetchFinalized = a.localFinalize(w)
       val folded = fetchFinalized.foldLeft(aggr.remoteInit)(aggr.remoteFold)
       aggr.localFinalize(aggr.remoteFinalize(folded))
     }

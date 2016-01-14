@@ -23,6 +23,8 @@ import com.hazelcast.core.IMap
 import com.hazelcast.map.AbstractEntryProcessor
 import com.hazelcast.query.Predicate
 import java.util.StringTokenizer
+import com.hazelcast.query.PagingPredicate
+import java.util.Comparator
 
 object TestMap extends ClusterSetup {
   override val clusterSize = 3
@@ -252,8 +254,14 @@ class TestMap {
         assertEquals(14, distribution("Buzz"))
         assertEquals(6, distribution("FizzBuzz"))
         assertTrue(distribution.filterKeys(!Set("Fizz", "Buzz", "FizzBuzz").contains(_)).forall(_._2 == 1))
-        assertEquals(Map(27 -> Set("Fizz")), map.filterKeys(_ <= 100).map(_.value).frequency(1).await)
-        assertEquals(Map(27 -> Set("Fizz"), 14 -> Set("Buzz"), 6 -> Set("FizzBuzz")), map.filterKeys(_ <= 100).map(_.value).frequency(3).await)
+        val top1 = map.filterKeys(_ <= 100).map(_.value).distribution().map { dist =>
+          dist.groupBy(_._2).mapValues(_.keySet).toSeq.sortBy(_._1).reverseIterator.take(1).next
+        }.await
+        assertEquals(27 -> Set("Fizz"), top1)
+        val top3 = map.filter(where.key <= 100).map(_.value).distribution().map { dist =>
+          dist.groupBy(_._2).mapValues(_.keySet).toSeq.sortBy(_._1).reverseIterator.take(3).toMap
+        }.await
+        assertEquals(Map(27 -> Set("Fizz"), 14 -> Set("Buzz"), 6 -> Set("FizzBuzz")), top3)
       }
   }
 
@@ -431,7 +439,9 @@ class TestMap {
         }
     }
     val valueSet = values.mode.await
-    val (freq, freqValues) = values.frequency(1).await.head
+    val (freq, freqValues) = values.distribution().map{ dist =>
+      dist.groupBy(_._2).mapValues(_.keySet).toSeq.sortBy(_._1).reverseIterator.take(1).next
+    }.await
     assertEquals(localModeValues, valueSet)
     assertTrue(freqValues.nonEmpty)
     assertEquals(localModeFreq, freq)
@@ -469,17 +479,13 @@ class TestMap {
       WordFinder.findAllMatchIn(chapter.toLowerCase).map(_.matched).toTraversable
     }
     val expectedTopTen = Map(1615 -> Set("the"), 870 -> Set("and"), 724 -> Set("to"), 627 -> Set("a"), 542 -> Set("i"), 541 -> Set("she"), 538 -> Set("it"), 513 -> Set("of"), 462 -> Set("said"), 411 -> Set("you"))
-    val (topTen, freqMs) = timed() {
-      words.frequency(top = 10).await
-    }
     val (top10ByCount, countMs) = timed() {
-      val countByWord = words.groupBy(w => w).count().await
+      val countByWord = words.groupBy().count().await
       val foo = countByWord.groupBy(_._2)
       foo.mapValues(_.keySet).toSeq.sortBy(_._1).reverseIterator.take(10).toMap
     }
-    assertEquals(expectedTopTen, topTen)
     assertEquals(expectedTopTen, top10ByCount)
-    println(s"frequency: $freqMs ms, group/count/sort: $countMs ms")
+    println(s"Top 10 words took $countMs ms")
   }
 
   @Test
@@ -508,7 +514,7 @@ class TestMap {
       val tokenizer = new StringTokenizer(cleanLine)
       tokenizer.asScala.map(_.toString.trim).filter(_.length > 0).toSeq
     }
-    val topTwenty: Map[String, Int] = words.distribution.await.toSeq.sortBy(_._2).reverse.take(20).toMap
+    val topTwenty: Map[String, Int] = words.distribution.await.toSeq.sortBy(_._2).reverseIterator.take(20).toMap
     assertEquals(20, topTwenty.size)
     // http://www.slideshare.net/andreaiacono/mapreduce-34478449/24
     assertEquals(2286, topTwenty("the"))
@@ -648,7 +654,7 @@ class TestMap {
     val varianceNoEntry = dMap.filterKeys("bar").map(_.value).variance().await
     assertEquals(None, varianceNoEntry)
 
-    val localValues = (1 to 10000).map(_ => Random.nextInt(90)+(Random.nextDouble + 10d)).map(BigDecimal(_))
+    val localValues = (1 to 10000).map(_ => Random.nextInt(90) + (Random.nextDouble + 10d)).map(BigDecimal(_))
     val m = localValues.sum / localValues.size
     val localVariance = localValues.map(n => (n - m) * (n - m)).sum / localValues.size
     val numMap = localValues.foldLeft(getClientMap[UUID, BigDecimal]()) {

@@ -53,7 +53,8 @@ private[Scala] class OrderingMapDDS[K, O: Ordering](
   def this(dds: MapDDS[K, _, O], sorted: Sorted[O]) = this(dds, Option(sorted))
   final protected def ord = implicitly[Ordering[O]]
 }
-private[Scala] class OrderingGroupMapDDS[G, O: Ordering](dds: MapDDS[_, _, (G, O)]) extends AggrGroupMapDDS(dds) with OrderingGroupDDS[G, O] {
+private[Scala] class OrderingGroupMapDDS[G, O: Ordering](dds: MapDDS[_, _, (G, O)])
+    extends AggrGroupMapDDS(dds) with OrderingGroupDDS[G, O] {
   final protected def ord = implicitly[Ordering[O]]
 }
 
@@ -63,7 +64,8 @@ private[Scala] class NumericMapDDS[K, N: Numeric](
   def this(dds: MapDDS[K, _, N], sorted: Sorted[N]) = this(dds, Option(sorted))
   final protected def num = implicitly[Numeric[N]]
 }
-private[Scala] class NumericGroupMapDDS[G, N: Numeric](dds: MapDDS[_, _, (G, N)]) extends OrderingGroupMapDDS(dds) with NumericGroupDDS[G, N] {
+private[Scala] class NumericGroupMapDDS[G, N: Numeric](dds: MapDDS[_, _, (G, N)])
+    extends OrderingGroupMapDDS(dds) with NumericGroupDDS[G, N] {
   final protected def num = implicitly[Numeric[N]]
 }
 
@@ -97,16 +99,17 @@ private object AggrMapDDS {
     pipe: Pipe[E],
     aggr: Aggregator[E, _]): Iterable[Future[aggr.W]] = {
 
-    val results = es.submitInstanceAware(submitTo) { hz =>
+    es.submitInstanceAware(submitTo) { hz =>
       val folded = processLocalData[K, E, aggr.Q](hz, mapName, keysByMemberId, predicate, pipe, aggr)
       aggr.remoteFinalize(folded)
     }.values
-    results
+
   }
+
   private def processLocalData[K, E, AQ](hz: HazelcastInstance, mapName: String,
-                                        keysByMemberId: Map[String, collection.Set[K]],
-                                        predicate: Option[Predicate[_, _]],
-                                        pipe: Pipe[E], aggr: Aggregator[E, _] {type Q = AQ}): aggr.Q = {
+                                         keysByMemberId: Map[String, collection.Set[K]],
+                                         predicate: Option[Predicate[_, _]],
+                                         pipe: Pipe[E], aggr: Aggregator[E, _] { type Q = AQ }): aggr.Q = {
     val imap = hz.getMap[K, Any](mapName)
     val (localKeys, includeEntry) = keysByMemberId.get(hz.getCluster.getLocalMember.getUuid) match {
       case None =>
