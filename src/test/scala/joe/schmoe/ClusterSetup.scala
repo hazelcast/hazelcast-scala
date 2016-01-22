@@ -61,7 +61,6 @@ trait ClusterSetup {
 
   def getClientMap[K, V](name: String = contextName): IMap[K, V] = client.getMap[K, V](name)
   def getClientCache[K: ClassTag, V: ClassTag](name: String = contextName): ICache[K, V] = {
-    //    getMemberCache[K, V](name) // Init, if missing
     client.getCache[K, V](name)
   }
 

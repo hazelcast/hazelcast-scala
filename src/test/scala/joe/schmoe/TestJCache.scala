@@ -26,11 +26,15 @@ class TestJCache {
 
   @Test
   def employees {
+    val empCount = 100
     val employees = getClientCache[UUID, Employee]()
-    (1 to 100) foreach { i =>
-      val emp = Employee.random
-      employees.async.put(emp.id, emp)
+    (1 to empCount).foldLeft(getMemberCache[UUID, Employee](employees.getName)) {
+      case (employees, _) =>
+        val emp = Employee.random
+        employees.put(emp.id, emp)
+        employees
     }
+    assertEquals(empCount, employees.size)
     employees.iterator().asScala.foreach { entry =>
       assertEquals(entry.getKey, entry.getValue.id)
     }
