@@ -2,12 +2,10 @@ package com.hazelcast.Scala
 
 import java.util.Collections
 import java.util.Map.Entry
-
 import scala.collection.JavaConverters._
 import scala.collection.mutable.{ Map => mMap }
 import scala.concurrent.duration.{ Duration, FiniteDuration }
 import scala.language.existentials
-
 import com.hazelcast.Scala.dds.{ DDS, MapDDS }
 import com.hazelcast.client.spi.ClientProxy
 import com.hazelcast.core
@@ -17,6 +15,8 @@ import com.hazelcast.map.{ AbstractEntryProcessor, MapPartitionLostEvent }
 import com.hazelcast.map.listener.MapPartitionLostListener
 import com.hazelcast.query.{ Predicate, PredicateBuilder, TruePredicate }
 import com.hazelcast.spi.AbstractDistributedObject
+import com.hazelcast.query.PagingPredicate
+import java.util.Comparator
 
 final class HzMap[K, V](private val imap: core.IMap[K, V]) extends AnyVal {
 
@@ -169,4 +169,39 @@ final class HzMap[K, V](private val imap: core.IMap[K, V]) extends AnyVal {
   // TODO: Perhaps a macro could turn this into an IndexAwarePredicate?
   def filter(f: Entry[K, V] => Boolean): DDS[Entry[K, V]] = new MapDDS(imap, new ScalaEntryPredicate(f))
 
+  def values[O: Ordering](range: Range, pred: Predicate[_, _] = null)(sortBy: V => O, reverse: Boolean = false): Iterable[V] = {
+    val pageSize = range.length
+    val pageIdx = range.min / pageSize
+    val dropValues = range.min % pageSize
+    val comparator = new Comparator[Entry[_, V]] with Serializable {
+      private[this] val ordering = implicitly[Ordering[O]] match {
+        case comp if reverse => comp.reverse
+        case comp => comp
+      }
+      def compare(a: Entry[_, V], b: Entry[_, V]): Int = ordering.compare(sortBy(a.value), sortBy(b.value))
+    }.asInstanceOf[Comparator[Entry[_, _]]]
+    val pp = new PagingPredicate(pred, comparator, pageSize)
+    pp.setPage(pageIdx)
+    val result = imap.values(pp).asScala
+    if (dropValues == 0) result
+    else result.drop(dropValues)
+  }
+  def entrySet[O: Ordering](range: Range, pred: Predicate[_, _] = null)(sortBy: Entry[K, V] => O, reverse: Boolean = false): collection.Set[Entry[K, V]] = {
+    val pageSize = range.length
+    val pageIdx = range.min / pageSize
+    val dropEntries = range.min % pageSize
+    val ordering = implicitly[Ordering[O]] match {
+      case comp if reverse => comp.reverse
+      case comp => comp
+    }
+    val comparator = new Comparator[Entry[K, V]] with Serializable {
+      def compare(a: Entry[K, V], b: Entry[K, V]): Int =
+        ordering.compare(sortBy(a), sortBy(b))
+    }.asInstanceOf[Comparator[Entry[_, _]]]
+    val pp = new PagingPredicate(pred, comparator, pageSize)
+    pp.setPage(pageIdx)
+    val result = imap.entrySet(pp).asScala
+    if (dropEntries == 0) result
+    else result.drop(dropEntries)
+  }
 }

@@ -2,29 +2,28 @@ package joe.schmoe
 
 import java.util.Date
 import java.util.Map.Entry
+import java.util.StringTokenizer
 import java.util.UUID
 import java.util.concurrent.CountDownLatch
 import java.util.concurrent.LinkedBlockingQueue
 import java.util.concurrent.TimeUnit
+
 import scala.BigDecimal.RoundingMode._
 import scala.collection.JavaConverters._
 import scala.concurrent.ExecutionContext.Implicits.global
 import scala.concurrent.duration._
 import scala.io.Source
-import scala.util.Failure
-import scala.util.Random
-import scala.util.Success
+import scala.util._
+
 import org.junit.Assert._
 import org.junit.Test
+
 import com.hazelcast.Scala._
 import com.hazelcast.config.InMemoryFormat
 import com.hazelcast.config.MapIndexConfig
 import com.hazelcast.core.IMap
 import com.hazelcast.map.AbstractEntryProcessor
 import com.hazelcast.query.Predicate
-import java.util.StringTokenizer
-import com.hazelcast.query.PagingPredicate
-import java.util.Comparator
 
 object TestMap extends ClusterSetup {
   override val clusterSize = 3
@@ -166,7 +165,7 @@ class TestMap {
     assertEquals(result2b, result2c)
     assertEquals(result2c, result2d)
     val thirtySeven = 37
-    val result3a = map.executeOnEntries(entryProcessor, where"this = $thirtySeven")
+    val result3a = map.executeOnEntries(entryProcessor, where value = thirtySeven)
     assertEquals(37 * 2, result3a.get("key37"))
     val result3b = map.execute(OnValues(_ == 37))(entry => entry.value * 2)
     val result3c = map.query(where.value = 37)(_ * 2)
@@ -323,27 +322,14 @@ class TestMap {
     println(s"Filter: $fCount employees make more than $$495K ($fCountMs ms)")
     println(s"Predicate: $cCount employees make more than $$495K ($cCountMs ms) <- Predicates are faster with indexing.")
 
-    val pageSize = 20
     val (javaPage, ppTime) = timed() {
-      val comp = new java.util.Comparator[Entry[_, Employee]] with java.io.Serializable {
-        def compare(e1: Entry[_, Employee], e2: Entry[_, Employee]): Int = {
-          val s1 = e1.value.salary
-          val s2 = e2.value.salary
-          if (s1 < s2) -1
-          else if (s1 > s2) 1
-          else 0
-        }
-      }
-      val revComp = java.util.Collections.reverseOrder(comp).asInstanceOf[java.util.Comparator[Entry[_, _]]]
-      val pp = new com.hazelcast.query.PagingPredicate(revComp, pageSize)
-      pp.nextPage()
-      clientMap.values(pp)
+      clientMap.values(20 until 40)(_.salary, reverse = true)
     }
-    val (scalaPage, scalaTime) = timed() { clientMap.map(_.value).sortBy(_.salary).reverse.drop(pageSize).take(pageSize).fetch().await }
+    val (scalaPage, scalaTime) = timed() { clientMap.map(_.value).sortBy(_.salary).reverse.drop(20).take(20).fetch().await }
     println(s"Paging timings: $scalaTime ms (Scala), $ppTime ms (PagingPredicate), factor: ${ppTime / scalaTime.toFloat}")
-    assertEquals(pageSize, javaPage.size)
+    assertEquals(20, javaPage.size)
     assertEquals(javaPage.size, scalaPage.size)
-    val javaSal = javaPage.asScala.map(_.salary).toIndexedSeq
+    val javaSal = javaPage.map(_.salary).toIndexedSeq
     val scalaSal = scalaPage.map(_.salary)
     println(s"First salary: $$${scalaSal(0)} (Scala), $$${javaSal(0)} (Java)")
     (0 until javaSal.size).foreach { idx =>
@@ -439,7 +425,7 @@ class TestMap {
         }
     }
     val valueSet = values.mode.await
-    val (freq, freqValues) = values.distribution().map{ dist =>
+    val (freq, freqValues) = values.distribution().map { dist =>
       dist.groupBy(_._2).mapValues(_.keySet).toSeq.sortBy(_._1).reverseIterator.take(1).next
     }.await
     assertEquals(localModeValues, valueSet)
@@ -667,7 +653,7 @@ class TestMap {
   }
 
   @Test
-  def sorting {
+  def `sorted dds` {
     val mymap = getClientMap[String, Int]()
     ('a' to 'z') foreach { c =>
       mymap.set(c.toString, c - 'a')
@@ -686,4 +672,36 @@ class TestMap {
     assertEquals((25 + 24 + 23 + 22 + 21 + 20 + 19 + 18 + 17 + 16) / 10, descIntsMean)
   }
 
+  @Test
+  def paging {
+    import java.util.Comparator
+    import com.hazelcast.query.PagingPredicate
+
+    val employees = (1 to 1000).foldLeft(getClientMap[UUID, Employee]()) {
+      case (employees, _) =>
+        val emp = Employee.random
+        employees.set(emp.id, emp)
+        employees
+    }
+    val wellPaid = where("salary") >= 400000
+    type E = Entry[UUID, Employee]
+    val asc = new Comparator[E] with Serializable {
+      def compare(a: E, b: E): Int = a.value.salary.compareTo(b.value.salary)
+    }.asInstanceOf[Comparator[Entry[_, _]]]
+    val desc = java.util.Collections.reverseOrder(asc)
+    val ppAsc = new PagingPredicate(wellPaid, asc, 10)
+    ppAsc.setPage(4)
+    val fromJavaAsc = employees.values(ppAsc).asScala.map(_.salary)
+    assertEquals(10, fromJavaAsc.size)
+    val ppDesc = new PagingPredicate(wellPaid, desc, 10)
+    ppDesc.setPage(3)
+    val fromJavaDesc = employees.values(ppDesc).asScala.map(_.salary)
+    assertEquals(10, fromJavaDesc.size)
+    val fromScalaAsc = employees.values(40 until 50, wellPaid)(_.salary).map(_.salary)
+    assertEquals(10, fromScalaAsc.size)
+    val fromScalaDesc = employees.values(30 until 40, wellPaid)(_.salary, reverse = true).map(_.salary)
+    assertEquals(10, fromScalaDesc.size)
+    assertEquals(fromJavaAsc, fromScalaAsc)
+    assertEquals(fromJavaDesc, fromScalaDesc)
+  }
 }
