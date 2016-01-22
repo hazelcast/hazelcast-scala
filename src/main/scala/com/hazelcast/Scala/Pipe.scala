@@ -82,16 +82,14 @@ private[Scala] class GroupByPipe[E, G, F](gf: E => G, mf: E => F, prev: Pipe[E])
   }
 }
 
-//private[Scala] final class JoinPipe[E, JT](join: Join[E, _, _] { type T = JT }, prev: Pipe[E]) extends Pipe[JT] {
-//  def prepare[A](hz: HazelcastInstance) = new EntryFold[A, JT] {
-//    private[this] val prevFold = prev.prepare[A](hz)
-//    private[this] val hzJoin = join.init(hz)
-//    def foldEntry(acc: A, entry: Entry[_, _])(fold: (A, JT) => A): A = {
-//      prevFold.foldEntry(acc, entry) {
-//        case (acc, elem) =>
-//          val result = hzJoin(elem)
-//          join.callback(acc, result)(fold)
-//      }
-//    }
-//  }
-//}
+private[Scala] final class JoinPipe[E, JT](join: Join[E, _, _] { type T = JT }, prev: Pipe[E]) extends Pipe[JT] {
+  def prepare[A](hz: HazelcastInstance) = new EntryFold[A, JT] {
+    private[this] val prevFold = prev.prepare[A](hz)
+    private[this] val hzJoin = join.init[A](hz)
+    def foldEntry(acc: A, entry: Entry[_, _])(fold: (A, JT) => A): A = {
+      prevFold.foldEntry(acc, entry) {
+        case (acc, elem) => hzJoin(acc, elem, fold)
+      }
+    }
+  }
+}

@@ -14,9 +14,11 @@ object TestSerializers extends SerializerEnum {
       out.writeObject(emp.id)
       out.writeUTF(emp.name)
       out.writeInt(emp.salary)
+      out.writeInt(emp.age)
+      out.writeBoolean(emp.active)
     }
     def read(inp: ObjectDataInput): Employee = {
-      new Employee(inp.readObject.asInstanceOf[UUID], inp.readUTF, inp.readInt)
+      new Employee(inp.readObject.asInstanceOf[UUID], inp.readUTF, inp.readInt, inp.readInt, inp.readBoolean)
     }
   }
 

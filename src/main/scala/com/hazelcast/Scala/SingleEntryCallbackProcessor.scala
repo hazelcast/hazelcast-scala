@@ -8,7 +8,7 @@ import java.util.Map.Entry
 import scala.util.control.NonFatal
 import com.hazelcast.map.EntryBackupProcessor
 
-private[Scala] sealed abstract class CallbackEntryProcessor[K, V, R] extends EntryProcessor[K, V] {
+private[Scala] sealed abstract class SingleEntryCallbackProcessor[K, V, R] extends EntryProcessor[K, V] {
   final def process(entry: Entry[K, V]): Object =
     try {
       onEntry(entry).asInstanceOf[Object]
@@ -22,14 +22,13 @@ private[Scala] sealed abstract class CallbackEntryProcessor[K, V, R] extends Ent
 
 }
 
-private[Scala] abstract class CallbackEntryReader[K, V, R] extends CallbackEntryProcessor[K, V, R] {
+private[Scala] abstract class SingleEntryCallbackReader[K, V, R] extends SingleEntryCallbackProcessor[K, V, R] {
   def getBackupProcessor = null
   final def onEntry(entry: Entry[K, V]): R = onEntry(entry.key, entry.value)
   def onEntry(key: K, value: V): R
 }
-private[Scala] abstract class CallbackEntryUpdater[K, V, R] extends CallbackEntryProcessor[K, V, R] {
+private[Scala] abstract class SingleEntryCallbackUpdater[K, V, R] extends SingleEntryCallbackProcessor[K, V, R] {
   def getBackupProcessor = new EntryBackupProcessor[K, V] {
     def processBackup(entry: Entry[K, V]): Unit = onEntry(entry)
   }
-
 }

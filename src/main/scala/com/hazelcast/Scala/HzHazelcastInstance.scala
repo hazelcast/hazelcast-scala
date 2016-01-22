@@ -1,24 +1,40 @@
 package com.hazelcast.Scala
 
 import java.util.concurrent.TimeUnit
+
 import scala.collection.concurrent.TrieMap
 import scala.concurrent.duration.FiniteDuration
-import scala.reflect.{ ClassTag, classTag }
+import scala.reflect.ClassTag
+import scala.reflect.classTag
+import scala.util.Try
+import scala.util.control.NonFatal
+
 import com.hazelcast.cache.ICache
 import com.hazelcast.cache.impl.HazelcastServerCachingProvider
 import com.hazelcast.client.cache.impl.HazelcastClientCachingProvider
-import com.hazelcast.core.{ DistributedObjectEvent, DistributedObjectListener, HazelcastInstance, IExecutorService, LifecycleEvent }
-import com.hazelcast.core.{ LifecycleListener, Member, MigrationEvent, MigrationListener, Partition }
+import com.hazelcast.core.DistributedObjectEvent
+import com.hazelcast.core.DistributedObjectListener
+import com.hazelcast.core.HazelcastInstance
+import com.hazelcast.core.IExecutorService
+import com.hazelcast.core.LifecycleEvent
 import com.hazelcast.core.LifecycleEvent.LifecycleState
-import com.hazelcast.partition.{ PartitionLostEvent, PartitionLostListener }
-import com.hazelcast.transaction.{ TransactionalTask, TransactionalTaskContext }
+import com.hazelcast.core.LifecycleListener
+import com.hazelcast.core.Member
+import com.hazelcast.core.MigrationEvent
+import com.hazelcast.core.MigrationListener
+import com.hazelcast.core.Partition
+import com.hazelcast.instance.GroupProperty
+import com.hazelcast.instance.HazelcastProperty
+import com.hazelcast.partition.PartitionLostEvent
+import com.hazelcast.partition.PartitionLostListener
 import com.hazelcast.transaction.TransactionOptions
 import com.hazelcast.transaction.TransactionOptions.TransactionType
+import com.hazelcast.transaction.TransactionalTask
+import com.hazelcast.transaction.TransactionalTaskContext
+
 import javax.cache.CacheManager
 import javax.transaction.TransactionManager
 import javax.transaction.xa.XAResource
-import com.hazelcast.config.CacheConfig
-import scala.util.control.NonFatal
 
 private object HzHazelcastInstance {
   private[this] val DefaultTxnOpts = TransactionOptions.getDefault
@@ -145,11 +161,14 @@ final class HzHazelcastInstance(private val hz: HazelcastInstance) extends AnyVa
     }
   }
 
-  private def jCacheProviderType: Option[String] = {
-    val configProp =
-      if (isClient) None
-      else Option(hz.getConfig.getProperty("hazelcast.jcache.provider.type"))
-    configProp.orElse(Option(System.getProperty("hazelcast.jcache.provider.type")))
+  private def getProperty(prop: HazelcastProperty): Option[String] = {
+    val name = prop.getName
+    val conf = Try(hz.getConfig) orElse Try(hz.getClass.getMethod("getClientConfig")).map(_.invoke(hz))
+    val value = conf.map { conf =>
+      val getProperty = conf.getClass.getMethod("getProperty", classOf[String])
+      Option(getProperty.invoke(conf, name)).map(_.toString)
+    }
+    value getOrElse Option(System.getProperty(name))
   }
 
   private def getObjectType[T: ClassTag]: Class[T] = classTag[T].runtimeClass match {
@@ -170,7 +189,7 @@ final class HzHazelcastInstance(private val hz: HazelcastInstance) extends AnyVa
           case _ => // Already set and matching
         }
       }
-    val isClient = jCacheProviderType match {
+    val isClient = getProperty(GroupProperty.JCACHE_PROVIDER_TYPE) match {
       case Some("client") => true
       case Some("server") => false
       case Some(other) => sys.error(s"Unknown provider type: $other")

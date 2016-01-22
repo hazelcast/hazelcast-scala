@@ -6,15 +6,15 @@ import com.hazelcast.topic.impl.reliable.ReliableTopicService
 
 final class HzTopic[T](private val topic: ITopic[T]) extends AnyVal {
   def isReliable: Boolean = topic.getServiceName == ReliableTopicService.SERVICE_NAME
-  def onMessage(listener: Message[T] => Unit): ListenerRegistration = {
+  def onMessage(listener: PartialFunction[Message[T], Unit]): ListenerRegistration = {
     val regId = topic addMessageListener new MessageListener[T] {
-      def onMessage(msg: Message[T]) = listener(msg)
+      def onMessage(msg: Message[T]) = if (listener.isDefinedAt(msg)) listener(msg)
     }
     new ListenerRegistration {
       def cancel(): Unit = topic removeMessageListener regId
     }
   }
-  def onMessage(startFrom: Long = -1, gapTolerant: Boolean = false)(listener: (Long, Message[T]) => Unit): ListenerRegistration = {
+  def onMessage(startFrom: Long = -1, gapTolerant: Boolean = false)(listener: PartialFunction[(Long, Message[T]), Unit]): ListenerRegistration = {
     require(isReliable, s"Must be reliable topic implementation: ${topic.getName}")
     val regId = topic addMessageListener new ReliableMessageListener[T] {
       private[this] var seq: Long = _
@@ -22,7 +22,10 @@ final class HzTopic[T](private val topic: ITopic[T]) extends AnyVal {
       def isLossTolerant = gapTolerant
       def isTerminal(t: Throwable) = true
       def retrieveInitialSequence(): Long = startFrom
-      def onMessage(msg: Message[T]) = listener(seq, msg)
+      def onMessage(msg: Message[T]) = {
+        val tup = (seq, msg)
+        if (listener.isDefinedAt(tup)) listener(tup)
+      }
     }
     new ListenerRegistration {
       def cancel(): Unit = topic removeMessageListener regId

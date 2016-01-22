@@ -1,8 +1,15 @@
 package com.hazelcast.Scala.aggr
 
-import com.hazelcast.Scala.Aggregation
+final class SumCount[N: Numeric]
+    extends MultiFinalizeAdapter[N, (N, Int)](Sum[N](), Count) {
 
-class SumCount[N: Numeric]
-    extends FinalizeAdapter2[N, (N, Int), N, N, N, Int, Int, Int](new Sum[N], Count) {
-  def localFinalize(sumCount: (N, Int)) = sumCount
+  protected final def num = implicitly[Numeric[N]]
+
+  def localFinalize(sumCount: W): (N, Int) = {
+    val a0 = aggrs(0)
+    val sum = sumCount(0).asInstanceOf[a0.W]
+    val a1 = aggrs(1)
+    val count = sumCount(1).asInstanceOf[a1.W]
+    a0.localFinalize(sum).asInstanceOf[N] -> a1.localFinalize(count).asInstanceOf[Int]
+  }
 }

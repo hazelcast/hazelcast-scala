@@ -2,42 +2,43 @@ package joe.schmoe
 
 import java.util.Date
 import java.util.Map.Entry
+import java.util.StringTokenizer
 import java.util.UUID
-import java.util.concurrent.{ CountDownLatch, LinkedBlockingQueue, TimeUnit }
+import java.util.concurrent.CountDownLatch
+import java.util.concurrent.LinkedBlockingQueue
+import java.util.concurrent.TimeUnit
+
+import scala.BigDecimal.RoundingMode._
 import scala.collection.JavaConverters._
 import scala.concurrent.ExecutionContext.Implicits.global
+import scala.concurrent.duration._
 import scala.io.Source
-import scala.util.{ Failure, Random, Success }
+import scala.util._
+
 import org.junit.Assert._
 import org.junit.Test
+
 import com.hazelcast.Scala._
-import com.hazelcast.config.{ InMemoryFormat, MapIndexConfig }
+import com.hazelcast.config.InMemoryFormat
+import com.hazelcast.config.MapIndexConfig
 import com.hazelcast.core.IMap
 import com.hazelcast.map.AbstractEntryProcessor
 import com.hazelcast.query.Predicate
-import BigDecimal.RoundingMode._
 
 object TestMap extends ClusterSetup {
-  override val clusterSize = 1
+  override val clusterSize = 3
   def init {
     TestSerializers.register(clientConfig.getSerializationConfig)
     TestSerializers.register(memberConfig.getSerializationConfig)
-    memberConfig.getMapConfig("employees").addMapIndexConfig(new MapIndexConfig("salary", true)).setInMemoryFormat(InMemoryFormat.OBJECT)
+    memberConfig.getMapConfig("employees").
+      addMapIndexConfig(new MapIndexConfig("salary", true)).
+      setInMemoryFormat(InMemoryFormat.OBJECT)
     memberConfig.getSerializationConfig.setAllowUnsafe(true)
     clientConfig.getSerializationConfig.setAllowUnsafe(true)
   }
   def destroy = ()
 
   case class MyNumber(num: Int)
-
-  case class Id[T](uuid: UUID = UUID.randomUUID)
-  type Price = BigDecimal
-  type ProdId = Id[Product]
-  type CustId = Id[Customer]
-  type OrdId = Id[Order]
-  case class Product(id: ProdId, name: String, price: Price)
-  case class Customer(id: CustId, name: String)
-  case class Order(id: OrdId, products: Map[ProdId, Int], customer: CustId)
 
 }
 
@@ -131,17 +132,15 @@ class TestMap {
   private def entryTest(map: IMap[String, Int]) {
     val isFactor37 = (c: Int) => c % 37 == 0
     val count = 50000
-    val start = System.currentTimeMillis
     val tempMap = new java.util.HashMap[String, Int](count)
     for (i <- 1 to count) {
       tempMap.put("key" + i, i)
     }
     map.putAll(tempMap)
-    println(s"Took ${System.currentTimeMillis - start} ms to putAll $count entries")
     val predicate37 = new Predicate[String, Int] {
       def apply(entry: Entry[String, Int]) = isFactor37(entry.value)
     }
-    val entryProcessor = new AbstractEntryProcessor[String, Int] {
+    val entryProcessor = new AbstractEntryProcessor[String, Int](false) {
       def process(entry: Entry[String, Int]): Object = {
         (entry.value * 2).asInstanceOf[Object]
       }
@@ -166,10 +165,12 @@ class TestMap {
     assertEquals(result2b, result2c)
     assertEquals(result2c, result2d)
     val thirtySeven = 37
-    val result3a = map.executeOnEntries(entryProcessor, where"this = $thirtySeven")
+    val result3a = map.executeOnEntries(entryProcessor, where value = thirtySeven)
     assertEquals(37 * 2, result3a.get("key37"))
     val result3b = map.execute(OnValues(_ == 37))(entry => entry.value * 2)
+    val result3c = map.query(where.value = 37)(_ * 2)
     assertEquals(result3a.get("key37"), result3b("key37"))
+    assertEquals(result3b, result3c)
   }
 
   @Test(expected = classOf[ArithmeticException])
@@ -226,120 +227,115 @@ class TestMap {
 
   @Test
   def distribution {
+    val iterations = 100
     val memberMap = getMemberMap[Int, String]()
     val clientMap = getClientMap[Int, String]()
-    for (_ <- 1 to 100) {
-      distribution(clientMap)
-      distribution(memberMap)
-      //      clientMap.clear()
+    for (i <- 1 to iterations) {
+      distribution(clientMap, i == iterations)
+      distribution(memberMap, i == iterations)
     }
-  }
-  private def distribution(map: IMap[Int, String]) {
-    val localMap = new java.util.HashMap[Int, String]
-    (1 to 1000).foreach { n =>
-      val fizzBuzz = new StringBuilder()
-      if (n % 3 == 0) fizzBuzz ++= "Fizz"
-      if (n % 5 == 0) fizzBuzz ++= "Buzz"
-      if (fizzBuzz.isEmpty) fizzBuzz ++= n.toString
-      localMap.put(n, fizzBuzz.result)
-    }
-    map.putAll(localMap)
-    val (distribution, distrTime) = timed { map.filterKeys(_ <= 100).map(_.value).distribution().await }
-    val (distinct, distcTime) = timed { map.filter(where.key <= 100).map(_.value).distinct().await }
-    assertEquals(distribution.keySet, distinct)
-    //    println(s"Distribution: $distrTime ms, Distinct: $distcTime ms, using ${map.getClass.getSimpleName}")
-    assertEquals(27, distribution("Fizz"))
-    assertEquals(14, distribution("Buzz"))
-    assertEquals(6, distribution("FizzBuzz"))
-    assertTrue(distribution.filterKeys(!Set("Fizz", "Buzz", "FizzBuzz").contains(_)).forall(_._2 == 1))
-    assertEquals(Map(27 -> Set("Fizz")), map.filterKeys(_ <= 100).map(_.value).frequency(1).await)
-    assertEquals(Map(27 -> Set("Fizz"), 14 -> Set("Buzz"), 6 -> Set("FizzBuzz")), map.filterKeys(_ <= 100).map(_.value).frequency(3).await)
+      def distribution(map: IMap[Int, String], printTimings: Boolean) {
+        val localMap = new java.util.HashMap[Int, String]
+        (1 to 1000).foreach { n =>
+          val fizzBuzz = new StringBuilder()
+          if (n % 3 == 0) fizzBuzz ++= "Fizz"
+          if (n % 5 == 0) fizzBuzz ++= "Buzz"
+          if (fizzBuzz.isEmpty) fizzBuzz ++= n.toString
+          localMap.put(n, fizzBuzz.result)
+        }
+        map.putAll(localMap)
+        val (distribution, distrTime) = timed(MICROSECONDS) { map.filterKeys(_ <= 100).map(_.value).distribution().await }
+        val (distinct, distcTime) = timed(MICROSECONDS) { map.filter(where.key <= 100).map(_.value).distinct().await }
+        assertEquals(distribution.keySet, distinct)
+        assertEquals(distribution.keySet, distinct)
+        if (printTimings) println(s"Distribution: $distrTime μs, Distinct: $distcTime μs, using ${map.getClass.getSimpleName}")
+        assertEquals(27, distribution("Fizz"))
+        assertEquals(14, distribution("Buzz"))
+        assertEquals(6, distribution("FizzBuzz"))
+        assertTrue(distribution.filterKeys(!Set("Fizz", "Buzz", "FizzBuzz").contains(_)).forall(_._2 == 1))
+        val top1 = map.filterKeys(_ <= 100).map(_.value).distribution().map { dist =>
+          dist.groupBy(_._2).mapValues(_.keySet).toSeq.sortBy(_._1).reverseIterator.take(1).next
+        }.await
+        assertEquals(27 -> Set("Fizz"), top1)
+        val top3 = map.filter(where.key <= 100).map(_.value).distribution().map { dist =>
+          dist.groupBy(_._2).mapValues(_.keySet).toSeq.sortBy(_._1).reverseIterator.take(3).toMap
+        }.await
+        assertEquals(Map(27 -> Set("Fizz"), 14 -> Set("Buzz"), 6 -> Set("FizzBuzz")), top3)
+      }
   }
 
   @Test
   def `sql pred` {
-    val pred = new com.hazelcast.query.SqlPredicate("active AND ( age > 20 OR salary < 60000 )")
-    val map = getClientMap[String, String]()
-    val result = map.values(where("active") === true && (where("age") > 20 || where("salary") < 60000))
-    assertEquals(0, result.size)
-    val foos = map.values(where.key === "foo")
-    assertEquals(0, foos.size)
-    val bars = map.values(where.value === "bar")
-    assertEquals(0, bars.size)
+    val map = getClientMap[UUID, Employee]()
+    (1 to 1000) foreach { i =>
+      val emp = Employee.random
+      map.set(emp.id, emp)
+    }
+    val sqlPred = new com.hazelcast.query.SqlPredicate("active AND ( age > 20 OR salary < 60000 )")
+    val sqlResult = map.values(sqlPred)
+    val whereResult = map.values((where("active") = true) && (where("age") > 20 || where("salary") < 60000))
+    assertEquals(sqlResult.asScala, whereResult.asScala)
+    val sqlPredFirst = sqlResult.asScala.head
+    val firstByKey = map.values(where.key() = sqlPredFirst.id) // Generally, you wouldn't do this, since there's `get`
+    assertEquals(sqlPredFirst, firstByKey.asScala.head)
+    val sqlSalaries = sqlResult.asScala.map(e => e.id -> e.salary).toMap
+    val querySalaryResult = map.query(sqlPred)(_.salary)
+    assertEquals(sqlSalaries, querySalaryResult)
   }
 
   @Test
   def `large map test` {
-    val Thousands = 125
+    val Thousands = 250
     val clientMap = getClientMap[UUID, Employee]("employees")
-    var allSalaries = 0d
+    var allSalaries = 0L
     var empCount = 0
     (1 to Thousands).foreach { _ =>
       val localMap = new java.util.HashMap[UUID, Employee]
       (1 to 1000).foreach { _ =>
-        val id = UUID.randomUUID()
-        val salary = Random.nextInt(480000) + 20000
-        val emp = new Employee(id, randomString(), salary)
-        localMap.put(id, emp)
-        allSalaries += salary
+        val emp = Employee.random
+        localMap.put(emp.id, emp)
+        allSalaries += emp.salary
         empCount += 1
       }
       clientMap.putAll(localMap)
     }
     assertEquals(Thousands * 1000, empCount)
-    val localAvg = (allSalaries / empCount).toInt
-    val (avg, ms) = timed {
-      clientMap.map(_.value).map(_.salary.toDouble).mean.await.get.toInt
+    val localAvg = allSalaries / empCount
+    val (avg, avgMs) = timed() {
+      // Deliberately inefficient, testing piped mapping
+      clientMap.map(_.value).map(_.salary).map(_.toLong).mean.await.get
     }
-    println(s"Average salary : $$$avg ($ms ms)")
+    println(s"Average salary : $$$avg")
     assertEquals(localAvg, avg)
-    val (fCount, fCountMs) = timed(clientMap.filterValues(_.salary > 495000).count.await)
-    val (cCount, cCountMs) = timed(clientMap.filter(where("salary") > 495000).count.await)
+    val (mrAvg, mrMs) = timed() {
+      import com.hazelcast.mapreduce.aggregation._
+      val supplySalaryForAll = new Supplier[UUID, Employee, Long] {
+        def apply(entry: Entry[UUID, Employee]): Long = entry.value.salary.toLong
+      }
+      val averageAggr = Aggregations.longAvg.asInstanceOf[Aggregation[UUID, Long, Long]]
+      clientMap.aggregate(supplySalaryForAll, averageAggr)
+    }
+    assertEquals(avg, mrAvg)
+    println(s"Aggregation timings: $avgMs ms (Scala), $mrMs ms (Map/Reduce), factor: ${mrMs / avgMs.toFloat}")
+    val (fCount, fCountMs) = timed()(clientMap.filterValues(_.salary > 495000).count.await) // Function filter
+    val (cCount, cCountMs) = timed()(clientMap.filter(where("salary") > 495000).count.await) // Predicate filter
     println(s"Filter: $fCount employees make more than $$495K ($fCountMs ms)")
-    println(s"Predicate: $cCount employees make more than $$495K ($cCountMs ms)")
-  }
+    println(s"Predicate: $cCount employees make more than $$495K ($cCountMs ms) <- Predicates are faster with indexing.")
 
-  //  @Test @Ignore
-  //  def `let's join maps` {
-  //    val customerMap = {
-  //      val map = getClientMap[CustId, Customer]("customers")
-  //      List("Alice", "Bob", "Carl").foreach { name =>
-  //        val c = new Customer(new CustId(), name)
-  //        map.set(c.id, c)
-  //      }
-  //      map
-  //    }
-  //    val productMap = {
-  //      val map = getClientMap[ProdId, Product]("products")
-  //      List("Aged Cheese, 1 kg" -> 35d, "Dark Chocolate, 250 grams" -> 4.5, "Red Wine, 1 liter" -> 9.75).foreach {
-  //        case (name, price) =>
-  //          val p = new Product(new ProdId(), name, BigDecimal(price))
-  //      }
-  //      map
-  //    }
-  //    val orderId = new OrdId()
-  //    val orderMap = {
-  //      val map = getClientMap[OrdId, Order]("orders")
-  //      val bobId = customerMap.filter(where"name = 'Bob'").fetch().head._1
-  //      val productQtys = productMap.keySet().asScala.zipWithIndex.map {
-  //        case (productId, idx) => productId -> (idx + 1) * 3
-  //      }.toMap
-  //      val order = Order(orderId, productQtys, bobId)
-  //      map.set(order.id, order)
-  //      map
-  //    }
-  //    val (order, customer, products) =
-  //      orderMap.filterKeys(orderId)
-  //        .innerJoinOne(customerMap, o => Some(o.customer))
-  //        .innerJoinMany(productMap, _._1.products.keySet).collectValues {
-  //          case ((order, customer), products) =>
-  //            val prodQty = order.products.toSeq.map {
-  //              case (prodId, qty) => products(prodId) -> qty
-  //            }
-  //            (order, customer, prodQty)
-  //        }.fetch().values.head
-  //    val avgOrderQty = orderMap.mapValues(_.products.map(_._2))
-  //  }
+    val (javaPage, ppTime) = timed() {
+      clientMap.values(20 until 40)(_.salary, reverse = true)
+    }
+    val (scalaPage, scalaTime) = timed() { clientMap.map(_.value).sortBy(_.salary).reverse.drop(20).take(20).fetch().await }
+    println(s"Paging timings: $scalaTime ms (Scala), $ppTime ms (PagingPredicate), factor: ${ppTime / scalaTime.toFloat}")
+    assertEquals(20, javaPage.size)
+    assertEquals(javaPage.size, scalaPage.size)
+    val javaSal = javaPage.map(_.salary).toIndexedSeq
+    val scalaSal = scalaPage.map(_.salary)
+    println(s"First salary: $$${scalaSal(0)} (Scala), $$${javaSal(0)} (Java)")
+    (0 until javaSal.size).foreach { idx =>
+      assertEquals(idx -> javaSal(idx), idx -> scalaSal(idx))
+    }
+  }
 
   @Test
   def median {
@@ -429,19 +425,21 @@ class TestMap {
         }
     }
     val valueSet = values.mode.await
-    val (freq, freqValues) = values.frequency(1).await.head
+    val (freq, freqValues) = values.distribution().map { dist =>
+      dist.groupBy(_._2).mapValues(_.keySet).toSeq.sortBy(_._1).reverseIterator.take(1).next
+    }.await
     assertEquals(localModeValues, valueSet)
     assertTrue(freqValues.nonEmpty)
     assertEquals(localModeFreq, freq)
     assertEquals(localModeValues, freqValues)
-    println(s"Values $freqValues all occurred $freq times")
+    println(s"Value(s) `${freqValues.mkString(",")}` occurred $freq times")
     freqValues.foreach { value =>
       assertEquals(freq, dist(value))
     }
   }
 
   @Test
-  def wordcount {
+  def `wordcount: alice in wonderland` {
     val WordFinder = """(\w|(?:'s)|(?:'t))+""".r
     val aliceChapters = getClientMap[String, String]("alice")
     val aliceSrc = Source.fromInputStream(getClass.getResourceAsStream("/alice.txt"), "UTF-8")
@@ -467,9 +465,64 @@ class TestMap {
       WordFinder.findAllMatchIn(chapter.toLowerCase).map(_.matched).toTraversable
     }
     val expectedTopTen = Map(1615 -> Set("the"), 870 -> Set("and"), 724 -> Set("to"), 627 -> Set("a"), 542 -> Set("i"), 541 -> Set("she"), 538 -> Set("it"), 513 -> Set("of"), 462 -> Set("said"), 411 -> Set("you"))
-    val topTen = words.frequency(top = 10).await
-    assertEquals(expectedTopTen, topTen)
-    println(topTen)
+    val (top10ByCount, countMs) = timed() {
+      val countByWord = words.groupBy().count().await
+      val foo = countByWord.groupBy(_._2)
+      foo.mapValues(_.keySet).toSeq.sortBy(_._1).reverseIterator.take(10).toMap
+    }
+    assertEquals(expectedTopTen, top10ByCount)
+    println(s"Top 10 words took $countMs ms")
+  }
+
+  @Test
+  def `wordcount: flatland` {
+    val flatlandChapters = getClientMap[String, String]("flatland")
+    val flatlandSrc = Source.fromInputStream(getClass.getResourceAsStream("/flatland.txt"), "UTF-8")
+    val sb = new java.lang.StringBuilder
+    var currChapter: String = "PREFACE"
+      def saveChapter() {
+        flatlandChapters.set(currChapter, sb.toString)
+        sb.setLength(0)
+      }
+    flatlandSrc.getLines.map(_.trim).foreach { line =>
+      if (line startsWith "Section ") {
+        saveChapter()
+        currChapter = line
+      } else {
+        sb append line append "\n"
+      }
+    }
+    saveChapter()
+    val tokens = "[_|$#<>\\^=\\[\\]\\*/\\\\,;,.\\-:()?!\"']"
+    val lines = flatlandChapters.map(e => s"${e.key}\n${e.value}").flatMap(_.split("\n+")).filter(s => s.trim.length > 0)
+    val words = lines.flatMap { line =>
+      val cleanLine = line.toLowerCase.replaceAll(tokens, " ")
+      val tokenizer = new StringTokenizer(cleanLine)
+      tokenizer.asScala.map(_.toString.trim).filter(_.length > 0).toSeq
+    }
+    val topTwenty: Map[String, Int] = words.distribution.await.toSeq.sortBy(_._2).reverseIterator.take(20).toMap
+    assertEquals(20, topTwenty.size)
+    // http://www.slideshare.net/andreaiacono/mapreduce-34478449/24
+    assertEquals(2286, topTwenty("the"))
+    assertEquals(1634, topTwenty("of"))
+    assertEquals(1098, topTwenty("and"))
+    assertEquals(1088, topTwenty("to"))
+    assertEquals(936, topTwenty("a"))
+    assertEquals(735, topTwenty("i"))
+    assertEquals(713, topTwenty("in"))
+    assertEquals(499, topTwenty("that"))
+    assertEquals(429, topTwenty("is"))
+    assertEquals(419, topTwenty("you"))
+    assertEquals(334, topTwenty("my"))
+    assertEquals(330, topTwenty("it"))
+    assertEquals(322, topTwenty("as"))
+    assertEquals(317, topTwenty("by"))
+    assertEquals(317, topTwenty("not"))
+    assertEquals(299, topTwenty("or"))
+    assertEquals(279, topTwenty("but"))
+    assertEquals(273, topTwenty("with"))
+    assertEquals(267, topTwenty("for"))
+    assertEquals(252, topTwenty("be"))
   }
 
   @Test
@@ -486,29 +539,46 @@ class TestMap {
     }
     val milanWeather = getClientMap[Date, Weather]()
     milanWeather.putAll(localWeather)
-    val maxByMonthYear = milanWeather.map { entry =>
+    val monthYearMax = milanWeather.map { entry =>
+      val yearMonthFmt = new java.text.SimpleDateFormat("MMyyyy")
       val date = entry.key
-      val yearMonth = (date.getYear + 1900) -> (date.getMonth + 1)
+      val yearMonth = yearMonthFmt.format(date)
       yearMonth -> entry.value.tempMax
-    }.groupBy(_._1, _._2)
-    val (result, ms) = timed { maxByMonthYear.mean().await }
-    println(s"Milan monthly mean max temp: $ms ms")
+    }
+    val byMonthYear = monthYearMax.groupBy(_._1, _._2)
+    val maxMeanByMonth = byMonthYear.mean.await
     val err = 0.005f
-    assertEquals(7.23f, result(2012 -> 2), err)
-    assertEquals(7.2f, result(2013 -> 2), err)
-    assertEquals(7.85f, result(2010 -> 2), err)
-    assertEquals(9.79f, result(2011 -> 2), err)
-    assertEquals(10.74f, result(2013 -> 3), err)
-    assertEquals(13.13f, result(2010 -> 3), err)
-    assertEquals(18.55f, result(2012 -> 3), err)
-    assertEquals(13.74f, result(2011 -> 3), err)
-    assertEquals(9.28f, result(2003 -> 2), err)
-    assertEquals(10.41f, result(2004 -> 2), err)
-    assertEquals(9.15f, result(2005 -> 2), err)
-    assertEquals(8.9f, result(2006 -> 2), err)
-    //    assertEquals(12.34f, result(2000 -> 2), err)
-    //    assertEquals(12.16f, result(2001 -> 2), err)
-    assertEquals(11.84f, result(2002 -> 2), err)
+
+    // http://www.slideshare.net/andreaiacono/mapreduce-34478449/39
+    assertEquals(7.23f, maxMeanByMonth("022012"), err)
+    assertEquals(7.2f, maxMeanByMonth("022013"), err)
+    assertEquals(7.85f, maxMeanByMonth("022010"), err)
+    assertEquals(9.79f, maxMeanByMonth("022011"), err)
+    assertEquals(10.74f, maxMeanByMonth("032013"), err)
+    assertEquals(13.13f, maxMeanByMonth("032010"), err)
+    assertEquals(18.55f, maxMeanByMonth("032012"), err)
+    assertEquals(13.74f, maxMeanByMonth("032011"), err)
+    assertEquals(9.28f, maxMeanByMonth("022003"), err)
+    assertEquals(10.41f, maxMeanByMonth("022004"), err)
+    assertEquals(9.15f, maxMeanByMonth("022005"), err)
+    assertEquals(8.9f, maxMeanByMonth("022006"), err)
+    assertEquals(12.34f, maxMeanByMonth("022000"), err)
+    assertEquals(12.16f, maxMeanByMonth("022001"), err)
+    assertEquals(11.84f, maxMeanByMonth("022002"), err)
+
+    val topTen = maxMeanByMonth.toSeq.sortBy(_._2).reverseIterator.take(10).toIndexedSeq.map {
+      case (my, temp) => my -> (math.round(temp * 100) / 100f)
+    }
+    assertEquals("082003" -> 35.29f, topTen(0))
+    assertEquals("062003" -> 33.04f, topTen(1))
+    assertEquals("072006" -> 32.71f, topTen(2))
+    assertEquals("082001" -> 32.38f, topTen(3))
+    assertEquals("072003" -> 32.04f, topTen(4))
+    assertEquals("072007" -> 31.91f, topTen(5))
+    assertEquals("082012" -> 31.81f, topTen(6))
+    assertEquals("082009" -> 31.68f, topTen(7))
+    assertEquals("072004" -> 31.27f, topTen(8))
+    assertEquals("072005" -> 31.25f, topTen(9))
   }
 
   @Test
@@ -529,22 +599,109 @@ class TestMap {
 
   @Test
   def variance {
-    val dMap = getClientMap[Int, BigDecimal]()
+    val bdMap = getClientMap[Int, BigDecimal]()
     1 to 120 foreach { n =>
-      dMap.set(n, n)
+      bdMap.set(n, n)
     }
-    val variance = dMap.map(_.value).variance().await.get
+    val variance = bdMap.map(_.value).variance(_ - 1).await.get
     assertEquals(BigDecimal(1210), variance)
-    val grouped = dMap.map(_.value).groupBy { n =>
+    val dVar = bdMap.map(_.value.doubleValue).variance(_ - 1).await.get
+    assertEquals(1210d, dVar, 0.0001)
+    val grouped = bdMap.map(_.value).groupBy { n =>
       if (n <= 30) "a"
       else if (n <= 60) "b"
       else if (n <= 90) "c"
       else "d"
-    }.variance().await
+    }.variance(_ - 1).await
     assertEquals(4, grouped.size)
     grouped.values.foreach { variance =>
       assertEquals(BigDecimal(77.5d), variance.setScale(1, HALF_EVEN))
     }
+
+    val dMap = getClientMap[String, Double]()
+    val marks = Seq(2, 4, 4, 4, 5, 5, 7, 9).map(_.toDouble)
+    val keys = marks.zipWithIndex.foldLeft(Set.empty[String]) {
+      case (keys, (m, idx)) =>
+        val key = s"s$idx"
+        dMap.set(key, m)
+        keys + key
+    }
+    val err = 0.000005d
+    val meanDbl = dMap.filterKeys(keys).map(_.value).mean.await.get
+    val meanBD = dMap.filterKeys(keys).map(e => BigDecimal(e.value)).mean.await.get
+    assertEquals(5d, meanDbl, err)
+    assertEquals(BigDecimal("5"), meanBD)
+    val stdDev = dMap.filterKeys(keys).map(_.value).variance().await.map(math.sqrt).get
+    assertEquals(2d, stdDev, err)
+
+    dMap.set("foo", 5d)
+    val varianceSingleEntry = dMap.filterKeys("foo").map(_.value).variance(_ - 1).await.get
+    assertEquals(0d, varianceSingleEntry, err)
+    val varianceNoEntry = dMap.filterKeys("bar").map(_.value).variance().await
+    assertEquals(None, varianceNoEntry)
+
+    val localValues = (1 to 10000).map(_ => Random.nextInt(90) + (Random.nextDouble + 10d)).map(BigDecimal(_))
+    val m = localValues.sum / localValues.size
+    val localVariance = localValues.map(n => (n - m) * (n - m)).sum / localValues.size
+    val numMap = localValues.foldLeft(getClientMap[UUID, BigDecimal]()) {
+      case (map, bd) => map.set(UUID.randomUUID, bd); map
+    }
+    val hzVarianceDbl = numMap.map(_.value.toDouble).variance().await.get
+    val hzVarianceBD = numMap.map(_.value).variance().await.get
+    assertEquals(localVariance, hzVarianceBD)
+    assertEquals(localVariance.toDouble, hzVarianceDbl, 0.00001)
   }
 
+  @Test
+  def `sorted dds` {
+    val mymap = getClientMap[String, Int]()
+    ('a' to 'z') foreach { c =>
+      mymap.set(c.toString, c - 'a')
+    }
+    val pageSize = 3
+    val descStrings = mymap.map(_.key.toUpperCase).sorted.reverse
+      def skipPages(p: Int) = p * pageSize
+    val descStringsP1 = descStrings.take(pageSize).fetch().await
+    val descStringsP2 = descStrings.drop(skipPages(1)).take(pageSize).fetch().await
+    assertEquals(IndexedSeq("Z", "Y", "X"), descStringsP1)
+    assertEquals(IndexedSeq("W", "V", "U"), descStringsP2)
+    val descInts = mymap.map(_.value).sorted.reverse
+    val descIntsP1 = descInts.drop(skipPages(0)).take(pageSize).fetch().await
+    assertEquals(IndexedSeq(25, 24, 23), descIntsP1)
+    val descIntsMean = descInts.take(10).mean().await.get
+    assertEquals((25 + 24 + 23 + 22 + 21 + 20 + 19 + 18 + 17 + 16) / 10, descIntsMean)
+  }
+
+  @Test
+  def paging {
+    import java.util.Comparator
+    import com.hazelcast.query.PagingPredicate
+
+    val employees = (1 to 1000).foldLeft(getClientMap[UUID, Employee]()) {
+      case (employees, _) =>
+        val emp = Employee.random
+        employees.set(emp.id, emp)
+        employees
+    }
+    val wellPaid = where("salary") >= 400000
+    type E = Entry[UUID, Employee]
+    val asc = new Comparator[E] with Serializable {
+      def compare(a: E, b: E): Int = a.value.salary.compareTo(b.value.salary)
+    }.asInstanceOf[Comparator[Entry[_, _]]]
+    val desc = java.util.Collections.reverseOrder(asc)
+    val ppAsc = new PagingPredicate(wellPaid, asc, 10)
+    ppAsc.setPage(4)
+    val fromJavaAsc = employees.values(ppAsc).asScala.map(_.salary)
+    assertEquals(10, fromJavaAsc.size)
+    val ppDesc = new PagingPredicate(wellPaid, desc, 10)
+    ppDesc.setPage(3)
+    val fromJavaDesc = employees.values(ppDesc).asScala.map(_.salary)
+    assertEquals(10, fromJavaDesc.size)
+    val fromScalaAsc = employees.values(40 until 50, wellPaid)(_.salary).map(_.salary)
+    assertEquals(10, fromScalaAsc.size)
+    val fromScalaDesc = employees.values(30 until 40, wellPaid)(_.salary, reverse = true).map(_.salary)
+    assertEquals(10, fromScalaDesc.size)
+    assertEquals(fromJavaAsc, fromScalaAsc)
+    assertEquals(fromJavaDesc, fromScalaDesc)
+  }
 }
