@@ -2,7 +2,7 @@ package com.hazelcast.Scala.serialization
 
 import java.io.ByteArrayOutputStream
 
-final class ByteArrayClassLoader(val className: String, val bytes: Array[Byte], fallback: Option[ClassLoader]) extends ClassLoader {
+private[serialization] final class ByteArrayClassLoader(val className: String, val bytes: Array[Byte], fallback: Option[ClassLoader]) extends ClassLoader {
   def this(className: String, bytes: Array[Byte], fallback: ClassLoader) =
     this(className, bytes, Option(fallback))
   def this(className: String, bytes: Array[Byte]) =
@@ -12,31 +12,21 @@ final class ByteArrayClassLoader(val className: String, val bytes: Array[Byte], 
   protected override def findClass(name: String): Class[_] = {
     if (name == className) cls
     else (fallback getOrElse getParent).loadClass(name)
-    //  private def makeAccessible(cls: Class[_], seen: Set[Class[_]] = Set.empty): Set[Class[_]] = {
-    //    if (cls != null && !seen(cls)) {
-    //      cls.getDeclaredFields.foreach(_.setAccessible(true))
-    //      cls.getDeclaredMethods.foreach(_.setAccessible(true))
-    //      cls.getDeclaredConstructors.foreach(_.setAccessible(true))
-    //      val seenMore = seen + cls
-    //      //        cls.getDeclaredClasses.foldLeft(seen + cls) {
-    //      //        case (seen, cls) => makeAccessible(cls, seen)
-    //      //      }
-    //      makeAccessible(cls.getSuperclass, seenMore)
-    //    } else seen
   }
 }
 object ByteArrayClassLoader {
   def unapply(cl: ByteArrayClassLoader): (String, Array[Byte]) = cl.className -> cl.bytes
-  def apply(cls: Class[_]): ByteArrayClassLoader = apply(cls.getName)
-  private def apply(name: String): ByteArrayClassLoader = {
-    val resourceName = "/" + name.replace('.', '/') + ".class"
-    val is = getClass.getResourceAsStream(resourceName)
+  def apply(cls: Class[_]): ByteArrayClassLoader = {
+    val name = cls.getName
+    val resourceName = s"/${name.replace('.', '/')}.class"
+    val is = cls.getResourceAsStream(resourceName)
     try {
-      val os = new ByteArrayOutputStream(4096)
-      var b = is.read()
-      while (b != -1) {
-        os.write(b)
-        b = is.read()
+      val arr = new Array[Byte](4096)
+      val os = new ByteArrayOutputStream(arr.length)
+      var len = is.read(arr)
+      while (len != -1) {
+        if (len != 0) os.write(arr, 0, len)
+        len = is.read(arr)
       }
       new ByteArrayClassLoader(name, os.toByteArray)
     } finally {
