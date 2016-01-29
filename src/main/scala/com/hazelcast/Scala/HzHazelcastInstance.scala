@@ -3,30 +3,20 @@ package com.hazelcast.Scala
 import java.util.concurrent.TimeUnit
 
 import scala.collection.concurrent.TrieMap
+import scala.concurrent.Future
 import scala.concurrent.duration.FiniteDuration
-import scala.reflect.ClassTag
-import scala.reflect.classTag
+import scala.reflect.{ ClassTag, classTag }
 import scala.util.Try
 import scala.util.control.NonFatal
 
 import com.hazelcast.cache.ICache
 import com.hazelcast.cache.impl.HazelcastServerCachingProvider
 import com.hazelcast.client.cache.impl.HazelcastClientCachingProvider
-import com.hazelcast.core.DistributedObjectEvent
-import com.hazelcast.core.DistributedObjectListener
-import com.hazelcast.core.HazelcastInstance
-import com.hazelcast.core.IExecutorService
-import com.hazelcast.core.LifecycleEvent
+import com.hazelcast.core._
 import com.hazelcast.core.LifecycleEvent.LifecycleState
-import com.hazelcast.core.LifecycleListener
-import com.hazelcast.core.Member
-import com.hazelcast.core.MigrationEvent
-import com.hazelcast.core.MigrationListener
-import com.hazelcast.core.Partition
 import com.hazelcast.instance.GroupProperty
 import com.hazelcast.instance.HazelcastProperty
 import com.hazelcast.partition.PartitionLostEvent
-import com.hazelcast.partition.PartitionLostListener
 import com.hazelcast.transaction.TransactionOptions
 import com.hazelcast.transaction.TransactionOptions.TransactionType
 import com.hazelcast.transaction.TransactionalTask
@@ -47,8 +37,10 @@ private object HzHazelcastInstance {
   private val CacheManagers = new TrieMap[HazelcastInstance, CacheManager]
 }
 
-final class HzHazelcastInstance(private val hz: HazelcastInstance) extends AnyVal {
+final class HzHazelcastInstance(hz: HazelcastInstance) extends MemberEventSubscription {
   import HzHazelcastInstance._
+
+  type ESR = ListenerRegistration
 
   private[Scala] def groupByPartition[K](keys: collection.Set[K]): Map[Partition, collection.Set[K]] = {
     val ps = hz.getPartitionService
@@ -61,49 +53,50 @@ final class HzHazelcastInstance(private val hz: HazelcastInstance) extends AnyVa
 
   private[Scala] def queryPool(): IExecutorService = hz.getExecutorService("hz:query")
 
-  def onDistributedObjectEvent(listener: PartialFunction[DistributedObjectEvent, Unit]): ListenerRegistration = {
-    val regId = hz addDistributedObjectListener new DistributedObjectListener {
-      def distributedObjectCreated(evt: DistributedObjectEvent) = hear(evt)
-      def distributedObjectDestroyed(evt: DistributedObjectEvent) = hear(evt)
-      @inline def hear(evt: DistributedObjectEvent) = if (listener isDefinedAt evt) listener(evt)
-    }
+  def onDistributedObjectEvent(listener: PartialFunction[DistributedObjectChange, Unit]): ESR = {
+    val regId = hz addDistributedObjectListener asDistributedObjectListener(listener)
     new ListenerRegistration {
       def cancel() = hz removeDistributedObjectListener regId
     }
   }
 
-  def onLifecycleStateChange(listener: PartialFunction[LifecycleState, Unit]): ListenerRegistration = {
+  def onLifecycleStateChange(listener: PartialFunction[LifecycleState, Unit]): ESR = {
     val service = hz.getLifecycleService
-    val regId = service addLifecycleListener new LifecycleListener {
-      def stateChanged(evt: LifecycleEvent): Unit =
-        if (listener isDefinedAt evt.getState) listener(evt.getState)
-    }
+    val regId = service addLifecycleListener asLifecycleListener(listener)
     new ListenerRegistration {
       def cancel() = service removeLifecycleListener regId
     }
   }
 
-  def onPartitionLost(listener: PartitionLostEvent => Unit): ListenerRegistration = {
+  def onPartitionLost(listener: PartitionLostEvent => Unit): ESR = {
     val service = hz.getPartitionService
-    val regId = service addPartitionLostListener new PartitionLostListener {
-      def partitionLost(evt: PartitionLostEvent): Unit = listener(evt)
-    }
+    val regId = service addPartitionLostListener asPartitionLostListener(listener)
     new ListenerRegistration {
       def cancel(): Unit = service removePartitionLostListener regId
     }
   }
-  def onMigration(listener: PartialFunction[MigrationEvent, Unit]): ListenerRegistration = {
+  def onMigration(listener: PartialFunction[MigrationEvent, Unit]): ESR = {
     val service = hz.getPartitionService
-    val regId = service addMigrationListener new MigrationListener {
-      def migrationCompleted(evt: MigrationEvent) = hear(evt)
-      def migrationFailed(evt: MigrationEvent) = hear(evt)
-      def migrationStarted(evt: MigrationEvent) = hear(evt)
-      @inline def hear(evt: MigrationEvent): Unit =
-        if (listener isDefinedAt evt) listener(evt)
-    }
+    val regId = service addMigrationListener asMigrationListener(listener)
     new ListenerRegistration {
       def cancel(): Unit = service removeMigrationListener regId
     }
+  }
+  def onClient(listener: PartialFunction[ClientEvent, Unit]): ESR = {
+    val service = hz.getClientService
+    val regId = service addClientListener asClientListener(listener)
+    new ListenerRegistration {
+      def cancel(): Unit = service removeClientListener regId
+    }
+  }
+  type MER = (ESR, Future[InitialMembershipEvent])
+  def onMemberChange(listener: PartialFunction[MemberEvent, Unit]): MER = {
+    val cluster = hz.getCluster
+    val (future, mbrListener) = asMembershipListener(listener)
+    val regId = cluster addMembershipListener mbrListener
+    new ListenerRegistration {
+      def cancel(): Unit = cluster removeMembershipListener regId
+    } -> future
   }
 
   /**

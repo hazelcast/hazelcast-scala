@@ -114,16 +114,9 @@ package object Scala extends HighPriorityImplicits {
   }
 
   @inline implicit def mbrConf2props(conf: config.Config) = new HzMemberProperties(conf)
-  implicit class HzConfig(private val conf: config.Config) extends AnyVal {
-    def userCtx: UserContext = new UserContext(conf.getUserContext)
-    def newInstance(): HazelcastInstance = Hazelcast.newHazelcastInstance(conf)
-    def getInstance(): HazelcastInstance = Hazelcast.getOrCreateHazelcastInstance(conf)
-  }
   @inline implicit def clientConf2props(conf: client.config.ClientConfig) = new HzClientProperties(conf)
-  implicit class HzClientConfig(private val conf: client.config.ClientConfig) extends AnyVal {
-    def newClient(): HazelcastInstance = HazelcastClient.newHazelcastClient(conf)
-  }
-
+  @inline implicit def mbrConf2scala(conf: config.Config) = new HzConfig(conf)
+  @inline implicit def clientConf2scala(conf: client.config.ClientConfig) = new HzClientConfig(conf)
   @inline implicit def rb2scala[E](rb: Ringbuffer[E]) = new HzRingBuffer(rb)
 
   implicit class HzInt(private val i: Int) extends AnyVal {
