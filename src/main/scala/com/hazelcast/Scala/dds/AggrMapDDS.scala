@@ -100,6 +100,10 @@ private object AggrMapDDS {
     aggr: Aggregator[E, _]): Iterable[Future[aggr.W]] = {
 
     es.submitInstanceAware(submitTo) { hz =>
+      aggr match {
+        case aggr: HazelcastInstanceAware => aggr.setHazelcastInstance(hz)
+        case _ => // Ignore
+      }
       val folded = processLocalData[K, E, aggr.Q](hz, mapName, keysByMemberId, predicate, pipe, aggr)
       aggr.remoteFinalize(folded)
     }.values
