@@ -18,17 +18,17 @@ class HzClientConfig(conf: ClientConfig) extends EventSubscription {
 
   def newClient(): HazelcastInstance = HazelcastClient.newHazelcastClient(conf)
 
-  def onLifecycleStateChange(runOn: ExecutionContext)(listener: PartialFunction[LifecycleState, Unit]): ESR =
+  def onLifecycleStateChange(runOn: ExecutionContext = null)(listener: PartialFunction[LifecycleState, Unit]): ESR =
     conf addListenerConfig new ListenerConfig(asLifecycleListener(listener, Option(runOn)))
-  def onDistributedObjectEvent(runOn: ExecutionContext)(listener: PartialFunction[DistributedObjectChange, Unit]): ESR =
+  def onDistributedObjectEvent(runOn: ExecutionContext = null)(listener: PartialFunction[DistributedObjectChange, Unit]): ESR =
     conf addListenerConfig new ListenerConfig(asDistributedObjectListener(listener, Option(runOn)))
-  def onPartitionLost(runOn: ExecutionContext)(listener: PartitionLostEvent => Unit): ESR =
+  def onPartitionLost(runOn: ExecutionContext = null)(listener: PartitionLostEvent => Unit): ESR =
     conf addListenerConfig new ListenerConfig(asPartitionLostListener(listener, Option(runOn)))
-  def onMigration(runOn: ExecutionContext)(listener: PartialFunction[MigrationEvent, Unit]): ESR =
+  def onMigration(runOn: ExecutionContext = null)(listener: PartialFunction[MigrationEvent, Unit]): ESR =
     conf addListenerConfig new ListenerConfig(asMigrationListener(listener, Option(runOn)))
 
   type MER = Future[InitialMembershipEvent]
-  def onMemberChange(runOn: ExecutionContext)(listener: PartialFunction[MemberEvent, Unit]): MER = {
+  def onMemberChange(runOn: ExecutionContext = null)(listener: PartialFunction[MemberEvent, Unit]): MER = {
     val (future, mbrListener) = asMembershipListener(listener, Option(runOn))
     conf addListenerConfig new ListenerConfig(mbrListener)
     future

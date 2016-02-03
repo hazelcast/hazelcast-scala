@@ -51,14 +51,14 @@ final class HzHazelcastInstance(hz: HazelcastInstance) extends MemberEventSubscr
 
   private[Scala] def queryPool(): IExecutorService = hz.getExecutorService("hz:query")
 
-  def onDistributedObjectEvent(runOn: ExecutionContext)(listener: PartialFunction[DistributedObjectChange, Unit]): ESR = {
+  def onDistributedObjectEvent(runOn: ExecutionContext = null)(listener: PartialFunction[DistributedObjectChange, Unit]): ESR = {
     val regId = hz addDistributedObjectListener asDistributedObjectListener(listener, Option(runOn))
     new ListenerRegistration {
       def cancel() = hz removeDistributedObjectListener regId
     }
   }
 
-  def onLifecycleStateChange(runOn: ExecutionContext)(listener: PartialFunction[LifecycleState, Unit]): ESR = {
+  def onLifecycleStateChange(runOn: ExecutionContext = null)(listener: PartialFunction[LifecycleState, Unit]): ESR = {
     val service = hz.getLifecycleService
     val regId = service addLifecycleListener asLifecycleListener(listener, Option(runOn))
     new ListenerRegistration {
@@ -66,21 +66,21 @@ final class HzHazelcastInstance(hz: HazelcastInstance) extends MemberEventSubscr
     }
   }
 
-  def onPartitionLost(runOn: ExecutionContext)(listener: PartitionLostEvent => Unit): ESR = {
+  def onPartitionLost(runOn: ExecutionContext = null)(listener: PartitionLostEvent => Unit): ESR = {
     val service = hz.getPartitionService
     val regId = service addPartitionLostListener asPartitionLostListener(listener, Option(runOn))
     new ListenerRegistration {
       def cancel(): Unit = service removePartitionLostListener regId
     }
   }
-  def onMigration(runOn: ExecutionContext)(listener: PartialFunction[MigrationEvent, Unit]): ESR = {
+  def onMigration(runOn: ExecutionContext = null)(listener: PartialFunction[MigrationEvent, Unit]): ESR = {
     val service = hz.getPartitionService
     val regId = service addMigrationListener asMigrationListener(listener, Option(runOn))
     new ListenerRegistration {
       def cancel(): Unit = service removeMigrationListener regId
     }
   }
-  def onClient(runOn: ExecutionContext)(listener: PartialFunction[ClientEvent, Unit]): ESR = {
+  def onClient(runOn: ExecutionContext = null)(listener: PartialFunction[ClientEvent, Unit]): ESR = {
     val service = hz.getClientService
     val regId = service addClientListener asClientListener(listener, Option(runOn))
     new ListenerRegistration {
@@ -88,7 +88,7 @@ final class HzHazelcastInstance(hz: HazelcastInstance) extends MemberEventSubscr
     }
   }
   type MER = (ESR, Future[InitialMembershipEvent])
-  def onMemberChange(runOn: ExecutionContext)(listener: PartialFunction[MemberEvent, Unit]): MER = {
+  def onMemberChange(runOn: ExecutionContext = null)(listener: PartialFunction[MemberEvent, Unit]): MER = {
     val cluster = hz.getCluster
     val (future, mbrListener) = asMembershipListener(listener, Option(runOn))
     val regId = cluster addMembershipListener mbrListener
