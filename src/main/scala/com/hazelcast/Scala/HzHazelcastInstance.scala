@@ -1,14 +1,12 @@
 package com.hazelcast.Scala
 
 import java.util.concurrent.TimeUnit
-
 import scala.collection.concurrent.TrieMap
 import scala.concurrent.Future
 import scala.concurrent.duration.FiniteDuration
 import scala.reflect.{ ClassTag, classTag }
 import scala.util.Try
 import scala.util.control.NonFatal
-
 import com.hazelcast.cache.ICache
 import com.hazelcast.cache.impl.HazelcastServerCachingProvider
 import com.hazelcast.client.cache.impl.HazelcastClientCachingProvider
@@ -21,10 +19,10 @@ import com.hazelcast.transaction.TransactionOptions
 import com.hazelcast.transaction.TransactionOptions.TransactionType
 import com.hazelcast.transaction.TransactionalTask
 import com.hazelcast.transaction.TransactionalTaskContext
-
 import javax.cache.CacheManager
 import javax.transaction.TransactionManager
 import javax.transaction.xa.XAResource
+import scala.concurrent.ExecutionContext
 
 private object HzHazelcastInstance {
   private[this] val DefaultTxnOpts = TransactionOptions.getDefault
@@ -53,46 +51,46 @@ final class HzHazelcastInstance(hz: HazelcastInstance) extends MemberEventSubscr
 
   private[Scala] def queryPool(): IExecutorService = hz.getExecutorService("hz:query")
 
-  def onDistributedObjectEvent(listener: PartialFunction[DistributedObjectChange, Unit]): ESR = {
-    val regId = hz addDistributedObjectListener asDistributedObjectListener(listener)
+  def onDistributedObjectEvent(runOn: ExecutionContext)(listener: PartialFunction[DistributedObjectChange, Unit]): ESR = {
+    val regId = hz addDistributedObjectListener asDistributedObjectListener(listener, Option(runOn))
     new ListenerRegistration {
       def cancel() = hz removeDistributedObjectListener regId
     }
   }
 
-  def onLifecycleStateChange(listener: PartialFunction[LifecycleState, Unit]): ESR = {
+  def onLifecycleStateChange(runOn: ExecutionContext)(listener: PartialFunction[LifecycleState, Unit]): ESR = {
     val service = hz.getLifecycleService
-    val regId = service addLifecycleListener asLifecycleListener(listener)
+    val regId = service addLifecycleListener asLifecycleListener(listener, Option(runOn))
     new ListenerRegistration {
       def cancel() = service removeLifecycleListener regId
     }
   }
 
-  def onPartitionLost(listener: PartitionLostEvent => Unit): ESR = {
+  def onPartitionLost(runOn: ExecutionContext)(listener: PartitionLostEvent => Unit): ESR = {
     val service = hz.getPartitionService
-    val regId = service addPartitionLostListener asPartitionLostListener(listener)
+    val regId = service addPartitionLostListener asPartitionLostListener(listener, Option(runOn))
     new ListenerRegistration {
       def cancel(): Unit = service removePartitionLostListener regId
     }
   }
-  def onMigration(listener: PartialFunction[MigrationEvent, Unit]): ESR = {
+  def onMigration(runOn: ExecutionContext)(listener: PartialFunction[MigrationEvent, Unit]): ESR = {
     val service = hz.getPartitionService
-    val regId = service addMigrationListener asMigrationListener(listener)
+    val regId = service addMigrationListener asMigrationListener(listener, Option(runOn))
     new ListenerRegistration {
       def cancel(): Unit = service removeMigrationListener regId
     }
   }
-  def onClient(listener: PartialFunction[ClientEvent, Unit]): ESR = {
+  def onClient(runOn: ExecutionContext)(listener: PartialFunction[ClientEvent, Unit]): ESR = {
     val service = hz.getClientService
-    val regId = service addClientListener asClientListener(listener)
+    val regId = service addClientListener asClientListener(listener, Option(runOn))
     new ListenerRegistration {
       def cancel(): Unit = service removeClientListener regId
     }
   }
   type MER = (ESR, Future[InitialMembershipEvent])
-  def onMemberChange(listener: PartialFunction[MemberEvent, Unit]): MER = {
+  def onMemberChange(runOn: ExecutionContext)(listener: PartialFunction[MemberEvent, Unit]): MER = {
     val cluster = hz.getCluster
-    val (future, mbrListener) = asMembershipListener(listener)
+    val (future, mbrListener) = asMembershipListener(listener, Option(runOn))
     val regId = cluster addMembershipListener mbrListener
     new ListenerRegistration {
       def cancel(): Unit = cluster removeMembershipListener regId
@@ -208,7 +206,7 @@ final class HzHazelcastInstance(hz: HazelcastInstance) extends MemberEventSubscr
     val mgr = CacheManagers.get(hz) getOrElse {
       val mgr = getCacheProvider(name, entryType).getCacheManager
       CacheManagers.putIfAbsent(hz, mgr) getOrElse {
-        onLifecycleStateChange {
+        onLifecycleStateChange() {
           case LifecycleState.SHUTDOWN => CacheManagers.remove(hz)
         }
         mgr

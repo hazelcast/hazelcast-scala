@@ -18,22 +18,22 @@ import com.hazelcast.core.MemberAttributeEvent
 import com.hazelcast.core.InitialMembershipEvent
 import scala.concurrent.Future
 import scala.concurrent.Promise
+import scala.concurrent.ExecutionContext
 
 private[Scala] trait EventSubscription {
   type ESR
   type MER
 
-  def onLifecycleStateChange(listener: PartialFunction[LifecycleState, Unit]): ESR
-  def onDistributedObjectEvent(listener: PartialFunction[DistributedObjectChange, Unit]): ESR
-  def onPartitionLost(listener: PartitionLostEvent => Unit): ESR
-  def onMigration(listener: PartialFunction[MigrationEvent, Unit]): ESR
-  def onMemberChange(listener: PartialFunction[MemberEvent, Unit]): MER
+  def onLifecycleStateChange(runOn: ExecutionContext = null)(listener: PartialFunction[LifecycleState, Unit]): ESR
+  def onDistributedObjectEvent(runOn: ExecutionContext = null)(listener: PartialFunction[DistributedObjectChange, Unit]): ESR
+  def onPartitionLost(runOn: ExecutionContext = null)(listener: PartitionLostEvent => Unit): ESR
+  def onMigration(runOn: ExecutionContext = null)(listener: PartialFunction[MigrationEvent, Unit]): ESR
+  def onMemberChange(runOn: ExecutionContext = null)(listener: PartialFunction[MemberEvent, Unit]): MER
 
-  protected def asLifecycleListener(listener: PartialFunction[LifecycleState, Unit]) = new LifecycleListener {
-    def stateChanged(evt: LifecycleEvent): Unit =
-      if (listener isDefinedAt evt.getState) listener(evt.getState)
+  protected def asLifecycleListener(listener: PartialFunction[LifecycleState, Unit], ec: Option[ExecutionContext]) = new PfProxy(listener, ec) with LifecycleListener {
+    def stateChanged(evt: LifecycleEvent): Unit = invokeWith(evt.getState)
   }
-  protected def asDistributedObjectListener(listener: PartialFunction[DistributedObjectChange, Unit]) = new DistributedObjectListener {
+  protected def asDistributedObjectListener(listener: PartialFunction[DistributedObjectChange, Unit], ec: Option[ExecutionContext]) = new PfProxy(listener, ec) with DistributedObjectListener {
     def distributedObjectCreated(evt: DistributedObjectEvent) = hear(evt)
     def distributedObjectDestroyed(evt: DistributedObjectEvent) = hear(evt)
     @inline def hear(evt: DistributedObjectEvent) = {
@@ -42,29 +42,27 @@ private[Scala] trait EventSubscription {
         case CREATED => DistributedObjectCreated(evt.getObjectName.toString, evt.getDistributedObject)
         case DESTROYED => DistributedObjectDestroyed(evt.getObjectName.toString, evt.getServiceName)
       }
-      if (listener isDefinedAt event) listener(event)
+      invokeWith(event)
     }
 
   }
-  protected def asPartitionLostListener(listener: PartitionLostEvent => Unit) = new PartitionLostListener {
-    def partitionLost(evt: PartitionLostEvent): Unit = listener(evt)
+  protected def asPartitionLostListener(listener: PartitionLostEvent => Unit, ec: Option[ExecutionContext]) = new PfProxy(listener, ec) with PartitionLostListener {
+    def partitionLost(evt: PartitionLostEvent): Unit = invokeWith(evt)
   }
 
-  protected def asMigrationListener(listener: PartialFunction[MigrationEvent, Unit]) = new MigrationListener {
-    def migrationCompleted(evt: MigrationEvent) = hear(evt)
-    def migrationFailed(evt: MigrationEvent) = hear(evt)
-    def migrationStarted(evt: MigrationEvent) = hear(evt)
-    @inline def hear(evt: MigrationEvent): Unit =
-      if (listener isDefinedAt evt) listener(evt)
+  protected def asMigrationListener(listener: PartialFunction[MigrationEvent, Unit], ec: Option[ExecutionContext]) = new PfProxy(listener, ec) with MigrationListener {
+    def migrationCompleted(evt: MigrationEvent) = invokeWith(evt)
+    def migrationFailed(evt: MigrationEvent) = invokeWith(evt)
+    def migrationStarted(evt: MigrationEvent) = invokeWith(evt)
   }
 
-  protected def asMembershipListener(listener: PartialFunction[MemberEvent, Unit]): (Future[InitialMembershipEvent], InitialMembershipListener) = {
+  protected def asMembershipListener(listener: PartialFunction[MemberEvent, Unit], ec: Option[ExecutionContext]): (Future[InitialMembershipEvent], InitialMembershipListener) = {
     import com.hazelcast.cluster.MemberAttributeOperationType._
     import MembershipEvent._
     import collection.JavaConverters._
 
     val promise = Promise[InitialMembershipEvent]
-    promise.future -> new InitialMembershipListener {
+    promise.future -> new PfProxy(listener, ec) with InitialMembershipListener {
       def init(evt: InitialMembershipEvent) = promise success evt
       def memberAdded(evt: MembershipEvent) = hear(evt)
       def memberRemoved(evt: MembershipEvent) = hear(evt)
@@ -76,7 +74,7 @@ private[Scala] trait EventSubscription {
           case evt: MembershipEvent if evt.getEventType == MEMBER_ADDED => MemberAdded(evt.getMember, evt.getMembers.asScala)(evt.getCluster)
           case evt: MembershipEvent if evt.getEventType == MEMBER_REMOVED => MemberRemoved(evt.getMember, evt.getMembers.asScala)(evt.getCluster)
         }
-        if (listener.isDefinedAt(event)) listener(event)
+        invokeWith(event)
       }
     }
   }
@@ -85,17 +83,11 @@ private[Scala] trait EventSubscription {
 
 private[Scala] trait MemberEventSubscription extends EventSubscription {
 
-  def onClient(listener: PartialFunction[ClientEvent, Unit]): ESR
+  def onClient(runOn: ExecutionContext = null)(listener: PartialFunction[ClientEvent, Unit]): ESR
 
-  protected def asClientListener(listener: PartialFunction[ClientEvent, Unit]) = new ClientListener {
-    def clientConnected(client: Client) {
-      val evt = new ClientConnected(client)
-      if (listener isDefinedAt evt) listener(evt)
-    }
-    def clientDisconnected(client: Client) {
-      val evt = new ClientDisconnected(client)
-      if (listener isDefinedAt evt) listener(evt)
-    }
+  protected def asClientListener(listener: PartialFunction[ClientEvent, Unit], ec: Option[ExecutionContext]) = new PfProxy(listener, ec) with ClientListener {
+    def clientConnected(client: Client) = invokeWith(new ClientConnected(client))
+    def clientDisconnected(client: Client) = invokeWith(new ClientDisconnected(client))
   }
 
 }

@@ -4,6 +4,7 @@ import com.hazelcast.Scala._
 import java.util.Map.Entry
 import com.hazelcast.query.Predicate
 import com.hazelcast.query.TruePredicate
+import scala.concurrent.ExecutionContext
 
 class EntryMapDDS[K, V](private val dds: MapDDS[K, V, Entry[K, V]]) extends AnyVal {
   def filterKeys(key: K, others: K*): DDS[Entry[K, V]] = filterKeys((key +: others).toSet)
@@ -45,10 +46,10 @@ class EntryMapDDS[K, V](private val dds: MapDDS[K, V, Entry[K, V]]) extends AnyV
     new MapDDS(dds.imap, dds.predicate, dds.keySet, Some(pipe))
   }
 
-  def onKeyEvents(localOnly: Boolean = false)(pf: PartialFunction[KeyEvent[K], Unit]): ListenerRegistration =
-    subscribeEntries(new KeyListener(pf), localOnly, includeValue = false)
-  def onEntryEvents(localOnly: Boolean = false)(pf: PartialFunction[EntryEvent[K, V], Unit]): ListenerRegistration =
-    subscribeEntries(new EntryListener(pf), localOnly, includeValue = true)
+  def onKeyEvents(localOnly: Boolean = false, runOn: ExecutionContext = null)(pf: PartialFunction[KeyEvent[K], Unit]): ListenerRegistration =
+    subscribeEntries(new KeyListener(pf, Option(runOn)), localOnly, includeValue = false)
+  def onEntryEvents(localOnly: Boolean = false, runOn: ExecutionContext = null)(pf: PartialFunction[EntryEvent[K, V], Unit]): ListenerRegistration =
+    subscribeEntries(new EntryListener(pf, Option(runOn)), localOnly, includeValue = true)
 
   private def subscribeEntries(
     listener: com.hazelcast.map.listener.MapListener,

@@ -35,7 +35,7 @@ class TestTopic {
     val memberFoo = hz(0).getTopic[Int]("foo")
     assertTrue(Try(memberFoo.onMessage()(println(_))).isFailure)
 
-    val registration = memberFoo.onMessage { msg =>
+    val registration = memberFoo.onMessage() { msg =>
       val n = msg.get
       for (_ <- 1 to n) cdl.countDown()
     }
@@ -49,7 +49,7 @@ class TestTopic {
     val messages = Seq("a", "b", "c")
     val cdl = new CountDownLatch(messages.length)
     val rTopic = client.getReliableTopic[String]("rTopic")
-    val reg = rTopic.onMessage() {
+    val reg = rTopic.onSeqMessage() {
       case (seq, msg) =>
         assertEquals(messages.length - cdl.getCount: Long, seq)
         assertEquals(messages(seq.toInt), msg.get)
@@ -65,7 +65,7 @@ class TestTopic {
     val cdl = new CountDownLatch(shortRBCapacity)
     val rTopic = client.getReliableTopic[String](shortRB)
     messages.foreach(rTopic.publish)
-    val reg = rTopic.onMessage(startFrom = 0, gapTolerant = true) {
+    val reg = rTopic.onSeqMessage(startFrom = 0, gapTolerant = true) {
       case (seq, msg) =>
         assertEquals(messages.length - cdl.getCount: Long, seq)
         assertEquals(messages(seq.toInt), msg.get)

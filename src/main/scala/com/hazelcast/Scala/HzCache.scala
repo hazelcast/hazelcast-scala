@@ -7,6 +7,7 @@ import com.hazelcast.cache
 import javax.cache.processor
 import com.hazelcast.cache.impl.event.CachePartitionLostEvent
 import com.hazelcast.cache.impl.event.CachePartitionLostListener
+import scala.concurrent.ExecutionContext
 
 final class HzCache[K, V](private val icache: cache.ICache[K, V]) extends AnyVal {
 
@@ -53,10 +54,9 @@ final class HzCache[K, V](private val icache: cache.ICache[K, V]) extends AnyVal
     }
     icache.invokeAll(keys.asJava, ep, args.toArray).asScala.mapValues(_.get)
   }
-  def onPartitionLost(listener: PartialFunction[CachePartitionLostEvent, Unit]): ListenerRegistration = {
-    val regId = icache addPartitionLostListener new CachePartitionLostListener {
-      def partitionLost(evt: CachePartitionLostEvent) =
-        if (listener isDefinedAt evt) listener(evt)
+  def onPartitionLost(runOn: ExecutionContext = null)(listener: PartialFunction[CachePartitionLostEvent, Unit]): ListenerRegistration = {
+    val regId = icache addPartitionLostListener new PfProxy(listener, Option(runOn)) with CachePartitionLostListener {
+      def partitionLost(evt: CachePartitionLostEvent) = invokeWith(evt)
     }
     new ListenerRegistration {
       def cancel = icache removePartitionLostListener regId

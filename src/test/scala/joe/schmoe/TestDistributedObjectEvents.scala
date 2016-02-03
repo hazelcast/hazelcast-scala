@@ -14,6 +14,7 @@ import java.util.concurrent.atomic.AtomicInteger
 import com.hazelcast.core.IMap
 import com.hazelcast.map.impl.MapService
 import com.hazelcast.core.HazelcastInstance
+import scala.concurrent.ExecutionContext
 
 object TestDistributedObjectEvents extends ClusterSetup {
   override def clusterSize = 1
@@ -28,12 +29,14 @@ class TestDistributedObjectEvents {
   def any {
     any(client)
     any(hz(0))
+    any(client, ExecutionContext.global)
+    any(hz(0), ExecutionContext.global)
   }
-  private def any(hz: HazelcastInstance) {
+  private def any(hz: HazelcastInstance, ec: ExecutionContext = null) {
     val expected = 2 // 1 created, 1 destroyed
     val counter = new AtomicInteger
     val cdl = new CountDownLatch(expected)
-    val reg = hz.onDistributedObjectEvent {
+    val reg = hz.onDistributedObjectEvent(runOn = ec) {
       case DistributedObjectCreated(name, disobj) =>
         counter.incrementAndGet()
         cdl.countDown()
@@ -53,12 +56,14 @@ class TestDistributedObjectEvents {
   def typed {
     typed(client)
     typed(hz(0))
+    typed(client, ExecutionContext.global)
+    typed(hz(0), ExecutionContext.global)
   }
-  private def typed(hz: HazelcastInstance) {
+  private def typed(hz: HazelcastInstance, ec: ExecutionContext = null) {
     val expected = 4 // 2 IMap created, 2 IMap destroyed
     val counter = new AtomicInteger
     val cdl = new CountDownLatch(expected)
-    val reg = hz.onDistributedObjectEvent {
+    val reg = hz.onDistributedObjectEvent(runOn = ec) {
       case DistributedObjectCreated(_, imap: IMap[_, _]) =>
         counter.incrementAndGet()
         cdl.countDown()
@@ -87,12 +92,14 @@ class TestDistributedObjectEvents {
   def named {
     named(client)
     named(hz(0))
+    named(client, ExecutionContext.global)
+    named(hz(0), ExecutionContext.global)
   }
-  private def named(hz: HazelcastInstance) {
+  private def named(hz: HazelcastInstance, ec: ExecutionContext = null) {
     val expected = 4 // 2 "foo" created, 2 "foo" destroyed
     val counter = new AtomicInteger
     val cdl = new CountDownLatch(expected)
-    val reg = hz.onDistributedObjectEvent {
+    val reg = hz.onDistributedObjectEvent(runOn = ec) {
       case DistributedObjectCreated("foo", _) =>
         counter.incrementAndGet()
         cdl.countDown()

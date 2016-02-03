@@ -17,6 +17,7 @@ import com.hazelcast.query.{ Predicate, PredicateBuilder, TruePredicate }
 import com.hazelcast.spi.AbstractDistributedObject
 import com.hazelcast.query.PagingPredicate
 import java.util.Comparator
+import scala.concurrent.ExecutionContext
 
 final class HzMap[K, V](private val imap: core.IMap[K, V]) extends AnyVal {
 
@@ -141,8 +142,8 @@ final class HzMap[K, V](private val imap: core.IMap[K, V]) extends AnyVal {
     jMap.asInstanceOf[java.util.Map[K, R]].asScala
   }
 
-  def onMapEvents(localOnly: Boolean = false)(pf: PartialFunction[MapEvent, Unit]): ListenerRegistration = {
-    val listener: map.listener.MapListener = new MapListener(pf)
+  def onMapEvents(localOnly: Boolean = false, runOn: ExecutionContext = null)(pf: PartialFunction[MapEvent, Unit]): ListenerRegistration = {
+    val listener: map.listener.MapListener = new MapListener(pf, Option(runOn))
     val regId =
       if (localOnly) imap.addLocalEntryListener(listener)
       else imap.addEntryListener(listener, /* includeValue = */ false)
@@ -151,12 +152,9 @@ final class HzMap[K, V](private val imap: core.IMap[K, V]) extends AnyVal {
     }
   }
 
-  def onPartitionLost(listener: PartialFunction[PartitionLossEvent, Unit]): ListenerRegistration = {
-    val regId = imap addPartitionLostListener new MapPartitionLostListener {
-      def partitionLost(evt: MapPartitionLostEvent) = {
-        val loss = new PartitionLossEvent(evt.getMember, evt.getPartitionId)(evt)
-        if (listener isDefinedAt loss) listener(loss)
-      }
+  def onPartitionLost(runOn: ExecutionContext = null)(listener: PartialFunction[PartitionLossEvent, Unit]): ListenerRegistration = {
+    val regId = imap addPartitionLostListener new PfProxy(listener, Option(runOn)) with MapPartitionLostListener {
+      def partitionLost(evt: MapPartitionLostEvent) = invokeWith(new PartitionLossEvent(evt.getMember, evt.getPartitionId)(evt))
     }
     new ListenerRegistration {
       def cancel = imap removePartitionLostListener regId
