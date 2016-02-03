@@ -154,11 +154,11 @@ class TestMap {
     }
     val result2b = map.map(_.value).collect {
       case value if isFactor37(value) => value * 2
-    }.fetch().await.sorted
+    }.values().await.sorted
     val result2c = map.map(_.value).filter(isFactor37).collect {
       case value => value * 2
-    }.fetch().await.sorted
-    val result2d = map.filter(e => isFactor37(e.value)).map(_.value * 8).map(_ / 4).fetch().await.sorted
+    }.values().await.sorted
+    val result2d = map.filter(e => isFactor37(e.value)).map(_.value * 8).map(_ / 4).values().await.sorted
     assertEquals(result1a, result1b)
     assertEquals(result1a, result2a)
     assertEquals(result1a.values.toSeq.sorted, result2b)
@@ -323,9 +323,9 @@ class TestMap {
     println(s"Predicate: $cCount employees make more than $$495K ($cCountMs ms) <- Predicates are faster with indexing.")
 
     val (javaPage, ppTime) = timed() {
-      clientMap.values(20 until 40)(_.salary, reverse = true)
+      clientMap.values(20 until 40)(sortBy = _.salary, reverse = true)
     }
-    val (scalaPage, scalaTime) = timed() { clientMap.map(_.value).sortBy(_.salary).reverse.drop(20).take(20).fetch().await }
+    val (scalaPage, scalaTime) = timed() { clientMap.map(_.value).sortBy(_.salary).reverse.drop(20).take(20).values().await }
     println(s"Paging timings: $scalaTime ms (Scala), $ppTime ms (PagingPredicate), factor: ${ppTime / scalaTime.toFloat}")
     assertEquals(20, javaPage.size)
     assertEquals(javaPage.size, scalaPage.size)
@@ -661,12 +661,12 @@ class TestMap {
     val pageSize = 3
     val descStrings = mymap.map(_.key.toUpperCase).sorted.reverse
       def skipPages(p: Int) = p * pageSize
-    val descStringsP1 = descStrings.take(pageSize).fetch().await
-    val descStringsP2 = descStrings.drop(skipPages(1)).take(pageSize).fetch().await
+    val descStringsP1 = descStrings.take(pageSize).values().await
+    val descStringsP2 = descStrings.drop(skipPages(1)).take(pageSize).values().await
     assertEquals(IndexedSeq("Z", "Y", "X"), descStringsP1)
     assertEquals(IndexedSeq("W", "V", "U"), descStringsP2)
     val descInts = mymap.map(_.value).sorted.reverse
-    val descIntsP1 = descInts.drop(skipPages(0)).take(pageSize).fetch().await
+    val descIntsP1 = descInts.drop(skipPages(0)).take(pageSize).values().await
     assertEquals(IndexedSeq(25, 24, 23), descIntsP1)
     val descIntsMean = descInts.take(10).mean().await.get
     assertEquals((25 + 24 + 23 + 22 + 21 + 20 + 19 + 18 + 17 + 16) / 10, descIntsMean)

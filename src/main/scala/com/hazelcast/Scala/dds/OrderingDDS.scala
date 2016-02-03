@@ -5,7 +5,7 @@ import collection.{ Map => cMap }
 
 import com.hazelcast.Scala._
 
-private[dds] object OrderingDDS {
+private object OrderingDDS {
   def medianValues[O: Ordering](dist: cMap[O, Freq]): Option[(O, O)] = {
     dist.size match {
       case 0 => None

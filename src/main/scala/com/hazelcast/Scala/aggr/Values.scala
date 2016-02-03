@@ -7,14 +7,14 @@ import language.existentials
 import com.hazelcast.Scala.dds.Sorted
 import scala.collection.mutable.WrappedArray
 
-object Fetch {
+object Values {
 
   def apply[T: ClassTag]() = new Complete[T]
 
   private[Scala] def apply[T](sorted: Sorted[T]) =
     sorted.limit match {
-      case None => new SortedUnlimited(sorted.ordering, sorted.skip)
-      case Some(limit) => new SortedPartial(sorted.ordering, sorted.skip, limit)
+      case None => new SortedAllValues(sorted.ordering, sorted.skip)
+      case Some(limit) => new SortedSomeValues(sorted.ordering, sorted.skip, limit)
     }
 
   final class Complete[T: ClassTag] extends Aggregator[T, IndexedSeq[T]] {
@@ -84,15 +84,15 @@ object Fetch {
     }
   }
 
-  private[Scala] sealed abstract class SortedFetcher[T, AQ](init: => AQ) extends Aggregator[T, IndexedSeq[T]] {
+  private[Scala] sealed abstract class SortedValues[T, AQ](init: => AQ) extends Aggregator[T, IndexedSeq[T]] {
     final type Q = AQ
     final type W = List[Array[AnyRef]]
     final type R = IndexedSeq[T]
     final def remoteInit = init
   }
 
-  private[Scala] final class SortedPartial[T](ordering: Ordering[T], skip: Int, limit: Int)
-      extends SortedFetcher[T, (Array[AnyRef], Int)](new Array[AnyRef](skip + limit) -> 0) {
+  private[Scala] final class SortedSomeValues[T](ordering: Ordering[T], skip: Int, limit: Int)
+      extends SortedValues[T, (Array[AnyRef], Int)](new Array[AnyRef](skip + limit) -> 0) {
 
     private[this] val anyRefOrd = ordering.asInstanceOf[Ordering[AnyRef]]
     private def binarySearch(arr: Array[AnyRef], obj: T): Int = {
@@ -190,8 +190,8 @@ object Fetch {
     }
   }
 
-  private[Scala] final class SortedUnlimited[T](ordering: Ordering[T], skip: Int)
-      extends SortedFetcher[T, ArrayBuffer[T]](new ArrayBuffer[T](128)) {
+  private[Scala] final class SortedAllValues[T](ordering: Ordering[T], skip: Int)
+      extends SortedValues[T, ArrayBuffer[T]](new ArrayBuffer[T](128)) {
 
     def remoteFold(buff: ArrayBuffer[T], t: T) = buff += t
 
@@ -226,9 +226,9 @@ object Fetch {
     new Adapter(aggr, apply(sorted))
   }
 
-  final class Adapter[T, R, Q] private[Fetch] (
+  final class Adapter[T, R, Q] private[Values] (
     aggr: Aggregator[T, R],
-    fetcher: SortedFetcher[T, Q])
+    fetcher: SortedValues[T, Q])
       extends FinalizeAdapter[T, R, IndexedSeq[T]](fetcher) {
 
     def localFinalize(w: W): R = {

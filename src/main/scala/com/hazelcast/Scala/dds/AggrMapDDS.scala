@@ -29,11 +29,11 @@ private[Scala] class AggrMapDDS[K, E](val dds: MapDDS[K, _, E], sorted: Option[S
         AggrMapDDS.aggregate[K, E, R, aggregator.W](dds.imap.getName, keysByMember, dds.predicate, dds.pipe, exec, aggregator)
       case Some(sorted) =>
         aggregator match {
-          case _: Fetch.Complete[_] =>
-            val fetch = aggr.Fetch(sorted)
+          case _: Values.Complete[_] =>
+            val fetch = aggr.Values(sorted)
             AggrMapDDS.aggregate(dds.imap.getName, keysByMember, dds.predicate, dds.pipe, exec, fetch)
           case _ =>
-            val adapter = aggr.Fetch.Adapter(aggregator, sorted)
+            val adapter = aggr.Values.Adapter(aggregator, sorted)
             AggrMapDDS.aggregate[K, E, R, adapter.W](dds.imap.getName, keysByMember, dds.predicate, dds.pipe, exec, adapter)
         }
     }

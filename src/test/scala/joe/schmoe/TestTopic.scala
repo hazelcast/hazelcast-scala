@@ -33,7 +33,7 @@ class TestTopic {
     val cdl = new CountDownLatch(messages.sum)
 
     val memberFoo = hz(0).getTopic[Int]("foo")
-    assertTrue(Try(memberFoo.onMessage()(println(_))).isFailure)
+    assertTrue(Try(memberFoo.onSeqMessage()(println(_))).isFailure)
 
     val registration = memberFoo.onMessage() { msg =>
       val n = msg.get

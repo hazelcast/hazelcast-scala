@@ -7,9 +7,9 @@ import scala.reflect.ClassTag
 import collection.{ Map => aMap, Set => aSet }
 import collection.immutable._
 import collection.{ Seq, IndexedSeq }
-import com.hazelcast.core.IExecutorService
+import com.hazelcast.core._
 
-private[dds] object AggrDDS {
+private object AggrDDS {
   def mode[E](distribution: aMap[E, Freq]): aSet[E] =
     distribution.groupBy(_._2).mapValues(_.keySet).toSeq.sortBy(_._1).reverseIterator.take(1) match {
       case iter if iter.hasNext =>
@@ -22,7 +22,7 @@ private[dds] object AggrDDS {
 
 trait AggrDDS[E] {
   def submit[R](aggregator: Aggregator[E, R], es: IExecutorService = null)(implicit ec: ExecutionContext): Future[R]
-  def fetch()(implicit classTag: ClassTag[E], ec: ExecutionContext): Future[IndexedSeq[E]] = this submit aggr.Fetch[E]()
+  def values()(implicit classTag: ClassTag[E], ec: ExecutionContext): Future[IndexedSeq[E]] = this submit aggr.Values[E]()
   def distinct()(implicit ec: ExecutionContext): Future[Set[E]] = this submit aggr.Distinct()
   def distribution()(implicit ec: ExecutionContext): Future[aMap[E, Freq]] = this submit aggr.Distribution()
   def count()(implicit ec: ExecutionContext): Future[Int] = submit(aggr.Count)

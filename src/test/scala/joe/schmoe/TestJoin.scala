@@ -71,7 +71,7 @@ class TestJoin {
     val orderId = new OrdId()
     val orderMap = {
       val map = getClientMap[OrdId, Order]("orders")
-      val bobId = customerMap.filter(where("name") = "Bob").map(_.key).fetch().await.head
+      val bobId = customerMap.filter(where("name") = "Bob").map(_.key).values().await.head
       val productQtys = productMap.keySet().asScala.zipWithIndex.map {
         case (productId, idx) => productId -> (idx + 1) * 3
       }.toMap
@@ -89,7 +89,7 @@ class TestJoin {
               case (prodId, qty) => products(prodId) -> qty
             }
             (order, customer, prodQty)
-        }.fetch().await.head
+        }.values.await.head
     assertEquals(order.customer, customer.id)
     val avgOrderQty = orderMap.flatMap(_.value.products.map(_._2)).mean().await.get
     assertEquals(products.map(_._2).sum / products.size, avgOrderQty)

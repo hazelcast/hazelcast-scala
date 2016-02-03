@@ -5,7 +5,7 @@ import collection.{ Map => cMap }
 
 import com.hazelcast.Scala._
 
-private[dds] object NumericDDS {
+private object NumericDDS {
   def divOp[N: Numeric]: (N, N) => N = {
     implicitly[Numeric[N]] match {
       case f: Fractional[N] => f.div _
