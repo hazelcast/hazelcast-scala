@@ -82,7 +82,7 @@ class TestJoin {
     val (order, customer, products) =
       orderMap.filterKeys(orderId)
         .map(_.value)
-        .innerJoinOne(customerMap, o => Some(o.customer))
+        .innerJoinOne(customerMap, _.customer)
         .innerJoinMany(productMap, _._1.products.keySet).collect {
           case ((order, customer), products) =>
             val prodQty = order.products.toSeq.map {

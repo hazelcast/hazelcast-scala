@@ -29,9 +29,9 @@ sealed trait DDS[E] {
   def sortBy[S: Ordering](sf: E => S): SortDDS[E]
   final def sorted()(implicit ord: Ordering[E]): SortDDS[E] = sortBy(identity)
 
-  def innerJoinOne[JK, JV](join: IMap[JK, JV], on: E => Option[JK]): DDS[(E, JV)]
+  def innerJoinOne[JK, JV](join: IMap[JK, JV], on: E => JK): DDS[(E, JV)]
   def innerJoinMany[JK, JV](join: IMap[JK, JV], on: E => Set[JK]): DDS[(E, collection.Map[JK, JV])]
-  def outerJoinOne[JK, JV](join: IMap[JK, JV], on: E => Option[JK]): DDS[(E, Option[JV])]
+  def outerJoinOne[JK, JV](join: IMap[JK, JV], on: E => JK): DDS[(E, Option[JV])]
   def outerJoinMany[JK, JV](join: IMap[JK, JV], on: E => Set[JK]): DDS[(E, collection.Map[JK, JV])]
 }
 
@@ -114,9 +114,9 @@ private[Scala] final class MapDDS[K, V, E](
     val pipe = new JoinPipe[E, (E, JT)](join, prevPipe)
     new MapDDS[K, V, (E, JT)](imap, predicate, keySet, Some(pipe))
   }
-  def innerJoinOne[JK, JV](join: IMap[JK, JV], on: E => Option[JK]): DDS[(E, JV)] = withJoin(InnerOne(join.getName, on))
+  def innerJoinOne[JK, JV](join: IMap[JK, JV], on: E => JK): DDS[(E, JV)] = withJoin(InnerOne(join.getName, on))
   def innerJoinMany[JK, JV](join: IMap[JK, JV], on: E => Set[JK]): DDS[(E, collection.Map[JK, JV])] = withJoin(InnerMany(join.getName, on))
-  def outerJoinOne[JK, JV](join: IMap[JK, JV], on: E => Option[JK]): DDS[(E, Option[JV])] = withJoin(OuterOne(join.getName, on))
+  def outerJoinOne[JK, JV](join: IMap[JK, JV], on: E => JK): DDS[(E, Option[JV])] = withJoin(OuterOne(join.getName, on))
   def outerJoinMany[JK, JV](join: IMap[JK, JV], on: E => Set[JK]): DDS[(E, collection.Map[JK, JV])] = withJoin(OuterMany(join.getName, on))
 
 }
