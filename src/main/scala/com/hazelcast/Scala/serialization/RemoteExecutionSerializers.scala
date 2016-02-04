@@ -16,16 +16,20 @@ import java.io.OutputStream
 import java.io.InputStream
 
 /**
- * Serializers for remote execution.
- * NOTE: Do not use for production use.
- * Not only is the code experimental, it's
- * very inefficient.
- */
-object RemoteExecutionSerializers extends SerializerEnum(DefaultSerializers) {
+  * Serializers for remote execution.
+  * NOTE: Do not use for production use.
+  * Not only is the code experimental, it's
+  * very inefficient.
+  */
+object RemoteExecutionSerializers extends RemoteExecutionSerializers {
+  protected def serializeBytecodeFor(cls: Class[_]) = true
+}
 
+abstract class RemoteExecutionSerializers extends SerializerEnum(DefaultSerializers) {
+  protected def serializeBytecodeFor(cls: Class[_]): Boolean
   private[this] val classBytes = new ClassValue[Option[ByteArrayClassLoader]] {
     private[this] val excludePackages = Set("com.hazelcast.", "scala.")
-    private def include(cls: Class[_]): Boolean = !excludePackages.exists(cls.getName.startsWith)
+    private def include(cls: Class[_]): Boolean = !excludePackages.exists(cls.getName.startsWith) && serializeBytecodeFor(cls)
     def computeValue(cls: Class[_]): Option[ByteArrayClassLoader] =
       if (include(cls)) {
         Try(ByteArrayClassLoader(cls)).toOption
