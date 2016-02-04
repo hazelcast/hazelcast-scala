@@ -79,13 +79,13 @@ private class CachingMap[K, V](imap: IMap[K, V]) {
     }
   }
   def getAll(keys: Set[K]): Map[K, V] = {
-    val (known, unknown) = keys.iterator.map(k => k -> cmap.get(k)).partition(_._2 != null)
+    val (cached, notCached) = keys.iterator.map(k => k -> cmap.get(k)).partition(_._2 != null)
     val all =
-      if (unknown.isEmpty) known
+      if (notCached.isEmpty) cached
       else {
-        val unknownKeys = unknown.map(_._1).toSet
-        val found = blocking(imap.getAll(unknownKeys.asJava)).asScala
-        val keysNotFound = found.keySet.diff(unknownKeys)
+        val keysNotCached = notCached.map(_._1).toSet
+        val found = blocking(imap.getAll(keysNotCached.asJava)).asScala
+        val keysNotFound = found.keySet.diff(keysNotCached)
         keysNotFound.foreach { key =>
           cmap.putIfAbsent(key, None) match {
             case Some(value) => // Very unlikely, but... consistency
@@ -93,7 +93,7 @@ private class CachingMap[K, V](imap: IMap[K, V]) {
             case _ => // Ignore
           }
         }
-        val asOption = found.iterator.map {
+        val foundAndCached = found.iterator.map {
           case (key, value) =>
             val someValue = Some(value)
             cmap.putIfAbsent(key, someValue) match {
@@ -101,7 +101,7 @@ private class CachingMap[K, V](imap: IMap[K, V]) {
               case other => key -> other
             }
         }
-        asOption ++ known
+        foundAndCached ++ cached
       }
     all.collect {
       case (key, Some(value)) => key -> value
