@@ -117,7 +117,7 @@ package object Scala extends HighPriorityImplicits {
   @inline implicit def clientConf2props(conf: client.config.ClientConfig) = new HzClientProperties(conf)
   @inline implicit def mbrConf2scala(conf: config.Config) = new HzConfig(conf)
   @inline implicit def clientConf2scala(conf: client.config.ClientConfig) = new HzClientConfig(conf)
-  @inline implicit def rb2scala[E](rb: Ringbuffer[E]) = new HzRingBuffer(rb)
+  @inline implicit def rb2scala[E](rb: Ringbuffer[E]) = new HzRingbuffer(rb)
 
   implicit class HzInt(private val i: Int) extends AnyVal {
     def kilobytes = new MemorySize(i, MemoryUnit.KILOBYTES)

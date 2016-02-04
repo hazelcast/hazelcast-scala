@@ -8,13 +8,13 @@ import com.hazelcast.core.ExecutionCallback
 import com.hazelcast.ringbuffer.impl.RingbufferProxy
 import java.util.concurrent.Executor
 
-private object AsyncRingBuffer {
+private object AsyncRingbuffer {
   implicit val jl2osl = (jl: java.lang.Long) => if (jl == -1L) None else Some(jl: Long)
   def MaxBatchSize = RingbufferProxy.MAX_BATCH_SIZE
 }
 
-class AsyncRingBuffer[E](private val rb: Ringbuffer[E]) extends AnyVal {
-  import AsyncRingBuffer._
+class AsyncRingbuffer[E](private val rb: Ringbuffer[E]) extends AnyVal {
+  import AsyncRingbuffer._
 
   /**
     * Add item.
