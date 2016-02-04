@@ -3,14 +3,12 @@ package com.hazelcast.Scala.dds
 import com.hazelcast.core.IMap
 import java.util.Map.Entry
 import collection.JavaConverters._
-import collection.mutable.{ Map => mMap }
 import com.hazelcast.query.Predicate
 import com.hazelcast.core._
 import scala.concurrent._
 import scala.concurrent.ExecutionContext.Implicits.global
 import scala.reflect.ClassTag
-import scala.collection.immutable.{ Set, SortedMap, TreeMap }
-import scala.collection.mutable.{ Map => mMap }
+import scala.collection.{ Set => aSet }
 
 import com.hazelcast.Scala._
 
@@ -30,9 +28,9 @@ sealed trait DDS[E] {
   final def sorted()(implicit ord: Ordering[E]): SortDDS[E] = sortBy(identity)
 
   def innerJoinOne[JK, JV](join: IMap[JK, JV], on: E => JK): DDS[(E, JV)]
-  def innerJoinMany[JK, JV](join: IMap[JK, JV], on: E => Set[JK]): DDS[(E, collection.Map[JK, JV])]
+  def innerJoinMany[JK, JV](join: IMap[JK, JV], on: E => aSet[JK]): DDS[(E, collection.Map[JK, JV])]
   def outerJoinOne[JK, JV](join: IMap[JK, JV], on: E => JK): DDS[(E, Option[JV])]
-  def outerJoinMany[JK, JV](join: IMap[JK, JV], on: E => Set[JK]): DDS[(E, collection.Map[JK, JV])]
+  def outerJoinMany[JK, JV](join: IMap[JK, JV], on: E => aSet[JK]): DDS[(E, collection.Map[JK, JV])]
 }
 
 sealed trait SortDDS[E] {
@@ -115,8 +113,8 @@ private[Scala] final class MapDDS[K, V, E](
     new MapDDS[K, V, (E, JT)](imap, predicate, keySet, Some(pipe))
   }
   def innerJoinOne[JK, JV](join: IMap[JK, JV], on: E => JK): DDS[(E, JV)] = withJoin(InnerOne(join.getName, on))
-  def innerJoinMany[JK, JV](join: IMap[JK, JV], on: E => Set[JK]): DDS[(E, collection.Map[JK, JV])] = withJoin(InnerMany(join.getName, on))
+  def innerJoinMany[JK, JV](join: IMap[JK, JV], on: E => aSet[JK]): DDS[(E, collection.Map[JK, JV])] = withJoin(InnerMany(join.getName, on))
   def outerJoinOne[JK, JV](join: IMap[JK, JV], on: E => JK): DDS[(E, Option[JV])] = withJoin(OuterOne(join.getName, on))
-  def outerJoinMany[JK, JV](join: IMap[JK, JV], on: E => Set[JK]): DDS[(E, collection.Map[JK, JV])] = withJoin(OuterMany(join.getName, on))
+  def outerJoinMany[JK, JV](join: IMap[JK, JV], on: E => aSet[JK]): DDS[(E, collection.Map[JK, JV])] = withJoin(OuterMany(join.getName, on))
 
 }

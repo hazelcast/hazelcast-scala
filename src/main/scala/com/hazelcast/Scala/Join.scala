@@ -1,7 +1,7 @@
 package com.hazelcast.Scala
 
 import scala.collection.JavaConverters._
-import scala.collection.Map
+import scala.collection.{Map, Set}
 import scala.concurrent._
 
 import com.hazelcast.core.HazelcastInstance
