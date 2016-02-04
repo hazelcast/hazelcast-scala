@@ -323,7 +323,7 @@ class TestMap {
     println(s"Predicate: $cCount employees make more than $$495K ($cCountMs ms) <- Predicates are faster with indexing.")
 
     val (javaPage, ppTime) = timed() {
-      clientMap.values(20 until 40)(sortBy = _.salary, reverse = true)
+      clientMap.values(20 until 40)(sortBy = _.value.salary, reverse = true)
     }
     val (scalaPage, scalaTime) = timed() { clientMap.map(_.value).sortBy(_.salary).reverse.drop(20).take(20).values().await }
     println(s"Paging timings: $scalaTime ms (Scala), $ppTime ms (PagingPredicate), factor: ${ppTime / scalaTime.toFloat}")
@@ -697,9 +697,9 @@ class TestMap {
     ppDesc.setPage(3)
     val fromJavaDesc = employees.values(ppDesc).asScala.map(_.salary)
     assertEquals(10, fromJavaDesc.size)
-    val fromScalaAsc = employees.values(40 until 50, wellPaid)(_.salary).map(_.salary)
+    val fromScalaAsc = employees.values(40 until 50, wellPaid)(_.value.salary).map(_.salary)
     assertEquals(10, fromScalaAsc.size)
-    val fromScalaDesc = employees.values(30 until 40, wellPaid)(_.salary, reverse = true).map(_.salary)
+    val fromScalaDesc = employees.values(30 until 40, wellPaid)(_.value.salary, reverse = true).map(_.salary)
     assertEquals(10, fromScalaDesc.size)
     assertEquals(fromJavaAsc, fromScalaAsc)
     assertEquals(fromJavaDesc, fromScalaDesc)

@@ -167,16 +167,16 @@ final class HzMap[K, V](private val imap: core.IMap[K, V]) extends AnyVal {
   // TODO: Perhaps a macro could turn this into an IndexAwarePredicate?
   def filter(f: Entry[K, V] => Boolean): DDS[Entry[K, V]] = new MapDDS(imap, new ScalaEntryPredicate(f))
 
-  def values[O: Ordering](range: Range, pred: Predicate[_, _] = null)(sortBy: V => O, reverse: Boolean = false): Iterable[V] = {
+  def values[O: Ordering](range: Range, pred: Predicate[_, _] = null)(sortBy: Entry[K, V] => O, reverse: Boolean = false): Iterable[V] = {
     val pageSize = range.length
     val pageIdx = range.min / pageSize
     val dropValues = range.min % pageSize
-    val comparator = new Comparator[Entry[_, V]] with Serializable {
+    val comparator = new Comparator[Entry[K, V]] with Serializable {
       private[this] val ordering = implicitly[Ordering[O]] match {
         case comp if reverse => comp.reverse
         case comp => comp
       }
-      def compare(a: Entry[_, V], b: Entry[_, V]): Int = ordering.compare(sortBy(a.value), sortBy(b.value))
+      def compare(a: Entry[K, V], b: Entry[K, V]): Int = ordering.compare(sortBy(a), sortBy(b))
     }.asInstanceOf[Comparator[Entry[_, _]]]
     val pp = new PagingPredicate(pred, comparator, pageSize)
     pp.setPage(pageIdx)
