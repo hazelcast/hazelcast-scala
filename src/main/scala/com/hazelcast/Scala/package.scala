@@ -15,6 +15,7 @@ import query.{ EntryObject, Predicate, PredicateBuilder, Predicates, SqlPredicat
 import scala.util.control.NonFatal
 import ringbuffer.Ringbuffer
 import query.PagingPredicate
+import scala.concurrent.ExecutionContext
 
 package Scala {
 
@@ -138,6 +139,20 @@ package object Scala extends HighPriorityImplicits {
     def ||(other: Predicate[_, _]): Predicate[_, _] = Predicates.or(pred, other)
     def or(other: Predicate[_, _]): Predicate[_, _] = Predicates.or(pred, other)
     def unary_!(): Predicate[_, _] = Predicates.not(pred)
+  }
+
+  implicit class HzMapConfig(conf: config.MapConfig) extends MapEventSubscription {
+    def withTypes[K, V] = new HzTypedMapConfig[K, V](conf)
+    type MSR = this.type
+    def onMapEvents(localOnly: Boolean, runOn: ExecutionContext)(pf: PartialFunction[MapEvent, Unit]): MSR = {
+      val mapListener = new MapListener(pf, Option(runOn))
+      conf addEntryListenerConfig new config.EntryListenerConfig(mapListener, localOnly, false)
+      this
+    }
+    def onPartitionLost(runOn: ExecutionContext)(listener: PartialFunction[PartitionLost, Unit]): MSR = {
+      conf addMapPartitionLostListenerConfig new config.MapPartitionLostListenerConfig(asPartitionLostListener(listener, Option(runOn)))
+      this
+    }
   }
 
   def where = new PredicateBuilder().getEntryObject

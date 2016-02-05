@@ -6,7 +6,7 @@ import com.hazelcast.query.Predicate
 import com.hazelcast.query.TruePredicate
 import scala.concurrent.ExecutionContext
 
-class EntryMapDDS[K, V](private val dds: MapDDS[K, V, Entry[K, V]]) extends AnyVal {
+class EntryMapDDS[K, V](dds: MapDDS[K, V, Entry[K, V]]) extends MapEntryEventSubscription[K, V] {
   def filterKeys(key: K, others: K*): DDS[Entry[K, V]] = filterKeys((key +: others).toSet)
   def filterKeys(f: K => Boolean): DDS[Entry[K, V]] = {
     f match {
@@ -46,9 +46,10 @@ class EntryMapDDS[K, V](private val dds: MapDDS[K, V, Entry[K, V]]) extends AnyV
     new MapDDS(dds.imap, dds.predicate, dds.keySet, Some(pipe))
   }
 
-  def onKeyEvents(localOnly: Boolean = false, runOn: ExecutionContext = null)(pf: PartialFunction[KeyEvent[K], Unit]): ListenerRegistration =
+  type MSR = ListenerRegistration
+  def onKeyEvents(localOnly: Boolean, runOn: ExecutionContext)(pf: PartialFunction[KeyEvent[K], Unit]): MSR =
     subscribeEntries(new KeyListener(pf, Option(runOn)), localOnly, includeValue = false)
-  def onEntryEvents(localOnly: Boolean = false, runOn: ExecutionContext = null)(pf: PartialFunction[EntryEvent[K, V], Unit]): ListenerRegistration =
+  def onEntryEvents(localOnly: Boolean, runOn: ExecutionContext)(pf: PartialFunction[EntryEvent[K, V], Unit]): MSR =
     subscribeEntries(new EntryListener(pf, Option(runOn)), localOnly, includeValue = true)
 
   private def subscribeEntries(

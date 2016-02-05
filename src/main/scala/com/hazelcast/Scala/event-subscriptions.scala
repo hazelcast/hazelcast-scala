@@ -19,6 +19,8 @@ import com.hazelcast.core.InitialMembershipEvent
 import scala.concurrent.Future
 import scala.concurrent.Promise
 import scala.concurrent.ExecutionContext
+import com.hazelcast.map.listener.MapPartitionLostListener
+import com.hazelcast.map.MapPartitionLostEvent
 
 private[Scala] trait EventSubscription {
   type ESR
@@ -89,5 +91,24 @@ private[Scala] trait MemberEventSubscription extends EventSubscription {
     def clientConnected(client: Client) = invokeWith(new ClientConnected(client))
     def clientDisconnected(client: Client) = invokeWith(new ClientDisconnected(client))
   }
+
+}
+
+private[Scala] trait MapEventSubscription {
+  type MSR
+
+  def onMapEvents(localOnly: Boolean = false, runOn: ExecutionContext = null)(pf: PartialFunction[MapEvent, Unit]): MSR
+
+  def onPartitionLost(runOn: ExecutionContext = null)(listener: PartialFunction[PartitionLost, Unit]): MSR
+  protected def asPartitionLostListener(listener: PartialFunction[PartitionLost, Unit], ec: Option[ExecutionContext]): MapPartitionLostListener =
+    new PfProxy(listener, ec) with MapPartitionLostListener {
+      def partitionLost(evt: MapPartitionLostEvent) = invokeWith(new PartitionLost(evt.getMember, evt.getPartitionId)(evt))
+    }
+}
+
+private[Scala] trait MapEntryEventSubscription[K, V] {
+  type MSR
+  def onKeyEvents(localOnly: Boolean = false, runOn: ExecutionContext = null)(pf: PartialFunction[KeyEvent[K], Unit]): MSR
+  def onEntryEvents(localOnly: Boolean = false, runOn: ExecutionContext = null)(pf: PartialFunction[EntryEvent[K, V], Unit]): MSR
 
 }
