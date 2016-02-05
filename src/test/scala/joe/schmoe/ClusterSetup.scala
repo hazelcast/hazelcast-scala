@@ -25,6 +25,8 @@ trait ClusterSetup {
 
   def clusterSize = 3
 
+  def port = 9991
+
   final val memberConfig = new Config
   final val clientConfig = new ClientConfig
 
@@ -38,12 +40,14 @@ trait ClusterSetup {
     DefaultSerializers.register(memberConfig.getSerializationConfig)
     DefaultSerializers.register(clientConfig.getSerializationConfig)
     memberConfig.getGroupConfig.setName(group)
+    memberConfig.getNetworkConfig.setPort(port)
     memberConfig.setGracefulShutdownMaxWait(1.second)
     memberConfig.setPhoneHomeEnabled(false)
     memberConfig.getMapConfig("default").setBackupCount(0).setStatisticsEnabled(false)
     memberConfig.setShutdownHookEnabled(false)
     _hz = (1 to clusterSize).par.map(_ => memberConfig.newInstance).seq.toVector
     clientConfig.getGroupConfig.setName(group)
+    clientConfig.getNetworkConfig.addAddress(s"localhost:$port")
     _client = clientConfig.newClient()
   }
 
