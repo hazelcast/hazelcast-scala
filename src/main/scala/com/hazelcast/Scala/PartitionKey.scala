@@ -7,4 +7,4 @@ import scala.beans.BeanInfo
 /**
  * Convenience class for extension of partition-aware keys.
  */
-abstract class PartitionKey[T](val getPartitionKey: T) extends PartitionAware[T]
+abstract class PartitionKey[T](val getPartitionKey: T) extends PartitionAware[T] with Serializable
