@@ -122,8 +122,8 @@ final class HzMap[K, V](imap: core.IMap[K, V]) extends MapEventSubscription {
   def execute[R](filter: EntryFilter[K, V])(thunk: Entry[K, V] => R): mMap[K, R] = {
       def ep = new AbstractEntryProcessor[K, V] {
         def process(entry: Entry[K, V]): Object = thunk(entry) match {
-          case Unit | None | null => null
-          case r: Object => r
+          case null | Unit => null
+          case value => value.asInstanceOf[Object]
         }
       }
     val jMap: java.util.Map[K, Object] = filter match {
