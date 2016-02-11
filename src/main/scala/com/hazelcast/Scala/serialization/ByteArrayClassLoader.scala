@@ -20,6 +20,7 @@ object ByteArrayClassLoader {
     val name = cls.getName
     val resourceName = s"/${name.replace('.', '/')}.class"
     val is = cls.getResourceAsStream(resourceName)
+    require(is != null, s"Cannot find class file: $resourceName")
     try {
       val arr = new Array[Byte](4096)
       val os = new ByteArrayOutputStream(arr.length)

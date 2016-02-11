@@ -1,23 +1,17 @@
 package com.hazelcast.Scala.serialization
 
-import com.hazelcast.nio.ObjectDataOutput
-import com.hazelcast.nio.ObjectDataInput
-import scala.collection.concurrent.TrieMap
-import scala.util.Try
-import scala.reflect.ClassTag
-import com.hazelcast.map.EntryProcessor
 import java.util.concurrent.Callable
-import java.io.ByteArrayOutputStream
-import java.io.ObjectOutputStream
-import java.nio.ByteBuffer
-import java.io.ByteArrayInputStream
-import java.io.ObjectInputStream
-import java.io.OutputStream
-import java.io.InputStream
+
+import scala.reflect.ClassTag
+import scala.util.Try
+
+import com.hazelcast.Scala.{ EntryPredicate, KeyPredicate, Pipe, ValuePredicate, Aggregator }
+import com.hazelcast.map.EntryProcessor
+import com.hazelcast.nio.{ ObjectDataInput, ObjectDataOutput }
 
 /**
   * Serializers for remote execution.
-  * NOTE: Do not use for production use.
+  * NOTE: Not intended for production use.
   * Not only is the code experimental, it's
   * very inefficient.
   */
@@ -40,8 +34,8 @@ abstract class RemoteExecutionSerializers extends SerializerEnum(DefaultSerializ
     def write(out: ObjectDataOutput, any: T): Unit = {
       out.writeUTF(any.getClass.getName)
       classBytes.get(any.getClass) match {
-        case None => out.writeByteArray(Array.emptyByteArray)
         case Some(cl) => out.writeByteArray(cl.bytes)
+        case _ => out.writeByteArray(Array.emptyByteArray)
       }
       UnsafeSerializer.write(out, any)
     }
@@ -68,5 +62,10 @@ abstract class RemoteExecutionSerializers extends SerializerEnum(DefaultSerializ
   val EntryProcessorSer: S[EntryProcessor[_, _]] = new ClassBytesSerializer
   val CallableSer: S[Callable[_]] = new ClassBytesSerializer
   val RunnableSer: S[Runnable] = new ClassBytesSerializer
+  val KeyPredicateSer: S[KeyPredicate[_]] = new ClassBytesSerializer
+  val ValuePredicateSer: S[ValuePredicate[_]] = new ClassBytesSerializer
+  val EntryPredicateSer: S[EntryPredicate[_, _]] = new ClassBytesSerializer
+  val PipeSer: S[Pipe[_]] = new ClassBytesSerializer
+  val AggregatorSer: S[Aggregator[_, _]] = new ClassBytesSerializer
 
 }

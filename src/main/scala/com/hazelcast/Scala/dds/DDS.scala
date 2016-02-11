@@ -78,7 +78,7 @@ private[Scala] final class MapDDS[K, V, E](
   def filter(f: E => Boolean): DDS[E] = {
     if (this.pipe.isEmpty) {
       val filter = f.asInstanceOf[Entry[_, _] => Boolean]
-      val predicate = new ScalaEntryPredicate(filter, this.predicate.orNull.asInstanceOf[Predicate[Object, Object]])
+      val predicate = new EntryPredicate(filter, this.predicate.orNull.asInstanceOf[Predicate[Object, Object]])
       new MapDDS[K, V, E](this.imap, Some(predicate), this.keySet, this.pipe)
     } else {
       val prev = this.pipe getOrElse PassThroughPipe[E]

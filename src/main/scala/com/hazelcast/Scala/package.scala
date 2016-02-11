@@ -80,8 +80,8 @@ package Scala {
     @inline implicit def topic2scala[T](topic: ITopic[T]) = new HzTopic(topic)
     @inline implicit def exec2scala(exec: IExecutorService) = new HzExecutorService(exec)
     @inline implicit def icache2scala[K, V](icache: ICache[K, V]) = new HzCache[K, V](icache)
-    @inline implicit def vfunc2pred[K, V](f: V => Boolean): Predicate[_, V] = new ScalaValuePredicate(f)
-    @inline implicit def kfunc2pred[K, V](f: K => Boolean): Predicate[K, _] = new ScalaKeyPredicate(f)
+    @inline implicit def vfunc2pred[K, V](f: V => Boolean): Predicate[_, V] = new ValuePredicate(f)
+    @inline implicit def kfunc2pred[K, V](f: K => Boolean): Predicate[K, _] = new KeyPredicate(f)
     @inline implicit def dds2numDds[N: Numeric](dds: DDS[N]): NumericDDS[N] = dds match {
       case dds: MapDDS[_, _, N] => new NumericMapDDS(dds)
     }
@@ -209,18 +209,18 @@ package object Scala extends HighPriorityImplicits {
     }
   }
 
-  private[Scala] final class ScalaEntryPredicate[K, V](
+  private[Scala] final class EntryPredicate[K, V](
     include: Entry[K, V] => Boolean, prev: Predicate[Object, Object] = null)
       extends Predicate[K, V] {
     def this(f: (K, V) => Boolean) = this(entry => f(entry.key, entry.value))
     def apply(entry: Entry[K, V]) = (prev == null || prev(entry.asInstanceOf[Entry[Object, Object]])) && include(entry)
   }
-  private[Scala] final class ScalaValuePredicate[V](
+  private[Scala] final class ValuePredicate[V](
     include: V => Boolean, prev: Predicate[Object, Object] = null)
       extends Predicate[Object, V] {
     def apply(entry: Entry[Object, V]) = (prev == null || prev(entry.asInstanceOf[Entry[Object, Object]])) && include(entry.value)
   }
-  private[Scala] final class ScalaKeyPredicate[K](include: K => Boolean, prev: Predicate[Object, Object] = null)
+  private[Scala] final class KeyPredicate[K](include: K => Boolean, prev: Predicate[Object, Object] = null)
       extends Predicate[K, Object] {
     def apply(entry: Entry[K, Object]) = (prev == null || prev(entry.asInstanceOf[Entry[Object, Object]])) && include(entry.key)
   }

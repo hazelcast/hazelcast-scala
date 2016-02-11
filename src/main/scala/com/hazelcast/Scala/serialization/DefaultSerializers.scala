@@ -279,7 +279,7 @@ object DefaultSerializers extends SerializerEnum(-987654321) {
       out.writeObject(mc.getRoundingMode)
     }
     def read(inp: ObjectDataInput) =
-      new MathContext(inp.readInt, inp.readObject.asInstanceOf[RoundingMode])
+      new MathContext(inp.readInt, inp.readObject[RoundingMode])
   }
   val BigDecSer = new StreamSerializer[BigDecimal] {
     def write(out: ObjectDataOutput, bd: BigDecimal): Unit = {
@@ -287,11 +287,11 @@ object DefaultSerializers extends SerializerEnum(-987654321) {
       MathCtxSer.write(out, bd.mc)
     }
     def read(inp: ObjectDataInput): BigDecimal =
-      new BigDecimal(inp.readObject.asInstanceOf[java.math.BigDecimal], MathCtxSer.read(inp))
+      new BigDecimal(inp.readObject[java.math.BigDecimal], MathCtxSer.read(inp))
   }
   val BigIntSer = new StreamSerializer[BigInt] {
     def write(out: ObjectDataOutput, bi: BigInt): Unit = out.writeObject(bi.underlying)
-    def read(inp: ObjectDataInput): BigInt = new BigInt(inp.readObject.asInstanceOf[java.math.BigInteger])
+    def read(inp: ObjectDataInput): BigInt = new BigInt(inp.readObject[java.math.BigInteger])
   }
 
   final class OptionSerializer[O <: Option[_]: ClassTag] extends StreamSerializer[O] {

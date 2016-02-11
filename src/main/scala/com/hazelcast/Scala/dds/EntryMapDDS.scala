@@ -15,10 +15,10 @@ class EntryMapDDS[K, V](dds: MapDDS[K, V, Entry[K, V]]) extends MapEntryEventSub
         new MapDDS(dds.imap, dds.predicate, Some(keySet), dds.pipe)
       case filter => dds.pipe match {
         case None =>
-          val predicate = new ScalaKeyPredicate[K](filter, dds.predicate.orNull.asInstanceOf[Predicate[Object, Object]])
+          val predicate = new KeyPredicate[K](filter, dds.predicate.orNull.asInstanceOf[Predicate[Object, Object]])
           new MapDDS(dds.imap, Some(predicate), dds.keySet, dds.pipe)
         case Some(existingPipe) =>
-          val keyFilter = (new ScalaKeyPredicate[K](filter).apply _).asInstanceOf[Entry[K, V] => Boolean]
+          val keyFilter = (new KeyPredicate[K](filter).apply _).asInstanceOf[Entry[K, V] => Boolean]
           val pipe = new FilterPipe(keyFilter, existingPipe)
           new MapDDS(dds.imap, dds.predicate, dds.keySet, Some(pipe))
       }
@@ -27,10 +27,10 @@ class EntryMapDDS[K, V](dds: MapDDS[K, V, Entry[K, V]]) extends MapEntryEventSub
   def filterValues(filter: V => Boolean): DDS[Entry[K, V]] = {
     dds.pipe match {
       case None =>
-        val predicate = new ScalaValuePredicate[V](filter, dds.predicate.orNull.asInstanceOf[Predicate[Object, Object]])
+        val predicate = new ValuePredicate[V](filter, dds.predicate.orNull.asInstanceOf[Predicate[Object, Object]])
         new MapDDS(dds.imap, Some(predicate), dds.keySet, dds.pipe)
       case Some(existingPipe) =>
-        val valueFilter = (new ScalaValuePredicate[V](filter).apply _).asInstanceOf[Entry[K, V] => Boolean]
+        val valueFilter = (new ValuePredicate[V](filter).apply _).asInstanceOf[Entry[K, V] => Boolean]
         val pipe = new FilterPipe(valueFilter, existingPipe)
         new MapDDS(dds.imap, dds.predicate, dds.keySet, Some(pipe))
     }
@@ -64,8 +64,8 @@ class EntryMapDDS[K, V](dds: MapDDS[K, V, Entry[K, V]]) extends MapEntryEventSub
         keys.headOption -> dds.predicate.getOrElse(TruePredicate.INSTANCE).asInstanceOf[Predicate[K, V]]
       case Some(keys) =>
         None -> (dds.predicate match {
-          case None => new ScalaKeyPredicate(keys).asInstanceOf[Predicate[K, V]]
-          case Some(predicate) => (new ScalaKeyPredicate(keys) && predicate).asInstanceOf[Predicate[K, V]]
+          case None => new KeyPredicate(keys).asInstanceOf[Predicate[K, V]]
+          case Some(predicate) => (new KeyPredicate(keys) && predicate).asInstanceOf[Predicate[K, V]]
         })
     }
     val regId = singleKey match {
