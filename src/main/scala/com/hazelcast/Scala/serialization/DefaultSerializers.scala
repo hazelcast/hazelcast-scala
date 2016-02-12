@@ -101,7 +101,7 @@ object DefaultSerializers extends SerializerEnum(-987654321) {
       val len = inp.readInt()
       val builder = collection.concurrent.TrieMap.newBuilder[Any, Any]
       builder.sizeHint(len)
-      readMutable(len, builder, () => Tuple2Ser.read(inp))
+      build(len, builder, () => Tuple2Ser.read(inp))
     }
   }
   private type MHashMap = collection.mutable.HashMap[Any, Any]
@@ -114,7 +114,7 @@ object DefaultSerializers extends SerializerEnum(-987654321) {
       val len = inp.readInt()
       val builder = collection.mutable.HashMap.newBuilder[Any, Any]
       builder.sizeHint(len)
-      readMutable(len, builder, () => Tuple2Ser.read(inp))
+      build(len, builder, () => Tuple2Ser.read(inp))
     }
   }
   private type MMap = collection.mutable.Map[Any, Any]
@@ -144,7 +144,7 @@ object DefaultSerializers extends SerializerEnum(-987654321) {
       val len = inp.readInt()
       val builder = collection.mutable.TreeSet.newBuilder[Any](ord)
       builder.sizeHint(len)
-      readMutable(len, builder, () => inp.readObject[Any])
+      build(len, builder, () => inp.readObject[Any])
     }
   }
   private type MSortedSet = collection.mutable.SortedSet[Any]
@@ -167,7 +167,7 @@ object DefaultSerializers extends SerializerEnum(-987654321) {
       val size = inp.readInt()
       val builder = collection.mutable.ArrayBuffer.newBuilder[Any]
       builder.sizeHint(size)
-      readMutable(size, builder, () => inp.readObject[Any])
+      build(size, builder, () => inp.readObject[Any])
     }
   }
   private type ITreeSet = collection.immutable.TreeSet[Any]
@@ -178,7 +178,20 @@ object DefaultSerializers extends SerializerEnum(-987654321) {
       val len = inp.readInt()
       val builder = collection.immutable.TreeSet.newBuilder[Any](ord)
       builder.sizeHint(len)
-      readMutable(len, builder, () => inp.readObject[Any])
+      build(len, builder, () => inp.readObject[Any])
+    }
+  }
+  private type IHashSet = collection.immutable.HashSet[Any]
+  val IHashSetSer = new StreamSerializer[IHashSet] {
+    def write(out: ObjectDataOutput, s: IHashSet): Unit = {
+      out.writeInt(s.size)
+      s.foreach(out.writeObject)
+    }
+    def read(inp: ObjectDataInput): IHashSet = {
+      val len = inp.readInt()
+      val builder = collection.immutable.HashSet.newBuilder[Any]
+      builder.sizeHint(len)
+      build(len, builder, () => inp.readObject[Any])
     }
   }
   private type ISortedSet = collection.immutable.SortedSet[Any]
@@ -213,6 +226,14 @@ object DefaultSerializers extends SerializerEnum(-987654321) {
       val size = inp.readInt
       readJMap(size, new JTreeMap(comp), inp)
     }
+  }
+  private type JMapEntry = java.util.Map.Entry[Any, Any]
+  val JMapEntrySer = new StreamSerializer[JMapEntry] {
+    def write(out: ObjectDataOutput, e: JMapEntry): Unit = {
+      out.writeObject(e.getKey)
+      out.writeObject(e.getValue)
+    }
+    def read(inp: ObjectDataInput): JMapEntry = new com.hazelcast.Scala.ImmutableEntry(inp.readObject, inp.readObject)
   }
 
   val VectorSer = new StreamSerializer[Vector[Any]] {
@@ -380,9 +401,9 @@ object DefaultSerializers extends SerializerEnum(-987654321) {
       out.writeObject(entry.getValue)
     }
   }
-  @tailrec private def readMutable[E, C](size: Int, builder: Builder[E, C], next: () => E, idx: Int = 0): C = {
+  @tailrec private def build[E, C](size: Int, builder: Builder[E, C], next: () => E, idx: Int = 0): C = {
     if (idx < size) {
-      readMutable(size, builder += next(), next, idx + 1)
+      build(size, builder += next(), next, idx + 1)
     } else builder.result()
   }
   @tailrec private def readIMap[M <: collection.immutable.Map[Any, Any]](size: Int, map: M, inp: ObjectDataInput, idx: Int = 0): M = {

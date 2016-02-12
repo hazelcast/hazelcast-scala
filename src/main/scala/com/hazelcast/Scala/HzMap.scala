@@ -186,11 +186,11 @@ final class HzMap[K, V](imap: core.IMap[K, V]) extends MapEventSubscription {
     val pageSize = range.length
     val pageIdx = range.min / pageSize
     val dropEntries = range.min % pageSize
-    val ordering = implicitly[Ordering[O]] match {
-      case comp if reverse => comp.reverse
-      case comp => comp
-    }
     val comparator = new Comparator[Entry[K, V]] with Serializable {
+      private[this] val ordering = implicitly[Ordering[O]] match {
+        case comp if reverse => comp.reverse
+        case comp => comp
+      }
       def compare(a: Entry[K, V], b: Entry[K, V]): Int =
         ordering.compare(sortBy(a), sortBy(b))
     }.asInstanceOf[Comparator[Entry[_, _]]]
