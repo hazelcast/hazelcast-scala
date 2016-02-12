@@ -1,13 +1,18 @@
 package com.hazelcast.Scala.serialization
 
+import java.util.Arrays
+
 import java.util.concurrent.Callable
 
 import scala.reflect.ClassTag
-import scala.util.Try
 
-import com.hazelcast.Scala.{ EntryPredicate, KeyPredicate, Pipe, ValuePredicate, Aggregator }
+import com.hazelcast.Scala.Aggregator
+import com.hazelcast.Scala.Pipe
+import com.hazelcast.map.EntryBackupProcessor
 import com.hazelcast.map.EntryProcessor
-import com.hazelcast.nio.{ ObjectDataInput, ObjectDataOutput }
+import com.hazelcast.nio.ObjectDataInput
+import com.hazelcast.nio.ObjectDataOutput
+import com.hazelcast.query.Predicate
 
 /**
   * Serializers for remote execution.
@@ -21,19 +26,28 @@ object RemoteExecutionSerializers extends RemoteExecutionSerializers {
 
 abstract class RemoteExecutionSerializers extends SerializerEnum(DefaultSerializers) {
   protected def serializeBytecodeFor(cls: Class[_]): Boolean
-  private[this] val classBytes = new ClassValue[Option[ByteArrayClassLoader]] {
+  private[this] val loaderByClass = new ClassValue[Option[ByteArrayClassLoader]] {
     private[this] val excludePackages = Set("com.hazelcast.", "scala.")
     private def include(cls: Class[_]): Boolean = !excludePackages.exists(cls.getName.startsWith) && serializeBytecodeFor(cls)
     def computeValue(cls: Class[_]): Option[ByteArrayClassLoader] =
       if (include(cls)) {
-        Try(ByteArrayClassLoader(cls)).toOption
+        try {
+          Some(ByteArrayClassLoader(cls))
+        } catch {
+          case ncdf: NoClassDefFoundError =>
+            classByName.get(cls.getName) match {
+              case Some((bytes, classForBytes)) if cls == classForBytes => Some(new ByteArrayClassLoader(cls.getName, bytes))
+              case _ => throw ncdf
+            }
+        }
       } else None
   }
+  private[this] val classByName = new collection.concurrent.TrieMap[String, (Array[Byte], Class[_])]
 
   private class ClassBytesSerializer[T: ClassTag] extends StreamSerializer[T] {
     def write(out: ObjectDataOutput, any: T): Unit = {
       out.writeUTF(any.getClass.getName)
-      classBytes.get(any.getClass) match {
+      loaderByClass.get(any.getClass) match {
         case Some(cl) => out.writeByteArray(cl.bytes)
         case _ => out.writeByteArray(Array.emptyByteArray)
       }
@@ -46,8 +60,14 @@ abstract class RemoteExecutionSerializers extends SerializerEnum(DefaultSerializ
         if (classBytes.length == 0) {
           Class.forName(className)
         } else {
-          val cl = new ByteArrayClassLoader(className, classBytes)
-          Class.forName(className, true, cl)
+          classByName.get(className) match {
+            case Some((bytes, cls)) if Arrays.equals(classBytes, bytes) => cls
+            case _ =>
+              val cl = new ByteArrayClassLoader(className, classBytes)
+              val cls = Class.forName(className, true, cl)
+              classByName.put(className, classBytes -> cls)
+              cls
+          }
         }
       UnsafeSerializer.read(inp, cls).asInstanceOf[T]
     }
@@ -58,13 +78,13 @@ abstract class RemoteExecutionSerializers extends SerializerEnum(DefaultSerializ
   val Function0Ser: S[Function0[_]] = new ClassBytesSerializer
   val Function1Ser: S[Function1[_, _]] = new ClassBytesSerializer
   val Function2Ser: S[Function2[_, _, _]] = new ClassBytesSerializer
+  val Function3Ser: S[Function3[_, _, _, _]] = new ClassBytesSerializer
   val PartialFunctionSer: S[PartialFunction[_, _]] = new ClassBytesSerializer
   val EntryProcessorSer: S[EntryProcessor[_, _]] = new ClassBytesSerializer
+  val EntryBackupProcessorSer: S[EntryBackupProcessor[_, _]] = new ClassBytesSerializer
   val CallableSer: S[Callable[_]] = new ClassBytesSerializer
   val RunnableSer: S[Runnable] = new ClassBytesSerializer
-  val KeyPredicateSer: S[KeyPredicate[_]] = new ClassBytesSerializer
-  val ValuePredicateSer: S[ValuePredicate[_]] = new ClassBytesSerializer
-  val EntryPredicateSer: S[EntryPredicate[_, _]] = new ClassBytesSerializer
+  val PredicateSer: S[Predicate[_, _]] = new ClassBytesSerializer
   val PipeSer: S[Pipe[_]] = new ClassBytesSerializer
   val AggregatorSer: S[Aggregator[_, _]] = new ClassBytesSerializer
 

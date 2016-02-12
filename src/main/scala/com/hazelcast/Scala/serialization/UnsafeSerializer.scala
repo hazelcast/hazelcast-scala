@@ -2,13 +2,11 @@ package com.hazelcast.Scala.serialization
 
 import java.lang.reflect.Field
 import java.lang.reflect.Modifier
-
 import scala.util._
-
 import com.hazelcast.nio.ObjectDataInput
-
 import com.hazelcast.nio.ObjectDataOutput
 import com.hazelcast.nio.UnsafeHelper
+import com.hazelcast.nio.serialization.HazelcastSerializationException
 
 private[serialization] object UnsafeSerializer {
 
@@ -34,9 +32,16 @@ private[serialization] object UnsafeSerializer {
       out.writeObject(field.get(any))
     }
   }
+  private def collectInterfaceNames(cls: Class[_]): List[String] = {
+    if (cls != null) {
+      cls.getInterfaces.map(_.getName) ++: collectInterfaceNames(cls.getSuperclass)
+    } else Nil
+  }
   def read(inp: ObjectDataInput, cls: Class[_]): Any = {
     val instance = UnsafeHelper.UNSAFE.allocateInstance(cls)
-    fields.get(cls).foreach(_.set(instance, inp.readObject))
+    fields.get(cls).foreach { field =>
+      field.set(instance, inp.readObject)
+    }
     instance
   }
 }
