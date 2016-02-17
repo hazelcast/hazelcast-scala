@@ -285,7 +285,7 @@ class TestMap {
 
   @Test
   def `large map test` {
-    val Thousands = 250
+    val Thousands = 750
     val clientMap = getClientMap[UUID, Employee]("employees")
     var allSalaries = 0L
     var empCount = 0
@@ -302,11 +302,10 @@ class TestMap {
     assertEquals(Thousands * 1000, empCount)
     val localAvg = allSalaries / empCount
     val (avg, avgMs) = timed() {
-      // Deliberately inefficient, testing piped mapping
-      clientMap.map(_.value).map(_.salary).map(_.toLong).mean.await.get
+      clientMap.map(_.value.salary.toLong).mean.await.get
     }
-    println(s"Average salary : $$$avg")
     assertEquals(localAvg, avg)
+    println(s"Average salary : $$$avg")
     val (mrAvg, mrMs) = timed() {
       import com.hazelcast.mapreduce.aggregation._
       val supplySalaryForAll = new Supplier[UUID, Employee, Long] {

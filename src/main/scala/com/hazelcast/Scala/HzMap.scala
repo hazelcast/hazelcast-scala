@@ -1,25 +1,24 @@
 package com.hazelcast.Scala
 
 import java.util.Collections
+import java.util.Comparator
 import java.util.Map.Entry
+
 import scala.collection.JavaConverters._
 import scala.collection.mutable.{ Map => mMap }
-import scala.concurrent.duration.{ Duration, FiniteDuration }
-import scala.language.existentials
-import com.hazelcast.Scala.dds.{ DDS, MapDDS }
-import com.hazelcast.client.spi.ClientProxy
-import com.hazelcast.core
-import com.hazelcast.core.HazelcastInstance
-import com.hazelcast.map
-import com.hazelcast.map.{ AbstractEntryProcessor, MapPartitionLostEvent }
-import com.hazelcast.map.listener.MapPartitionLostListener
-import com.hazelcast.query.{ Predicate, PredicateBuilder, TruePredicate }
-import com.hazelcast.spi.AbstractDistributedObject
-import com.hazelcast.query.PagingPredicate
-import java.util.Comparator
 import scala.concurrent.ExecutionContext
+import scala.concurrent.duration.Duration
+import scala.concurrent.duration.FiniteDuration
 
-final class HzMap[K, V](imap: core.IMap[K, V]) extends MapEventSubscription {
+import com.hazelcast.Scala.dds.DDS
+import com.hazelcast.Scala.dds.MapDDS
+import com.hazelcast.client.spi.ClientProxy
+import com.hazelcast.core.{ HazelcastInstance, IMap }
+import com.hazelcast.map.AbstractEntryProcessor
+import com.hazelcast.query.{ PagingPredicate, Predicate, PredicateBuilder }
+import com.hazelcast.spi.AbstractDistributedObject
+
+final class HzMap[K, V](imap: IMap[K, V]) extends MapEventSubscription {
 
   // Sorta naughty:
   private[Scala] def getHZ: HazelcastInstance = imap match {
@@ -144,7 +143,7 @@ final class HzMap[K, V](imap: core.IMap[K, V]) extends MapEventSubscription {
 
   type MSR = ListenerRegistration
   def onMapEvents(localOnly: Boolean, runOn: ExecutionContext)(pf: PartialFunction[MapEvent, Unit]): MSR = {
-    val listener: map.listener.MapListener = new MapListener(pf, Option(runOn))
+    val listener: com.hazelcast.map.listener.MapListener = new MapListener(pf, Option(runOn))
     val regId =
       if (localOnly) imap.addLocalEntryListener(listener)
       else imap.addEntryListener(listener, /* includeValue = */ false)
