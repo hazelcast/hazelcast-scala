@@ -50,18 +50,6 @@ class TestMap {
   def upsert {
     val map = getClientMap[UUID, Int]()
     DeltaUpdateTesting.testUpsert(map, map.get)
-//    map.upsert("A", 42)(_ + 1) match {
-//      case Insert => // As expected
-//      case Update => fail("Should not be update")
-//    }
-//    map.upsert("A", 42)(_ + 1) match {
-//      case Insert => fail("Should not be insert")
-//      case Update => // As expected
-//    }
-//    val resultB1 = map.upsertAndGet("B", 42)(_ + 10)
-//    assertEquals(42, resultB1)
-//    val resultB2 = map.upsertAndGet("B", 42)(_ + 10)
-//    assertEquals(52, resultB2)
   }
 
   @Test
@@ -81,8 +69,6 @@ class TestMap {
   def update {
     val map = getClientMap[UUID, Int]()
     DeltaUpdateTesting.testUpdate(map, map.get, map.put(_, _))
-//    val wasUpdated = map.update("foo")(_ + 1)
-//    assertFalse(wasUpdated)
   }
   @Test
   def asyncUpdateWithDefault {
