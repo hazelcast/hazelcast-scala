@@ -40,4 +40,31 @@ class TestJCache {
     }
   }
 
+  @Test
+  def upsert {
+    val numbers = getClientCache[UUID, Int]()
+    DeltaUpdateTesting.testUpsert(numbers, numbers.get)
+//    val key = UUID.randomUUID()
+//    numbers.upsert(key, 5)(_ + 1) match {
+//      case Update => fail("Should have been Insert")
+//      case Insert => assertEquals(5, numbers get key)
+//    }
+//    numbers.upsert(key, 3)(_ + 9) match {
+//      case Update => assertEquals(14, numbers get key)
+//      case Insert => fail("Should have been Update")
+//    }
+//    assertEquals(20, numbers.upsertAndGet(key, 7)(_ + 6))
+  }
+
+  @Test
+  def update {
+    val numbers = getClientCache[UUID, Int]()
+    DeltaUpdateTesting.testUpdate(numbers, numbers.get, numbers.put)
+//    val key = UUID.randomUUID()
+//    assertFalse(numbers.update(key)(_ + 1))
+//    numbers.put(key, 3)
+//    assertTrue(numbers.update(key)(_ + 4))
+//    assertEquals(7, numbers get key)
+//    assertEquals(Some(10), numbers.updateAndGet(key)(_ + 3))
+  }
 }

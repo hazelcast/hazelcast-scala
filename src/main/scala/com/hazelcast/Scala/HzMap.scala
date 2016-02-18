@@ -18,7 +18,7 @@ import com.hazelcast.map.AbstractEntryProcessor
 import com.hazelcast.query.{ PagingPredicate, Predicate, PredicateBuilder }
 import com.hazelcast.spi.AbstractDistributedObject
 
-final class HzMap[K, V](imap: IMap[K, V]) extends MapEventSubscription {
+final class HzMap[K, V](protected val imap: IMap[K, V]) extends IMapDeltaUpdates[K, V] with MapEventSubscription {
 
   // Sorta naughty:
   private[Scala] def getHZ: HazelcastInstance = imap match {
@@ -81,14 +81,6 @@ final class HzMap[K, V](imap: IMap[K, V]) extends MapEventSubscription {
     updateValues(Option(predicate), updateIfPresent, _.asInstanceOf[Object])
   }
 
-  def upsertAndGet(key: K, insertIfMissing: V)(updateIfPresent: V => V): V =
-    async.upsertAndGet(key, insertIfMissing)(updateIfPresent).await
-  def updateAndGet(key: K)(updateIfPresent: V => V): Option[V] =
-    async.updateAndGet(key)(updateIfPresent).await
-  def upsert(key: K, insertIfMissing: V)(updateIfPresent: V => V): UpsertResult =
-    async.upsert(key, insertIfMissing)(updateIfPresent).await
-  def update(key: K)(updateIfPresent: V => V): Boolean =
-    async.update(key)(updateIfPresent).await
   def set(key: K, value: V, ttl: Duration) {
     if (ttl.isFinite && ttl.length > 0) {
       imap.set(key, value, ttl.length, ttl.unit)

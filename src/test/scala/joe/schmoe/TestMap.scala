@@ -48,19 +48,20 @@ class TestMap {
 
   @Test
   def upsert {
-    val map = getClientMap[String, Int]()
-    map.upsert("A", 42)(_ + 1) match {
-      case Insert => // As expected
-      case Update => fail("Should not be update")
-    }
-    map.upsert("A", 42)(_ + 1) match {
-      case Insert => fail("Should not be insert")
-      case Update => // As expected
-    }
-    val resultB1 = map.upsertAndGet("B", 42)(_ + 10)
-    assertEquals(42, resultB1)
-    val resultB2 = map.upsertAndGet("B", 42)(_ + 10)
-    assertEquals(52, resultB2)
+    val map = getClientMap[UUID, Int]()
+    DeltaUpdateTesting.testUpsert(map, map.get)
+//    map.upsert("A", 42)(_ + 1) match {
+//      case Insert => // As expected
+//      case Update => fail("Should not be update")
+//    }
+//    map.upsert("A", 42)(_ + 1) match {
+//      case Insert => fail("Should not be insert")
+//      case Update => // As expected
+//    }
+//    val resultB1 = map.upsertAndGet("B", 42)(_ + 10)
+//    assertEquals(42, resultB1)
+//    val resultB2 = map.upsertAndGet("B", 42)(_ + 10)
+//    assertEquals(52, resultB2)
   }
 
   @Test
@@ -77,10 +78,11 @@ class TestMap {
     assertTrue(latch.await(10, TimeUnit.SECONDS))
   }
   @Test
-  def syncUpdateIfPresent {
-    val map = getClientMap[String, Int]()
-    val wasUpdated = map.update("foo")(_ + 1)
-    assertFalse(wasUpdated)
+  def update {
+    val map = getClientMap[UUID, Int]()
+    DeltaUpdateTesting.testUpdate(map, map.get, map.put(_, _))
+//    val wasUpdated = map.update("foo")(_ + 1)
+//    assertFalse(wasUpdated)
   }
   @Test
   def asyncUpdateWithDefault {
@@ -648,7 +650,7 @@ class TestMap {
     val hzVarianceDbl = numMap.map(_.value.toDouble).variance().await.get
     val hzVarianceBD = numMap.map(_.value).variance().await.get
     assertEquals(localVariance, hzVarianceBD)
-    assertEquals(localVariance.toDouble, hzVarianceDbl, 0.00001)
+    assertEquals(localVariance.toDouble, hzVarianceDbl, 0.00000001)
   }
 
   @Test

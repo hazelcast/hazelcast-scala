@@ -10,7 +10,8 @@ import scala.collection.mutable.{ Map => mMap }
 import scala.collection.JavaConverters._
 import com.hazelcast.map.AbstractEntryProcessor
 
-final class AsyncMap[K, V] private[Scala] (private val imap: IMap[K, V]) extends AnyVal {
+final class AsyncMap[K, V] private[Scala] (protected val imap: IMap[K, V])
+    extends IMapAsyncDeltaUpdates[K, V] {
 
   def get(key: K): Future[Option[V]] = imap.getAsync(key).asScalaOpt
 
@@ -36,72 +37,6 @@ final class AsyncMap[K, V] private[Scala] (private val imap: IMap[K, V]) extends
 
   def remove(key: K): Future[Option[V]] =
     imap.removeAsync(key).asScalaOpt
-
-  def upsert(key: K, insertIfMissing: V)(updateIfPresent: V => V): Future[UpsertResult] = {
-    val ep = new SingleEntryCallbackUpdater[K, V, UpsertResult] {
-      def onEntry(entry: Entry[K, V]): UpsertResult =
-        entry.value match {
-          case null =>
-            entry.value = insertIfMissing
-            Insert
-          case value =>
-            entry.value = updateIfPresent(value)
-            Update
-        }
-    }
-    val callback = ep.newCallback()
-    imap.submitToKey(key, ep, callback)
-    callback.future
-  }
-
-  def upsertAndGet(key: K, insertIfMissing: V)(updateIfPresent: V => V): Future[V] = {
-    val ep = new SingleEntryCallbackUpdater[K, V, V] {
-      def onEntry(entry: Entry[K, V]): V = {
-        entry.value match {
-          case null =>
-            entry.value = insertIfMissing
-            null.asInstanceOf[V]
-          case value =>
-            entry.value = updateIfPresent(value)
-            entry.value
-        }
-      }
-    }
-    val callback = ep.newCallback(insertIfMissing)
-    imap.submitToKey(key, ep, callback)
-    callback.future
-  }
-
-  def updateAndGet(key: K)(updateIfPresent: V => V): Future[Option[V]] = {
-    val ep = new SingleEntryCallbackUpdater[K, V, V] {
-      def onEntry(entry: Entry[K, V]): V =
-        entry.value match {
-          case null => null.asInstanceOf[V]
-          case value =>
-            entry.value = updateIfPresent(value)
-            entry.value
-        }
-    }
-    val callback = ep.newCallbackOpt
-    imap.submitToKey(key, ep, callback)
-    callback.future
-  }
-
-  def update(key: K)(updateIfPresent: V => V): Future[Boolean] = {
-    val ep = new SingleEntryCallbackUpdater[K, V, Boolean] {
-      def onEntry(entry: Entry[K, V]): Boolean = {
-        entry.value match {
-          case null => false
-          case value =>
-            entry.value = updateIfPresent(value)
-            true
-        }
-      }
-    }
-    val callback = ep.newCallback()
-    imap.submitToKey(key, ep, callback)
-    callback.future
-  }
 
   def getAs[R](key: K, map: V => R): Future[Option[R]] = {
     val ep = new SingleEntryCallbackReader[K, V, R] {

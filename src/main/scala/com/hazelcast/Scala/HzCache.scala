@@ -9,38 +9,10 @@ import com.hazelcast.cache.impl.event.CachePartitionLostEvent
 import com.hazelcast.cache.impl.event.CachePartitionLostListener
 import scala.concurrent.ExecutionContext
 
-final class HzCache[K, V](private val icache: cache.ICache[K, V]) extends AnyVal {
+final class HzCache[K, V](protected val icache: cache.ICache[K, V])
+    extends ICacheDeltaUpdates[K, V] {
 
   def async = new AsyncCache(icache)
-
-  def upsertAndGet(key: K, insertIfMissing: V)(updateIfPresent: V => V): V = {
-    val ep = new processor.EntryProcessor[K, V, V] {
-      def process(entry: processor.MutableEntry[K, V], args: Object*): V = {
-        val newValue = entry.getValue match {
-          case null => insertIfMissing
-          case oldValue => updateIfPresent(oldValue)
-        }
-        entry.setValue(newValue)
-        newValue
-      }
-    }
-    icache.invoke(key, ep)
-  }
-
-  def updateAndGet(key: K)(updateIfPresent: V => V): Option[V] = {
-    val ep = new processor.EntryProcessor[K, V, V] {
-      def process(entry: processor.MutableEntry[K, V], args: Object*): V = {
-        entry.getValue match {
-          case null => null.asInstanceOf[V]
-          case oldValue =>
-            val newValue = updateIfPresent(oldValue)
-            entry.setValue(newValue)
-            newValue
-        }
-      }
-    }
-    Option(icache.invoke(key, ep))
-  }
 
   def invoke[R](key: K)(args: Any*)(thunk: processor.MutableEntry[K, V] => Option[R]): Option[R] = {
     val ep = new processor.EntryProcessor[K, V, R] {
