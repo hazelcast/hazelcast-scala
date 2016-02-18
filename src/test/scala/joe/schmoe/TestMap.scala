@@ -285,7 +285,7 @@ class TestMap {
 
   @Test
   def `large map test` {
-    val Thousands = 750
+    val Thousands = 250
     val clientMap = getClientMap[UUID, Employee]("employees")
     var allSalaries = 0L
     var empCount = 0
