@@ -65,11 +65,15 @@ trait ClusterSetup {
 
   def getClientMap[K, V](name: String = contextName): IMap[K, V] = client.getMap[K, V](name)
   def getClientCache[K: ClassTag, V: ClassTag](name: String = contextName): ICache[K, V] = {
+    import jcache._
     client.getCache[K, V](name)
   }
 
   def getMemberMap[K, V](name: String = contextName): IMap[K, V] = hz(0).getMap[K, V](name)
-  def getMemberCache[K: ClassTag, V: ClassTag](name: String = contextName): ICache[K, V] = hz(0).getCache[K, V](name)
+  def getMemberCache[K: ClassTag, V: ClassTag](name: String = contextName): ICache[K, V] = {
+    import jcache._
+    hz(0).getCache[K, V](name)
+  }
 
   def timed[T](unit: TimeUnit = MILLISECONDS)(thunk: => T): (T, Long) = {
     val start = System.nanoTime

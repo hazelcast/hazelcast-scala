@@ -1,10 +1,9 @@
-package com.hazelcast.Scala
+package com.hazelcast.Scala.jcache
 
 import scala.concurrent.Future
-
 import com.hazelcast.cache.ICache
-
 import javax.cache.expiry.ExpiryPolicy
+import com.hazelcast.Scala.JavaFuture
 
 class AsyncCache[K, V] private[Scala] (private val icache: ICache[K, V]) extends AnyVal {
 

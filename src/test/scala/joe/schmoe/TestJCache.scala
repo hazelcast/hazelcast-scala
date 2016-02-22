@@ -1,6 +1,7 @@
 package joe.schmoe
 
-import com.hazelcast.Scala._
+import com.hazelcast.Scala.DeltaUpdateTesting
+import com.hazelcast.Scala.jcache._
 import org.junit._
 import org.junit.Assert._
 import java.util.UUID

@@ -2,20 +2,32 @@ package com.hazelcast
 
 import java.util.AbstractMap
 import java.util.Map.Entry
-import _root_.scala.concurrent.{ Await, Future, blocking }
-import _root_.scala.concurrent.duration.{ DurationInt, FiniteDuration }
-import _root_.scala.language.implicitConversions
+
+import scala.concurrent.Await
+import scala.concurrent.ExecutionContext
+import scala.concurrent.Future
+import scala.concurrent.blocking
+import scala.concurrent.duration.DurationInt
+import scala.concurrent.duration.FiniteDuration
+import scala.util.control.NonFatal
+
 import Scala._
 import Scala.dds._
-import cache.ICache
-import core.{ Hazelcast, HazelcastInstance, ICollection, ICompletableFuture, IExecutorService, IMap, ITopic, Message }
-import client.HazelcastClient
-import memory.{ MemorySize, MemoryUnit }
-import query.{ EntryObject, Predicate, PredicateBuilder, Predicates, SqlPredicate }
-import scala.util.control.NonFatal
+import core.HazelcastInstance
+import core.ICollection
+import core.ICompletableFuture
+import core.IExecutorService
+import core.IMap
+import core.ITopic
+import core.Message
+import memory.MemorySize
+import memory.MemoryUnit
+import query.EntryObject
+import query.Predicate
+import query.PredicateBuilder
+import query.Predicates
+import query.SqlPredicate
 import ringbuffer.Ringbuffer
-import query.PagingPredicate
-import scala.concurrent.ExecutionContext
 
 package Scala {
 
@@ -79,7 +91,6 @@ package Scala {
     @inline implicit def inst2scala(inst: HazelcastInstance) = new HzHazelcastInstance(inst)
     @inline implicit def topic2scala[T](topic: ITopic[T]) = new HzTopic(topic)
     @inline implicit def exec2scala(exec: IExecutorService) = new HzExecutorService(exec)
-    @inline implicit def icache2scala[K, V](icache: ICache[K, V]) = new HzCache[K, V](icache)
     @inline implicit def vfunc2pred[K, V](f: V => Boolean): Predicate[_, V] = new ValuePredicate(f)
     @inline implicit def kfunc2pred[K, V](f: K => Boolean): Predicate[K, _] = new KeyPredicate(f)
     @inline implicit def dds2numDds[N: Numeric](dds: DDS[N]): NumericDDS[N] = dds match {

@@ -1,28 +1,18 @@
 package com.hazelcast.Scala
 
 import java.util.concurrent.TimeUnit
-import scala.collection.concurrent.TrieMap
+
+import scala.concurrent.ExecutionContext
 import scala.concurrent.Future
 import scala.concurrent.duration.FiniteDuration
-import scala.reflect.{ ClassTag, classTag }
-import scala.util.Try
-import scala.util.control.NonFatal
-import com.hazelcast.cache.ICache
-import com.hazelcast.cache.impl.HazelcastServerCachingProvider
-import com.hazelcast.client.cache.impl.HazelcastClientCachingProvider
+
 import com.hazelcast.core._
 import com.hazelcast.core.LifecycleEvent.LifecycleState
-import com.hazelcast.instance.GroupProperty
-import com.hazelcast.instance.HazelcastProperty
 import com.hazelcast.partition.PartitionLostEvent
 import com.hazelcast.transaction.TransactionOptions
 import com.hazelcast.transaction.TransactionOptions.TransactionType
 import com.hazelcast.transaction.TransactionalTask
 import com.hazelcast.transaction.TransactionalTaskContext
-import javax.cache.CacheManager
-import javax.transaction.TransactionManager
-import javax.transaction.xa.XAResource
-import scala.concurrent.ExecutionContext
 
 private object HzHazelcastInstance {
   private[this] val DefaultTxnOpts = TransactionOptions.getDefault
@@ -31,8 +21,6 @@ private object HzHazelcastInstance {
     case TransactionType.TWO_PHASE => TwoPhase(DefaultTxnOpts.getDurability)
   }
   private val DefaultTxnTimeout = FiniteDuration(TransactionOptions.getDefault.getTimeoutMillis, TimeUnit.MILLISECONDS)
-
-  private val CacheManagers = new TrieMap[HazelcastInstance, CacheManager]
 }
 
 final class HzHazelcastInstance(hz: HazelcastInstance) extends MemberEventSubscription {
@@ -126,23 +114,6 @@ final class HzHazelcastInstance(hz: HazelcastInstance) extends MemberEventSubscr
     }
   }
 
-  def transaction[T](txnMgr: TransactionManager, resources: XAResource*)(thunk: TransactionalTaskContext => T): T = {
-    txnMgr.begin()
-    val txn = txnMgr.getTransaction
-    val hzResource = hz.getXAResource()
-    try {
-      (hzResource +: resources).foreach(txn.enlistResource)
-      val result = thunk(hzResource.getTransactionContext)
-      (hzResource +: resources).foreach(txn.delistResource(_, XAResource.TMSUCCESS))
-      txnMgr.commit()
-      result
-    } catch {
-      case NonFatal(e) =>
-        txnMgr.rollback()
-        throw e
-    }
-  }
-
   def isClient: Boolean = {
     val cluster = hz.getCluster
     try {
@@ -152,78 +123,5 @@ final class HzHazelcastInstance(hz: HazelcastInstance) extends MemberEventSubscr
     }
   }
 
-  private def getProperty(prop: HazelcastProperty): Option[String] = {
-    val name = prop.getName
-    val conf = Try(hz.getConfig) orElse Try(hz.getClass.getMethod("getClientConfig")).map(_.invoke(hz))
-    val value = conf.map { conf =>
-      val getProperty = conf.getClass.getMethod("getProperty", classOf[String])
-      Option(getProperty.invoke(conf, name)).map(_.toString)
-    }
-    value getOrElse Option(System.getProperty(name))
-  }
-
-  private def getObjectType[T: ClassTag]: Class[T] = classTag[T].runtimeClass match {
-    case cls if cls.isPrimitive => Types.PrimitiveWrappers(cls).asInstanceOf[Class[T]]
-    case cls => cls.asInstanceOf[Class[T]]
-  }
-
   def userCtx: UserContext = new UserContext(hz.getUserContext)
-
-  private def getCacheProvider[K, V](cacheName: String, entryTypes: Option[(Class[K], Class[V])]) = {
-      def setClassType(classType: Class[_], getType: () => String, setType: String => Unit) {
-        val typeName = classType.getName
-        getType() match {
-          case null =>
-            setType(typeName)
-          case configured if configured != typeName =>
-            sys.error(s"""Type $typeName, for cache "$cacheName", does not match configured type $configured""")
-          case _ => // Already set and matching
-        }
-      }
-    val isClient = getProperty(GroupProperty.JCACHE_PROVIDER_TYPE) match {
-      case Some("client") => true
-      case Some("server") => false
-      case Some(other) => sys.error(s"Unknown provider type: $other")
-      case None => this.isClient
-    }
-    if (isClient) {
-      HazelcastClientCachingProvider.createCachingProvider(hz)
-    } else {
-      entryTypes.foreach {
-        case (keyType, valueType) =>
-          val conf = hz.getConfig.getCacheConfig(cacheName)
-          setClassType(keyType, conf.getKeyType, conf.setKeyType)
-          setClassType(valueType, conf.getValueType, conf.setValueType)
-      }
-      HazelcastServerCachingProvider.createCachingProvider(hz)
-    }
-  }
-
-  def getCache[K: ClassTag, V: ClassTag](name: String, typesafe: Boolean = true): ICache[K, V] = {
-    val entryType = if (typesafe) {
-      Some(getObjectType[K] -> getObjectType[V])
-    } else None
-    val mgr = CacheManagers.get(hz) getOrElse {
-      val mgr = getCacheProvider(name, entryType).getCacheManager
-      CacheManagers.putIfAbsent(hz, mgr) getOrElse {
-        onLifecycleStateChange() {
-          case LifecycleState.SHUTDOWN => CacheManagers.remove(hz)
-        }
-        mgr
-      }
-    }
-    val cache = entryType.map {
-      case (keyType, valueType) => mgr.getCache[K, V](name, keyType, valueType)
-    }.getOrElse(mgr.getCache[K, V](name)) match {
-      case null =>
-        val cc = new javax.cache.configuration.Configuration[K, V] {
-          def getKeyType() = entryType.map(_._1) getOrElse classOf[Object].asInstanceOf[Class[K]]
-          def getValueType() = entryType.map(_._2) getOrElse classOf[Object].asInstanceOf[Class[V]]
-          def isStoreByValue() = true
-        }
-        mgr.createCache[K, V, cc.type](name, cc)
-      case cache => cache
-    }
-    cache.unwrap(classOf[ICache[K, V]])
-  }
 }
