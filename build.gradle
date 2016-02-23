@@ -12,6 +12,7 @@ plugins {
 }
 
 ext {
+    pName = 'hazelcast-scala'
     junitVersion = '4.12'
     scalaMinorVersion = '2.11'
     scalaVersion = "$scalaMinorVersion.7"
@@ -30,12 +31,14 @@ task wrapper(type: Wrapper) {
     gradleVersion = "2.10"
 }
 
-version = tsVersion("1-alpha")
+if (version == 'SNAPSHOT') {
+    version = tsVersion(version)
+}
 
 def tsVersion(version) {
     java.text.SimpleDateFormat tsFmt = new java.text.SimpleDateFormat('yyMMddHHmm')
     tsFmt.setCalendar(Calendar.getInstance(TimeZone.getTimeZone('UTC')))
-    return "${version}.b${tsFmt.format(new Date())}"
+    return "${version}-b${tsFmt.format(new Date())}"
 }
 
 repositories {
@@ -55,17 +58,19 @@ dependencies {
 }
 
 jar {
-    baseName = "hazelcast-scala_$scalaMinorVersion"
+    baseName = "${pName}_$scalaMinorVersion"
     manifest {
-        attributes "Implementation-Title": "hazelcast-scala", "Implementation-Version": version
+        attributes "Implementation-Title": pName, "Implementation-Version": version
     }
 }
 
 task sourceJar(type: Jar) {
+    baseName "${pName}_$scalaMinorVersion"
     classifier "sources"
     from sourceSets.main.allScala
 }
 task docsJar(type: Jar, dependsOn: scaladoc) {
+    baseName "${pName}_$scalaMinorVersion"
     classifier "docs"
     from scaladoc.destinationDir
 }
@@ -92,7 +97,7 @@ publishing {
 bintray {
     user = System.properties.bintrayUser ?: "n/a"
     key = System.properties.bintrayApiKey ?: "n/a"
-    dryRun = (user == "n/a" || key == "n/a")
+    dryRun = (user == "n/a" || key == "n/a" || version.startsWith('SNAPSHOT'))
     publish = !dryRun
     publications = ['maven']
     pkg {
