@@ -30,7 +30,9 @@ targetCompatibility = 1.7
 task wrapper(type: Wrapper) {
     gradleVersion = "2.10"
 }
-
+if (version == '') {
+    version = 'SNAPSHOT'
+}
 if (version == 'SNAPSHOT') {
     version = tsVersion(version)
 }
