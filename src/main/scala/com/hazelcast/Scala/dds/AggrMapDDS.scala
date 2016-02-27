@@ -70,6 +70,7 @@ private[Scala] class NumericGroupMapDDS[G, N: Numeric](dds: MapDDS[_, _, (G, N)]
 }
 
 private object AggrMapDDS {
+
   private def aggregate[K, E, R, AW](
     mapName: String,
     keysByMember: Option[Map[Member, collection.Set[K]]],
@@ -133,8 +134,11 @@ private object AggrMapDDS {
         } else acc
       }
       val partSvc = hz.getPartitionService
-      val keysByPartId = localKeys.groupBy(partSvc.getPartition(_).getPartitionId)
-      val entries = keysByPartId.values.par.map(parKeys => blocking(imap.getAll(parKeys.asJava))).flatMap(_.entrySet.asScala)
+      val keysByPartId = localKeys.groupBy(partSvc.getPartition(_).getPartitionId).values.par
+      hz.userCtx.get(TaskSupportKey).foreach { tc =>
+        keysByPartId.tasksupport = tc
+      }
+      val entries = keysByPartId.map(parKeys => blocking(imap.getAll(parKeys.asJava))).flatMap(_.entrySet.asScala)
       entries.aggregate(aggr.remoteInit)(seqop, aggr.remoteCombine)
     }
   }
