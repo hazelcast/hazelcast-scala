@@ -1,5 +1,6 @@
 package com.hazelcast
 
+import java.lang.reflect.Method
 import java.util.AbstractMap
 import java.util.Map.Entry
 
@@ -9,10 +10,12 @@ import scala.concurrent.Future
 import scala.concurrent.blocking
 import scala.concurrent.duration.DurationInt
 import scala.concurrent.duration.FiniteDuration
+import scala.util.Try
 import scala.util.control.NonFatal
 
 import Scala._
 import Scala.dds._
+import core.DistributedObject
 import core.HazelcastInstance
 import core.ICollection
 import core.ICompletableFuture
@@ -28,6 +31,8 @@ import query.PredicateBuilder
 import query.Predicates
 import query.SqlPredicate
 import ringbuffer.Ringbuffer
+
+import language.implicitConversions
 
 package Scala {
 
@@ -126,9 +131,7 @@ package object Scala extends HighPriorityImplicits {
   }
 
   @inline implicit def mbrConf2props(conf: config.Config) = new HzMemberProperties(conf)
-  @inline implicit def clientConf2props(conf: client.config.ClientConfig) = new HzClientProperties(conf)
   @inline implicit def mbrConf2scala(conf: config.Config) = new HzConfig(conf)
-  @inline implicit def clientConf2scala(conf: client.config.ClientConfig) = new HzClientConfig(conf)
   @inline implicit def rb2scala[E](rb: Ringbuffer[E]) = new HzRingbuffer(rb)
 
   implicit class HzInt(private val i: Int) extends AnyVal {
@@ -219,6 +222,16 @@ package object Scala extends HighPriorityImplicits {
       }
     }
   }
+
+  // Sorta naughty...
+  private[this] val ClientProxy_getClient: Option[Method] = Try {
+    val getClient = Class.forName("com.hazelcast.client.spi.ClientProxy").getDeclaredMethod("getClient")
+    getClient.setAccessible(true)
+    getClient
+  }.toOption
+
+  private[Scala] def getClientHzProxy(clientDOProxy: DistributedObject): Option[HazelcastInstance] =
+    ClientProxy_getClient.map(_.invoke(clientDOProxy).asInstanceOf[HazelcastInstance])
 
   private[Scala] final class EntryPredicate[K, V](
     include: Entry[K, V] => Boolean, prev: Predicate[Object, Object] = null)

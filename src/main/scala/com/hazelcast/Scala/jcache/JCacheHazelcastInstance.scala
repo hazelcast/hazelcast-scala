@@ -8,7 +8,6 @@ import scala.util.Try
 import com.hazelcast.Scala._
 import com.hazelcast.cache.ICache
 import com.hazelcast.cache.impl.HazelcastServerCachingProvider
-import com.hazelcast.client.cache.impl.HazelcastClientCachingProvider
 import com.hazelcast.core._
 import com.hazelcast.core.LifecycleEvent.LifecycleState
 import com.hazelcast.instance.GroupProperty
@@ -65,7 +64,7 @@ class JCacheHazelcastInstance(private val hz: HazelcastInstance) extends AnyVal 
       case None => hz.isClient
     }
     if (isClient) {
-      HazelcastClientCachingProvider.createCachingProvider(hz)
+      createClientCachingProvider(hz).get
     } else {
       entryTypes.foreach {
         case (keyType, valueType) =>

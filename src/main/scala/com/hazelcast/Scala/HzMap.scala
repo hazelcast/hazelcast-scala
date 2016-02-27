@@ -3,31 +3,25 @@ package com.hazelcast.Scala
 import java.util.Collections
 import java.util.Comparator
 import java.util.Map.Entry
-
 import scala.collection.JavaConverters._
 import scala.collection.mutable.{ Map => mMap }
 import scala.concurrent.ExecutionContext
 import scala.concurrent.duration.Duration
 import scala.concurrent.duration.FiniteDuration
-
 import com.hazelcast.Scala.dds.DDS
 import com.hazelcast.Scala.dds.MapDDS
-import com.hazelcast.client.spi.ClientProxy
 import com.hazelcast.core.{ HazelcastInstance, IMap }
 import com.hazelcast.map.AbstractEntryProcessor
 import com.hazelcast.query.{ PagingPredicate, Predicate, PredicateBuilder }
 import com.hazelcast.spi.AbstractDistributedObject
+import scala.util.Try
+import scala.util.control.NonFatal
 
 final class HzMap[K, V](protected val imap: IMap[K, V]) extends IMapDeltaUpdates[K, V] with MapEventSubscription {
 
-  // Sorta naughty:
   private[Scala] def getHZ: HazelcastInstance = imap match {
     case ado: AbstractDistributedObject[_] => ado.getNodeEngine.getHazelcastInstance
-    case cp: ClientProxy =>
-      val getClient = classOf[ClientProxy].getDeclaredMethod("getClient")
-      getClient.setAccessible(true)
-      getClient.invoke(cp).asInstanceOf[HazelcastInstance]
-    case _ => sys.error(s"Cannot get HazelcastInstance from ${imap.getClass}")
+    case _ => getClientHzProxy(imap) getOrElse sys.error(s"Cannot get HazelcastInstance from ${imap.getClass}")
   }
 
   def async: AsyncMap[K, V] = new AsyncMap(imap)

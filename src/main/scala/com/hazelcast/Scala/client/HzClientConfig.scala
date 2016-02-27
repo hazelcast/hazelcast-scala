@@ -1,10 +1,8 @@
-package com.hazelcast.Scala
+package com.hazelcast.Scala.client
 
 import scala.concurrent.ExecutionContext
 import scala.concurrent.Future
-
 import com.hazelcast.client.HazelcastClient
-
 import com.hazelcast.client.config.ClientConfig
 import com.hazelcast.config.ListenerConfig
 import com.hazelcast.core.HazelcastInstance
@@ -12,6 +10,9 @@ import com.hazelcast.core.InitialMembershipEvent
 import com.hazelcast.core.LifecycleEvent.LifecycleState
 import com.hazelcast.core.MigrationEvent
 import com.hazelcast.partition.PartitionLostEvent
+import com.hazelcast.Scala.DistributedObjectChange
+import com.hazelcast.Scala.EventSubscription
+import com.hazelcast.Scala.MemberEvent
 
 class HzClientConfig(conf: ClientConfig) extends EventSubscription {
   type ESR = ClientConfig

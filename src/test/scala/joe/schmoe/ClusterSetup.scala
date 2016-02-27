@@ -1,6 +1,7 @@
 package joe.schmoe
 
 import com.hazelcast.Scala._
+import com.hazelcast.Scala.client._
 import org.junit.BeforeClass
 import com.hazelcast.core.HazelcastInstance
 import org.junit.AfterClass
