@@ -25,7 +25,7 @@ object RemoteExecutionSerializers extends RemoteExecutionSerializers {
 abstract class RemoteExecutionSerializers extends SerializerEnum(DefaultSerializers) {
   protected def serializeBytecodeFor(cls: Class[_]): Boolean
   private[this] val loaderByClass = new ClassValue[Option[ByteArrayClassLoader]] {
-    private[this] val excludePackages = Set("com.hazelcast.", "scala.")
+    private[this] val excludePackages = Set("com.hazelcast.", "scala.", "java.", "javax.")
     private def include(cls: Class[_]): Boolean = !excludePackages.exists(cls.getName.startsWith) && serializeBytecodeFor(cls)
     def computeValue(cls: Class[_]): Option[ByteArrayClassLoader] =
       if (include(cls)) {

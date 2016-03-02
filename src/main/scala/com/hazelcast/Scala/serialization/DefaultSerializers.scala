@@ -12,6 +12,7 @@ import scala.runtime.IntRef
 import scala.runtime.LongRef
 import scala.runtime.DoubleRef
 import scala.runtime.FloatRef
+import com.hazelcast.Scala._
 
 object DefaultSerializers extends SerializerEnum(-987654321) {
 
@@ -26,6 +27,30 @@ object DefaultSerializers extends SerializerEnum(-987654321) {
 
   val NilSer = new ListSerializer[Nil.type]
   val NEListSer = new ListSerializer[::[_]]
+
+  val IMapEntrySer = new JMapEntrySerializer[ImmutableEntry[_, _]]((key, value) => new ImmutableEntry(key, value))
+  val MMapEntrySer = new JMapEntrySerializer[MutableEntry[_, _]]((key, value) => new MutableEntry(key, value))
+  val UMapEntrySer = new JMapEntrySerializer[java.util.Map.Entry[_, _]]((key, value) => new ImmutableEntry(key, value))
+
+  val ObjArraySer = new StreamSerializer[Array[Object]] {
+    def write(out: ObjectDataOutput, arr: Array[Object]) {
+      out.writeInt(arr.length)
+      var idx = 0
+      while (idx < arr.length) {
+        out.writeObject(arr(idx))
+        idx += 1
+      }
+    }
+    def read(inp: ObjectDataInput): Array[Object] = {
+      val arr = new Array[Object](inp.readInt)
+      var idx = 0
+      while (idx < arr.length) {
+        arr(idx) = inp.readObject
+        idx += 1
+      }
+      arr
+    }
+  }
 
   val IntRefSer = new StreamSerializer[IntRef] {
     def write(out: ObjectDataOutput, ref: IntRef) = out.writeInt(ref.elem)
@@ -227,13 +252,13 @@ object DefaultSerializers extends SerializerEnum(-987654321) {
       readJMap(size, new JTreeMap(comp), inp)
     }
   }
-  private type JMapEntry = java.util.Map.Entry[Any, Any]
-  val JMapEntrySer = new StreamSerializer[JMapEntry] {
-    def write(out: ObjectDataOutput, e: JMapEntry): Unit = {
+
+  final class JMapEntrySerializer[E <: java.util.Map.Entry[_, _]: ClassTag](ctor: (Any, Any) => E) extends StreamSerializer[E] {
+    def write(out: ObjectDataOutput, e: E): Unit = {
       out.writeObject(e.getKey)
       out.writeObject(e.getValue)
     }
-    def read(inp: ObjectDataInput): JMapEntry = new com.hazelcast.Scala.ImmutableEntry(inp.readObject, inp.readObject)
+    def read(inp: ObjectDataInput): E = ctor(inp.readObject, inp.readObject)
   }
 
   val VectorSer = new StreamSerializer[Vector[Any]] {
