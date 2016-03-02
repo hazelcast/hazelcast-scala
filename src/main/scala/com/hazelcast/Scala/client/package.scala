@@ -1,7 +1,8 @@
 package com.hazelcast.Scala
 
 import com.hazelcast.client.config.ClientConfig
-import com.hazelcast.Scala.client.HzClientConfig
+
+import language.implicitConversions
 
 package object client {
   @inline implicit def clientConf2scala(conf: ClientConfig) = new HzClientConfig(conf)
