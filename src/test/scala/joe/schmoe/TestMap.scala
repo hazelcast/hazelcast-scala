@@ -466,7 +466,7 @@ class TestMap {
     val longestWord = words.max(_.length).await.get
     println(s""""Alice in Wonderland", longest word: $longestWord""")
     val top5LongestWords = words.sortBy(_.length).reverse.take(5).values.await
-    assertEquals(longestWord, top5LongestWords.head)
+    assertTrue(top5LongestWords contains longestWord)
     val topStr = top5LongestWords.map(w => s"$w (${w.length})").mkString(", ")
     println(s""""Alice in Wonderland", top 5 longest words: $topStr""")
   }
@@ -524,7 +524,7 @@ class TestMap {
     val longestWord = words.max(_.length).await.get
     println(s""""Flatland", longest word: $longestWord""")
     val top5LongestWords = words.sortBy(_.length).reverse.take(5).values.await
-    assertEquals(longestWord, top5LongestWords.head)
+    assertTrue(top5LongestWords contains longestWord)
     val topStr = top5LongestWords.map(w => s"$w (${w.length})").mkString(", ")
     println(s""""Flatland", top 5 longest words: $topStr""")
 
@@ -747,6 +747,8 @@ class TestMap {
       assertEquals(byMax.key, bySort.key)
       if (i >= 3) println(s"Longest string: max(): $byMaxTime ms, sortBy(): $bySortTime ms")
     }
+    strMap.clear()
+    strMap.destroy()
   }
 
   @Test
