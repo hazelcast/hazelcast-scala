@@ -322,6 +322,9 @@ class TestMap {
     (0 until javaSal.size).foreach { idx =>
       assertEquals(idx -> javaSal(idx), idx -> scalaSal(idx))
     }
+
+    clientMap.clear()
+    clientMap.destroy()
   }
 
   @Test
@@ -793,5 +796,8 @@ class TestMap {
     }
     assertEquals(localSum, ageSum)
     assertEquals(localCount, ageCount)
+
+    employees.clear()
+    employees.destroy()
   }
 }
