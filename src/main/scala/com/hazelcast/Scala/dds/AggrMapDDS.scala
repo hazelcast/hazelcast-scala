@@ -135,7 +135,7 @@ private object AggrMapDDS {
       }
       val partSvc = hz.getPartitionService
       val keysByPartId = localKeys.groupBy(partSvc.getPartition(_).getPartitionId).values.par
-      hz.userCtx.get(TaskSupportKey).foreach { tc =>
+      hz.userCtx.get(Aggregator.TaskSupport).foreach { tc =>
         keysByPartId.tasksupport = tc
       }
       val entries = keysByPartId.map(parKeys => blocking(imap.getAll(parKeys.asJava))).flatMap(_.entrySet.asScala)

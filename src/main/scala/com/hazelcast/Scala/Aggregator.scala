@@ -32,6 +32,17 @@ trait Aggregator[-T, +R] extends Serializable {
 
 object Aggregator {
 
+  /**
+    *  User context key for overriding the
+    *  default `TaskSupport` for parallel collections.
+    *
+    *  Example:
+    *  {{{
+    *  hz.userCtx(Aggregator.TaskSupport) = new ForkJoinTaskSupport()
+    *  }}}
+    */
+  object TaskSupport extends UserContext.Key[collection.parallel.TaskSupport]
+
   type JM[G, V] = java.util.HashMap[G, V]
   type SM[G, V] = collection.mutable.Map[G, V]
 

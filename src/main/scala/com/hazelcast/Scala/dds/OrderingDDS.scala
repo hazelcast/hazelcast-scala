@@ -50,16 +50,16 @@ private object OrderingDDS {
 
 trait OrderingDDS[O] extends AggrDDS[O] {
   implicit protected def ord: Ordering[O]
-  def max()(implicit ec: ExecutionContext): Future[Option[O]] = submit(new aggr.Max)
-  def min()(implicit ec: ExecutionContext): Future[Option[O]] = submit(new aggr.Min)
-  def minMax()(implicit ec: ExecutionContext): Future[Option[(O, O)]] = submit(new aggr.MinMax)
+  def max()(implicit ec: ExecutionContext): Future[Option[O]] = this.max(identity)
+  def min()(implicit ec: ExecutionContext): Future[Option[O]] = this.min(identity)
+  def minMax()(implicit ec: ExecutionContext): Future[Option[(O, O)]] = this.minMax(identity)
   def medianValues()(implicit ec: ExecutionContext): Future[Option[(O, O)]] = distribution().map(OrderingDDS.medianValues[O])
 }
 trait OrderingGroupDDS[G, O] extends AggrGroupDDS[G, O] {
   implicit protected def ord: Ordering[O]
 
-  def max()(implicit ec: ExecutionContext): Future[cMap[G, O]] = submitGrouped(Aggregator.groupSome(new aggr.Max))
-  def min()(implicit ec: ExecutionContext): Future[cMap[G, O]] = submitGrouped(Aggregator.groupSome(new aggr.Min))
-  def minMax()(implicit ec: ExecutionContext): Future[cMap[G, (O, O)]] = submitGrouped(Aggregator.groupSome(new aggr.MinMax))
+  def max()(implicit ec: ExecutionContext): Future[cMap[G, O]] = submitGrouped(Aggregator.groupSome(new aggr.Max(identity)))
+  def min()(implicit ec: ExecutionContext): Future[cMap[G, O]] = submitGrouped(Aggregator.groupSome(new aggr.Min(identity)))
+  def minMax()(implicit ec: ExecutionContext): Future[cMap[G, (O, O)]] = submitGrouped(Aggregator.groupSome(new aggr.MinMax(identity)))
   def medianValues()(implicit ec: ExecutionContext): Future[cMap[G, (O, O)]] = distribution().map(_.mapValues(OrderingDDS.medianValues[O](_).get))
 }

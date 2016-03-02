@@ -93,6 +93,7 @@ package Scala {
   }
   trait HighPriorityImplicits extends MediumPriorityImplicits {
     @inline implicit def imap2dds[K, V](imap: IMap[K, V]): DDS[Entry[K, V]] = new MapDDS(imap)
+    @inline implicit def imap2aggrDds[K, V](imap: IMap[K, V]): AggrDDS[Entry[K, V]] = dds2aggrDds(new MapDDS(imap))
     @inline implicit def inst2scala(inst: HazelcastInstance) = new HzHazelcastInstance(inst)
     @inline implicit def topic2scala[T](topic: ITopic[T]) = new HzTopic(topic)
     @inline implicit def exec2scala(exec: IExecutorService) = new HzExecutorService(exec)

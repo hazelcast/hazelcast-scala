@@ -459,6 +459,13 @@ class TestMap {
     }
     assertEquals(expectedTopTen, top10ByCount)
     println(s"Top 10 words took $countMs ms")
+
+    val longestWord = words.max(_.length).await.get
+    println(s""""Alice in Wonderland", longest word: $longestWord""")
+    val top5LongestWords = words.sortBy(_.length).reverse.take(5).values.await
+    assertEquals(longestWord, top5LongestWords.head)
+    val topStr = top5LongestWords.map(w => s"$w (${w.length})").mkString(", ")
+    println(s""""Alice in Wonderland", top 5 longest words: $topStr""")
   }
 
   @Test
@@ -510,6 +517,14 @@ class TestMap {
     assertEquals(273, topTwenty("with"))
     assertEquals(267, topTwenty("for"))
     assertEquals(252, topTwenty("be"))
+
+    val longestWord = words.max(_.length).await.get
+    println(s""""Flatland", longest word: $longestWord""")
+    val top5LongestWords = words.sortBy(_.length).reverse.take(5).values.await
+    assertEquals(longestWord, top5LongestWords.head)
+    val topStr = top5LongestWords.map(w => s"$w (${w.length})").mkString(", ")
+    println(s""""Flatland", top 5 longest words: $topStr""")
+
   }
 
   @Test
@@ -690,5 +705,93 @@ class TestMap {
     assertEquals(10, fromScalaDesc.size)
     assertEquals(fromJavaAsc, fromScalaAsc)
     assertEquals(fromJavaDesc, fromScalaDesc)
+  }
+
+  @Test
+  def stringLengthMinMax1() {
+    val strMap = getClientMap[Int, String]()
+    strMap.set(1, "abc")
+    strMap.set(2, "abc")
+    strMap.set(3, "abcdefghijklmnop")
+    strMap.set(4, "abcdef")
+    strMap.set(5, "abcxyz")
+    strMap.set(6, "xyz")
+
+    val maxByStr = strMap.map(_.value).max().await.get
+    assertEquals("xyz", maxByStr)
+    val maxByLen = strMap.map(_.value).max(_.length).await.get
+    assertEquals("abcdefghijklmnop", maxByLen)
+
+    val longestByMax = strMap.max(_.value.length).await.get
+    assertEquals(3, longestByMax.key)
+    assertEquals(strMap.get(3), longestByMax.value)
+    val longestBySort = strMap.sortBy(_.getValue.length).reverse.take(1).values.await.head
+    assertEquals(3, longestBySort.key)
+    assertEquals(strMap.get(3), longestBySort.value)
+  }
+  @Test
+  def stringLengthMinMax2() {
+    val localMap = (1 to 250000).foldLeft(new java.util.HashMap[Int, String]) {
+      case (map, key) =>
+        map.put(key, randomString(500))
+        map
+    }
+    val strMap = getClientMap[Int, String]()
+    strMap.putAll(localMap)
+    for (i <- 1 to 5) {
+      val (bySort, bySortTime) = timed()(strMap.sortBy(_.getValue.length).reverse.take(1).values.await.head)
+      val (byMax, byMaxTime) = timed()(strMap.max(_.value.length).await.get)
+      assertEquals(byMax.key, bySort.key)
+      if (i >= 3) println(s"Longest string: max(): $byMaxTime ms, sortBy(): $bySortTime ms")
+    }
+  }
+
+  @Test
+  def aggregateToMap() {
+    var localSum = 0L
+    var localCount = 0
+    val employees = (1 to 50000).foldLeft(getClientMap[UUID, Employee]()) {
+      case (employees, _) =>
+        val emp = Employee.random
+        localSum += emp.salary
+        localCount += 1
+        employees.set(emp.id, emp)
+        employees
+    }
+    val (remoteSum, remoteCount) = employees.map(_.value).aggregate(0L -> 0)({
+      case ((sum, count), emp) => (sum + emp.salary) -> (count + 1)
+    }, {
+      case (x, y) => (x._1 + y._1) -> (x._2 + y._2)
+    }).await
+    assertEquals(localSum, remoteSum)
+    assertEquals(localCount, remoteCount)
+
+    val resultMap = getClientMap[String, (Long, Int)]()
+    val resultKey = "salarySumCount"
+    resultMap.delete(resultKey)
+    employees.map(_.getValue).aggregateInto(resultMap, resultKey)(0L -> 0)({
+      case ((sum, count), emp) => (sum + emp.salary) -> (count + 1)
+    }, {
+      case (x, y) => (x._1 + y._1) -> (x._2 + y._2)
+    }).await
+    val (sum, count) = resultMap.get(resultKey)
+    assertEquals(localSum, sum)
+    assertEquals(localCount, count)
+
+    val resultsByAge = getClientMap[Int, (Long, Int)]()
+    val ages = employees.map(_.getValue).groupBy(_.age).aggregateInto(resultsByAge)(0L -> 0)({
+      case ((sum, count), emp) => (sum + emp.salary) -> (count + 1)
+    }, {
+      case (x, y) => (x._1 + y._1) -> (x._2 + y._2)
+    }).await
+    assertEquals(ages.size, resultsByAge.size)
+    val (ageSum, ageCount) = ages.foldLeft(0L -> 0) {
+      case ((totalSum, totalCount), age) =>
+        val (sum, count) = resultsByAge.get(age)
+        assertTrue(count > 0)
+        (totalSum + sum) -> (totalCount + count)
+    }
+    assertEquals(localSum, ageSum)
+    assertEquals(localCount, ageCount)
   }
 }
