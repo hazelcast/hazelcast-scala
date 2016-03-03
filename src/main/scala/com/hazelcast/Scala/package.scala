@@ -3,7 +3,6 @@ package com.hazelcast
 import java.lang.reflect.Method
 import java.util.AbstractMap
 import java.util.Map.Entry
-
 import scala.concurrent.Await
 import scala.concurrent.ExecutionContext
 import scala.concurrent.Future
@@ -12,7 +11,6 @@ import scala.concurrent.duration.DurationInt
 import scala.concurrent.duration.FiniteDuration
 import scala.util.Try
 import scala.util.control.NonFatal
-
 import Scala._
 import Scala.dds._
 import core.DistributedObject
@@ -31,7 +29,6 @@ import query.PredicateBuilder
 import query.Predicates
 import query.SqlPredicate
 import ringbuffer.Ringbuffer
-
 import language.implicitConversions
 
 package Scala {

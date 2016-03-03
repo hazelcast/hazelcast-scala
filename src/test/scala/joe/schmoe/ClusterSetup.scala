@@ -44,7 +44,10 @@ trait ClusterSetup {
     memberConfig.getNetworkConfig.setPort(port)
     memberConfig.setGracefulShutdownMaxWait(1.second)
     memberConfig.setPhoneHomeEnabled(false)
-    memberConfig.getMapConfig("default").setBackupCount(0).setStatisticsEnabled(false)
+    memberConfig.getMapConfig("default")
+      .setBackupCount(0)
+      .setStatisticsEnabled(false)
+      .setMaxSizeConfig(UsedHeapSize(60.gigabytes))
     memberConfig.setShutdownHookEnabled(false)
     _hz = (1 to clusterSize).par.map(_ => memberConfig.newInstance).seq.toVector
     clientConfig.getGroupConfig.setName(group)
