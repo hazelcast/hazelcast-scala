@@ -754,7 +754,7 @@ class TestMap {
     val longestByMax = strMap.max(_.value.length).await.get
     assertEquals(3, longestByMax.key)
     assertEquals(strMap.get(3), longestByMax.value)
-    val longestBySort = strMap.sortBy(_.getValue.length).reverse.take(1).values.await.head
+    val longestBySort = strMap.sortBy(_.value.length).reverse.take(1).values.await.head
     assertEquals(3, longestBySort.key)
     assertEquals(strMap.get(3), longestBySort.value)
   }
@@ -768,7 +768,7 @@ class TestMap {
     val strMap = getClientMap[Int, String]()
     strMap.putAll(localMap)
     for (i <- 1 to 5) {
-      val (bySort, bySortTime) = timed()(strMap.sortBy(_.getValue.length).reverse.take(1).values.await.head)
+      val (bySort, bySortTime) = timed()(strMap.sortBy(_.value.length).reverse.take(1).values.await.head)
       val (byMax, byMaxTime) = timed()(strMap.max(_.value.length).await.get)
       assertEquals(byMax.key, bySort.key)
       if (i >= 3) println(s"Longest string: max(): $byMaxTime ms, sortBy(): $bySortTime ms")
@@ -800,7 +800,7 @@ class TestMap {
     val resultMap = getClientMap[String, (Long, Int)]()
     val resultKey = "salarySumCount"
     resultMap.delete(resultKey)
-    employees.map(_.getValue).aggregateInto(resultMap, resultKey)(0L -> 0)({
+    employees.map(_.value).aggregateInto(resultMap, resultKey)(0L -> 0)({
       case ((sum, count), emp) => (sum + emp.salary) -> (count + 1)
     }, {
       case (x, y) => (x._1 + y._1) -> (x._2 + y._2)
@@ -810,7 +810,7 @@ class TestMap {
     assertEquals(localCount, count)
 
     val resultsByAge = getClientMap[Int, (Long, Int)]()
-    val ages = employees.map(_.getValue).groupBy(_.age).aggregateInto(resultsByAge)(0L -> 0)({
+    val ages = employees.map(_.value).groupBy(_.age).aggregateInto(resultsByAge)(0L -> 0)({
       case ((sum, count), emp) => (sum + emp.salary) -> (count + 1)
     }, {
       case (x, y) => (x._1 + y._1) -> (x._2 + y._2)

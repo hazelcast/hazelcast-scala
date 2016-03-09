@@ -1,10 +1,9 @@
 package com.hazelcast.Scala.aggr
 
 import com.hazelcast.core.HazelcastInstanceAware
-import com.hazelcast.Scala.HzMap
+import com.hazelcast.Scala._
 import com.hazelcast.core.HazelcastInstance
 import collection.JavaConverters._
-import com.hazelcast.Scala.Aggregator
 
 private[Scala] final class InlineAggregator[E, A](
   val init: () => A, _seqop: (A, E) => A, _combop: (A, A) => A)
@@ -66,8 +65,8 @@ private[Scala] final class InlineSavingGroupAggregator[G, E, A](
   def setHazelcastInstance(hz: HazelcastInstance): Unit = toMap = hz.getMap[G, A](mapName)
   override def remoteFinalize(q: Map[AQ]): Map[AW] = {
     q.entrySet().iterator().asScala.foreach { entry =>
-      val value = entry.getValue.asInstanceOf[A]
-      entry setValue null.asInstanceOf[AQ]
+      val value = entry.value.asInstanceOf[A]
+      entry.value = null.asInstanceOf[AQ]
       toMap.upsert(entry.getKey, value)(unitAggr.combop(_, value))
     }
     q.asInstanceOf[Map[AW]]
