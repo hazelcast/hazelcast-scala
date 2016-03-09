@@ -12,10 +12,9 @@ plugins {
 }
 
 ext {
-    pName = 'hazelcast-scala'
     junitVersion = '4.12'
     scalaMinorVersion = '2.11'
-    scalaVersion = "$scalaMinorVersion.7"
+    scalaVersion = "$scalaMinorVersion.8"
     hzVersion = '3.6.1'
     scoverageVersion = '1.1.0'
 }
@@ -60,19 +59,19 @@ dependencies {
 }
 
 jar {
-    baseName = "${pName}_$scalaMinorVersion"
+    baseName = "${project.name}_$scalaMinorVersion"
     manifest {
-        attributes "Implementation-Title": pName, "Implementation-Version": version
+        attributes "Implementation-Title": project.name, "Implementation-Version": version
     }
 }
 
 task sourceJar(type: Jar) {
-    baseName "${pName}_$scalaMinorVersion"
+    baseName "${project.name}_$scalaMinorVersion"
     classifier "sources"
     from sourceSets.main.allScala
 }
 task docsJar(type: Jar, dependsOn: scaladoc) {
-    baseName "${pName}_$scalaMinorVersion"
+    baseName "${project.name}_$scalaMinorVersion"
     classifier "docs"
     from scaladoc.destinationDir
 }
@@ -105,8 +104,5 @@ bintray {
     pkg {
         repo = System.properties.bintrayRepo
         name = System.properties.bintrayName
-//        version {
-//            name = version
-//        }
     }
 }
