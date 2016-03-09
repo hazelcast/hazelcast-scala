@@ -33,34 +33,12 @@ trait AggrDDS[E] {
   def min[O: Ordering](m: E => O)(implicit ec: ExecutionContext): Future[Option[E]] = this submit new aggr.Min(m)
   def minMax[O: Ordering](m: E => O)(implicit ec: ExecutionContext): Future[Option[(E, E)]] = this submit new aggr.MinMax(m)
 
-  def aggregate[A](init: A, es: IExecutorService = null)(seqop: (A, E) => A, combop: (A, A) => A)(implicit ec: ExecutionContext): Future[A] = {
-    val aggregator = new Aggregator[E, A] {
-      type Q = A; type W = A
-      def remoteInit: Q = init
-      def remoteFold(q: Q, e: E): Q = seqop(q, e)
-      def remoteCombine(x: Q, y: Q): Q = combop(x, y)
-      def remoteFinalize(q: Q): W = q
-      def localCombine(x: W, y: W): W = combop(x, y)
-      def localFinalize(w: W): A = w
-    }
+  def aggregate[A](init: => A, es: IExecutorService = null)(seqop: (A, E) => A, combop: (A, A) => A)(implicit ec: ExecutionContext): Future[A] = {
+    val aggregator = new InlineAggregator(init _, seqop, combop)
     submit(aggregator, es)
   }
-  def aggregateInto[AK, A](to: IMap[AK, A], key: AK)(init: A, es: IExecutorService = null)(seqop: (A, E) => A, combop: (A, A) => A)(implicit ec: ExecutionContext): Future[Unit] = {
-    val aggregator = new Aggregator[E, Unit] with HazelcastInstanceAware {
-      val toMapName = to.getName
-      @volatile @transient
-      private[this] var toMap: HzMap[AK, A] = _
-      def setHazelcastInstance(hz: HazelcastInstance): Unit = toMap = hz.getMap[AK, A](toMapName)
-      type Q = A; type W = Unit
-      def remoteInit: Q = init
-      def remoteFold(q: Q, e: E): Q = seqop(q, e)
-      def remoteCombine(x: Q, y: Q): Q = combop(x, y)
-      def remoteFinalize(q: Q): W = {
-        toMap.upsert(key, q)(combop(_, q))
-      }
-      def localCombine(x: W, y: W): W = ()
-      def localFinalize(w: W) = ()
-    }
+  def aggregateInto[AK, A](to: IMap[AK, A], key: AK)(init: => A, es: IExecutorService = null)(seqop: (A, E) => A, combop: (A, A) => A)(implicit ec: ExecutionContext): Future[Unit] = {
+    val aggregator = new InlineSavingAggregator(to.getName, key, init _, seqop, combop)
     submit(aggregator, es)
   }
 }
@@ -80,49 +58,14 @@ trait AggrGroupDDS[G, E] {
   def min[O: Ordering](m: E => O)(implicit ec: ExecutionContext): Future[aMap[G, E]] = submitGrouped(Aggregator.groupSome(new aggr.Min(m)))
   def minMax[O: Ordering](m: E => O)(implicit ec: ExecutionContext): Future[aMap[G, (E, E)]] = submitGrouped(Aggregator.groupSome(new aggr.MinMax(m)))
 
-  def aggregate[A](init: A, es: IExecutorService = null)(seqop: (A, E) => A, combop: (A, A) => A)(implicit ec: ExecutionContext): Future[aMap[G, A]] = {
-    val aggregator = new Aggregator[E, A] {
-      type Q = A; type W = A
-      def remoteInit: Q = init
-      def remoteFold(q: Q, e: E): Q = seqop(q, e)
-      def remoteCombine(x: Q, y: Q): Q = combop(x, y)
-      def remoteFinalize(q: Q): W = q
-      def localCombine(x: W, y: W): W = combop(x, y)
-      def localFinalize(w: W): A = w
-    }
+  def aggregate[A](init: => A, es: IExecutorService = null)(seqop: (A, E) => A, combop: (A, A) => A)(implicit ec: ExecutionContext): Future[aMap[G, A]] = {
+    val aggregator = new InlineAggregator(init _, seqop, combop)
     submit(aggregator, es)
   }
 
-  def aggregateInto[A](to: IMap[G, A])(init: A, es: IExecutorService = null)(seqop: (A, E) => A, combop: (A, A) => A)(implicit ec: ExecutionContext): Future[aSet[G]] = {
-    val aggregator = new Aggregator[E, Unit] {
-      type Q = A; type W = Unit
-      def remoteInit: Q = init
-      def remoteFold(q: Q, e: E): Q = seqop(q, e)
-      def remoteCombine(x: Q, y: Q): Q = combop(x, y)
-      def remoteFinalize(q: Q): W = ()
-      def localCombine(x: W, y: W): W = ()
-      def localFinalize(w: W) = ()
-    }
-    val grouped = new Aggregator.Grouped[G, E, Unit, Unit](aggregator, PartialFunction(identity)) with HazelcastInstanceAware {
-      val toMapName = to.getName
-      @volatile @transient
-      private[this] var toMap: HzMap[G, A] = _
-      def setHazelcastInstance(hz: HazelcastInstance): Unit = toMap = hz.getMap[G, A](toMapName)
-      override def remoteFinalize(q: Map[AQ]): Map[AW] = {
-        q.entrySet().iterator().asScala.foreach { entry =>
-          val value = entry.value.asInstanceOf[A]
-          entry.value = null.asInstanceOf[AQ]
-          toMap.upsert(entry.getKey, value)(combop(_, value))
-        }
-        q.asInstanceOf[Map[AW]]
-      }
-      override def localCombine(x: W, y: W): W = {
-        x.putAll(y)
-        x
-      }
-      override def localFinalize(w: W) = w.asScala.asInstanceOf[collection.mutable.Map[G, Unit]]
-    }
-    submitGrouped(grouped, es).map(_.keySet)
+  def aggregateInto[A](to: IMap[G, A])(init: => A, es: IExecutorService = null)(seqop: (A, E) => A, combop: (A, A) => A)(implicit ec: ExecutionContext): Future[aSet[G]] = {
+    val aggregator = new InlineSavingGroupAggregator[G, E, A](to.getName, init _, seqop, combop)
+    submitGrouped(aggregator, es).map(_.keySet)
   }
 
 }

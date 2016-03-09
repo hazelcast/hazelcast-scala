@@ -23,25 +23,6 @@ import com.hazelcast.core.PartitionAware
 
 final class HzExecutorService(private val exec: IExecutorService) extends AnyVal {
 
-  private def task[T](thunk: => T, member: Option[SingleMember] = None) =
-    member match {
-      case Some(ToKeyOwner(key)) =>
-        new Callable[T] with PartitionAware[Any] with Serializable {
-          def call() = thunk
-          def getPartitionKey() = key
-        }
-      case _ =>
-        new Callable[T] with Serializable {
-          def call() = thunk
-        }
-    }
-  private def task[T](thunk: HazelcastInstance => T) =
-    new Callable[T] with Serializable with HazelcastInstanceAware {
-      @BeanProperty @transient
-      var hazelcastInstance: HazelcastInstance = _
-      def call() = thunk(hazelcastInstance)
-    }
-
   private def submitSingle[F, T](toMember: SingleMember, task: Callable[T]): Future[T] = {
     val callback = new FutureCallback[T, T]()
     toMember match {
@@ -60,16 +41,16 @@ final class HzExecutorService(private val exec: IExecutorService) extends AnyVal
   }
 
   def submitInstanceAware[T](toMember: SingleMember = ToOne)(thunk: HazelcastInstance => T): Future[T] =
-    submitSingle(toMember, task(thunk))
+    submitSingle(toMember, new InstanceAwareTask(thunk))
 
   def submit[T](toMember: SingleMember = ToOne)(thunk: => T): Future[T] =
-    submitSingle(toMember, task(thunk, Option(toMember)))
+    submitSingle(toMember, new Task(thunk _))
 
   def submitInstanceAware[T](toMembers: MultipleMembers)(thunk: HazelcastInstance => T): Map[Member, Future[T]] =
-    submitMultiple(toMembers, task(thunk))
+    submitMultiple(toMembers, new InstanceAwareTask(thunk))
 
   def submit[T](toMembers: MultipleMembers)(thunk: => T): Map[Member, Future[T]] =
-    submitMultiple(toMembers, task(thunk))
+    submitMultiple(toMembers, new Task(thunk _))
 
   private def submitMultiple[T](toMembers: MultipleMembers, task: Callable[T]): Map[Member, Future[T]] = {
     toMembers match {

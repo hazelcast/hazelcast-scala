@@ -28,7 +28,7 @@ trait NumericDDS[N] extends OrderingDDS[N] {
 
   def sum()(implicit ec: ExecutionContext): Future[N] = this submit aggr.Sum()
   def product()(implicit ec: ExecutionContext): Future[N] = this submit aggr.Product()
-  def mean()(implicit ec: ExecutionContext): Future[Option[N]] = submit(new aggr.Mean)
+  def mean()(implicit ec: ExecutionContext): Future[Option[N]] = submit(new aggr.Mean[N])
 
   def range()(implicit ec: ExecutionContext): Future[Option[N]] = {
     val n = num

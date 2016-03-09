@@ -38,8 +38,10 @@ trait ClusterSetup {
   def beforeClass {
     init()
     val group = UUID.randomUUID.toString
-    DefaultSerializers.register(memberConfig.getSerializationConfig)
-    DefaultSerializers.register(clientConfig.getSerializationConfig)
+    List(DefaultSerializers, TestSerializers).foreach { serializers =>
+      serializers.register(memberConfig.getSerializationConfig)
+      serializers.register(clientConfig.getSerializationConfig)
+    }
     memberConfig.getGroupConfig.setName(group)
     memberConfig.getNetworkConfig.setPort(port)
     memberConfig.setGracefulShutdownMaxWait(1.second)
@@ -79,7 +81,8 @@ trait ClusterSetup {
     hz(0).getCache[K, V](name)
   }
 
-  def timed[T](unit: TimeUnit = MILLISECONDS)(thunk: => T): (T, Long) = {
+  def timed[T](warmups: Int = 0, unit: TimeUnit = MILLISECONDS)(thunk: => T): (T, Long) = {
+    (0 until warmups).foreach(_ => thunk)
     val start = System.nanoTime
     thunk -> unit.convert(System.nanoTime - start, NANOSECONDS)
   }

@@ -31,4 +31,15 @@ object TestSerializers extends SerializerEnum {
       new Weather(inp.readFloat, inp.readFloat)
     }
   }
+
+  val Stats = new StreamSerializer[Stats] {
+    def write(out: ObjectDataOutput, st: Stats): Unit = {
+      out.writeLong(st.sum)
+      out.writeInt(st.count)
+      out.writeInt(st.min)
+      out.writeInt(st.max)
+    }
+    def read(inp: ObjectDataInput): Stats =
+      new Stats(inp.readLong, inp.readInt, inp.readInt, inp.readInt)
+  }
 }

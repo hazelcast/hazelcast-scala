@@ -28,8 +28,6 @@ import com.hazelcast.query.Predicate
 object TestMap extends ClusterSetup {
   override val clusterSize = 3
   def init {
-    TestSerializers.register(clientConfig.getSerializationConfig)
-    TestSerializers.register(memberConfig.getSerializationConfig)
     memberConfig.getMapConfig("employees").
       addMapIndexConfig(new MapIndexConfig("salary", true)).
       setInMemoryFormat(InMemoryFormat.OBJECT)
@@ -153,7 +151,7 @@ class TestMap {
     assertEquals(result2b, result2c)
     assertEquals(result2c, result2d)
     val thirtySeven = 37
-    val result3a = map.executeOnEntries(entryProcessor, where value = thirtySeven)
+    val result3a = map.executeOnEntries(entryProcessor, where.value = thirtySeven)
     assertEquals(37 * 2, result3a.get("key37"))
     val result3b = map.execute(OnValues(_ == 37))(entry => entry.value * 2)
     val result3c = map.query(where.value = 37)(_ * 2)
@@ -232,8 +230,8 @@ class TestMap {
           localMap.put(n, fizzBuzz.result)
         }
         map.putAll(localMap)
-        val (distribution, distrTime) = timed(MICROSECONDS) { map.filterKeys(_ <= 100).map(_.value).distribution().await }
-        val (distinct, distcTime) = timed(MICROSECONDS) { map.filter(where.key <= 100).map(_.value).distinct().await }
+        val (distribution, distrTime) = timed(unit = MICROSECONDS) { map.filterKeys(_ <= 100).map(_.value).distribution().await }
+        val (distinct, distcTime) = timed(unit = MICROSECONDS) { map.filter(where.key <= 100).map(_.value).distinct().await }
         assertEquals(distribution.keySet, distinct)
         assertEquals(distribution.keySet, distinct)
         if (printTimings) println(s"Distribution: $distrTime μs, Distinct: $distcTime μs, using ${map.getClass.getSimpleName}")
@@ -273,28 +271,56 @@ class TestMap {
 
   @Test
   def `large map test` {
+    val OneThousand = 1000
     val Thousands = 250
     val clientMap = getClientMap[UUID, Employee]("employees")
     var allSalaries = 0L
     var empCount = 0
+    var minSal = Int.MaxValue
+    var maxSal = Int.MinValue
     (1 to Thousands).foreach { _ =>
       val localMap = new java.util.HashMap[UUID, Employee]
-      (1 to 1000).foreach { _ =>
+      (1 to OneThousand).foreach { _ =>
         val emp = Employee.random
         localMap.put(emp.id, emp)
         allSalaries += emp.salary
         empCount += 1
+        minSal = minSal min emp.salary
+        maxSal = maxSal max emp.salary
       }
       clientMap.putAll(localMap)
     }
-    assertEquals(Thousands * 1000, empCount)
+    assertEquals(Thousands * OneThousand, empCount)
+
+    val (inlineStats, inlineStatsMs) = timed(warmups = 3) {
+      clientMap.aggregate(new Stats())({
+        case (stats, entry) => stats.update(entry.value.salary)
+      }, {
+        case (x, y) => x.mergeWith(y)
+      }).await
+    }
+    assertEquals(empCount, inlineStats.count)
+    assertEquals(allSalaries, inlineStats.sum)
+    assertEquals(minSal, inlineStats.min)
+    assertEquals(maxSal, inlineStats.max)
+    println(s"Mutable inline stats took $inlineStatsMs ms")
+
     val localAvg = allSalaries / empCount
-    val (avg, avgMs) = timed() {
+    val (inlineAvg, inlineAvgMs) = timed(warmups = 3) {
+      clientMap.aggregate(0L -> 0)({
+        case ((sum, count), entry) =>
+          (sum + entry.value.salary) -> (count + 1)
+      }, {
+        case ((xSum, xCount), (ySum, yCount)) => (xSum + ySum) -> (xCount + yCount)
+      }).map(sc => sc._1 / sc._2).await
+    }
+    assertEquals(localAvg, inlineAvg)
+    val (avg, avgMs) = timed(warmups = 3) {
       clientMap.map(_.value.salary.toLong).mean.await.get
     }
     assertEquals(localAvg, avg)
     println(s"Average salary : $$$avg")
-    val (mrAvg, mrMs) = timed() {
+    val (mrAvg, mrMs) = timed(warmups = 1) {
       import com.hazelcast.mapreduce.aggregation._
       val supplySalaryForAll = new Supplier[UUID, Employee, Long] {
         def apply(entry: Entry[UUID, Employee]): Long = entry.value.salary.toLong
@@ -303,7 +329,7 @@ class TestMap {
       clientMap.aggregate(supplySalaryForAll, averageAggr)
     }
     assertEquals(avg, mrAvg)
-    println(s"Aggregation timings: $avgMs ms (Scala), $mrMs ms (Map/Reduce), factor: ${mrMs / avgMs.toFloat}")
+    println(s"Aggregation timings: $avgMs ms (Scala built-in), $inlineAvgMs ms (Scala inline), $mrMs ms (Map/Reduce), factor: ${mrMs / avgMs.toFloat}")
     val (fCount, fCountMs) = timed()(clientMap.filterValues(_.salary > 495000).count.await) // Function filter
     val (cCount, cCountMs) = timed()(clientMap.filter(where("salary") > 495000).count.await) // Predicate filter
     println(s"Filter: $fCount employees make more than $$495K ($fCountMs ms)")
@@ -312,7 +338,7 @@ class TestMap {
     val (javaPage, ppTime) = timed() {
       clientMap.values(20 until 40)(sortBy = _.value.salary, reverse = true)
     }
-    val (scalaPage, scalaTime) = timed() { clientMap.map(_.value).sortBy(_.salary).reverse.drop(20).take(20).values().await }
+    val (scalaPage, scalaTime) = timed(warmups = 4) { clientMap.map(_.value).sortBy(_.salary).reverse.drop(20).take(20).values().await }
     println(s"Paging timings: $scalaTime ms (Scala), $ppTime ms (PagingPredicate), factor: ${ppTime / scalaTime.toFloat}")
     assertEquals(20, javaPage.size)
     assertEquals(javaPage.size, scalaPage.size)

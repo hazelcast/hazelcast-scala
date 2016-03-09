@@ -1,7 +1,7 @@
 package com.hazelcast.Scala.aggr
 
 final class Mean[N: Numeric]
-    extends FinalizeAdapter[N, Option[N], (N, Int)](new SumCount[N])
+    extends FinalizeAdapter[N, Option[N], (N, Int)](SumCount[N])
     with DivisionSupport[N] {
 
   protected final def num = implicitly[Numeric[N]]

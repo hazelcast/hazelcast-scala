@@ -13,6 +13,9 @@ import scala.runtime.LongRef
 import scala.runtime.DoubleRef
 import scala.runtime.FloatRef
 import com.hazelcast.Scala._
+import com.hazelcast.Scala.aggr._
+import com.hazelcast.core.HazelcastInstance
+import com.hazelcast.query.Predicate
 
 object DefaultSerializers extends SerializerEnum(-987654321) {
 
@@ -31,6 +34,98 @@ object DefaultSerializers extends SerializerEnum(-987654321) {
   val IMapEntrySer = new JMapEntrySerializer[ImmutableEntry[_, _]]((key, value) => new ImmutableEntry(key, value))
   val MMapEntrySer = new JMapEntrySerializer[MutableEntry[_, _]]((key, value) => new MutableEntry(key, value))
   val UMapEntrySer = new JMapEntrySerializer[java.util.Map.Entry[_, _]]((key, value) => new ImmutableEntry(key, value))
+
+  val InlineAggregatorSer = new StreamSerializer[InlineAggregator[_, _]] {
+    def write(out: ObjectDataOutput, agg: InlineAggregator[_, _]): Unit = {
+      out.writeObject(agg.init)
+      out.writeObject(agg.seqop)
+      out.writeObject(agg.combop)
+    }
+    def read(inp: ObjectDataInput): InlineAggregator[_, _] = {
+      val init = inp.readObject[() => Any]
+      val seqop = inp.readObject[(Any, Any) => Any]
+      val combop = inp.readObject[(Any, Any) => Any]
+      new InlineAggregator[Any, Any](init, seqop, combop)
+    }
+  }
+  val InlineUnitAggregatorSer = new StreamSerializer[InlineUnitAggregator[_, _]] {
+    def write(out: ObjectDataOutput, agg: InlineUnitAggregator[_, _]): Unit = {
+      out.writeObject(agg.init)
+      out.writeObject(agg.seqop)
+      out.writeObject(agg.combop)
+    }
+    def read(inp: ObjectDataInput): InlineUnitAggregator[_, _] = {
+      val init = inp.readObject[() => Any]
+      val seqop = inp.readObject[(Any, Any) => Any]
+      val combop = inp.readObject[(Any, Any) => Any]
+      new InlineUnitAggregator[Any, Any](init, seqop, combop)
+    }
+  }
+
+  val InlineSavingAggregatorSer = new StreamSerializer[InlineSavingAggregator[_, _, _]] {
+    def write(out: ObjectDataOutput, agg: InlineSavingAggregator[_, _, _]): Unit = {
+      out.writeUTF(agg.mapName)
+      out.writeObject(agg.mapKey)
+      out.writeObject(agg.init)
+      out.writeObject(agg.seqop)
+      out.writeObject(agg.combop)
+    }
+    def read(inp: ObjectDataInput): InlineSavingAggregator[_, _, _] = {
+      val mapName = inp.readUTF
+      val mapKey = inp.readObject[Any]
+      val init = inp.readObject[() => Any]
+      val seqop = inp.readObject[(Any, Any) => Any]
+      val combop = inp.readObject[(Any, Any) => Any]
+      new InlineSavingAggregator[Any, Any, Any](mapName, mapKey, init, seqop, combop)
+    }
+  }
+  val InlineSavingGroupAggregatorSer = new StreamSerializer[InlineSavingGroupAggregator[_, _, _]] {
+    def write(out: ObjectDataOutput, agg: InlineSavingGroupAggregator[_, _, _]): Unit = {
+      out.writeUTF(agg.mapName)
+      InlineUnitAggregatorSer.write(out, agg.unitAggr)
+    }
+    def read(inp: ObjectDataInput): InlineSavingGroupAggregator[_, _, _] = {
+      val mapName = inp.readUTF
+      val unitAggr = InlineUnitAggregatorSer.read(inp)
+      new InlineSavingGroupAggregator(mapName, unitAggr)
+    }
+  }
+  val TaskSer = new StreamSerializer[Task[_]] {
+    def write(out: ObjectDataOutput, task: Task[_]): Unit = {
+      out.writeObject(task.thunk)
+    }
+    def read(inp: ObjectDataInput): Task[_] = {
+      val thunk = inp.readObject[() => Any]
+      new Task(thunk)
+    }
+  }
+  val InstanceAwareTaskSer = new StreamSerializer[InstanceAwareTask[_]] {
+    def write(out: ObjectDataOutput, task: InstanceAwareTask[_]): Unit = {
+      out.writeObject(task.thunk)
+    }
+    def read(inp: ObjectDataInput): InstanceAwareTask[_] = {
+      val thunk = inp.readObject[HazelcastInstance => Any]
+      new InstanceAwareTask(thunk)
+    }
+  }
+  val AggrMapDDSTaskSer = new StreamSerializer[dds.AggrMapDDSTask[_, _, _]] {
+    type Task = dds.AggrMapDDSTask[_, _, _]
+    def write(out: ObjectDataOutput, task: Task): Unit = {
+      out.writeUTF(task.mapName)
+      out.writeObject(task.predicate)
+      out.writeObject(task.aggr)
+      out.writeObject(task.pipe)
+      out.writeObject(task.keysByMemberId)
+    }
+    def read(inp: ObjectDataInput): Task = {
+      val mapName = inp.readUTF
+      val predicate = inp.readObject[Option[Predicate[_, _]]]
+      val aggr = inp.readObject[Aggregator[Any, _] { type W = Any }]
+      val pipe = inp.readObject[Pipe[_]]
+      val keysByMemberId = inp.readObject[Map[String, collection.Set[Any]]]
+      new dds.AggrMapDDSTask[Any, Any, Any](aggr, mapName, keysByMemberId, predicate, pipe)
+    }
+  }
 
   val ObjArraySer = new StreamSerializer[Array[Object]] {
     def write(out: ObjectDataOutput, arr: Array[Object]) {

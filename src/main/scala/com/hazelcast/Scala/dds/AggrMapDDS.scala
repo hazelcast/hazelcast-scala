@@ -69,6 +69,54 @@ private[Scala] class NumericGroupMapDDS[G, N: Numeric](dds: MapDDS[_, _, (G, N)]
   final protected def num = implicitly[Numeric[N]]
 }
 
+private[Scala] final class AggrMapDDSTask[K, E, AW](
+  val aggr: Aggregator[E, _] { type W = AW },
+  val mapName: String,
+  val keysByMemberId: Map[String, collection.Set[K]],
+  val predicate: Option[Predicate[_, _]],
+  val pipe: Pipe[E])
+    extends (HazelcastInstance => AW) with Serializable {
+
+  import collection.JavaConverters._
+
+  def apply(hz: HazelcastInstance): AW = {
+    aggr match {
+      case aggr: HazelcastInstanceAware => aggr.setHazelcastInstance(hz)
+      case _ => // Ignore
+    }
+    val folded = processLocalData(hz)
+    aggr.remoteFinalize(folded)
+  }
+  private def processLocalData(hz: HazelcastInstance): aggr.Q = {
+    val imap = hz.getMap[K, Any](mapName)
+    val (localKeys, includeEntry) = keysByMemberId.get(hz.getCluster.getLocalMember.getUuid) match {
+      case None =>
+        assert(keysByMemberId.isEmpty) // If keys are known, this code should not be running on this member
+        predicate.map(imap.localKeySet(_)).getOrElse(imap.localKeySet).asScala -> TruePredicate.INSTANCE.asInstanceOf[Predicate[K, Any]]
+      case Some(keys) =>
+        keys -> predicate.getOrElse(TruePredicate.INSTANCE).asInstanceOf[Predicate[K, Any]]
+    }
+    if (localKeys.isEmpty) aggr.remoteInit
+    else {
+      type Q = aggr.Q
+      val remoteFold = aggr.remoteFold _
+      val entryFold = pipe.prepare[Q](hz)
+      val seqop = (acc: Q, entry: Entry[K, Any]) => {
+        if (includeEntry(entry)) {
+          entryFold.foldEntry(acc, entry)(remoteFold)
+        } else acc
+      }
+      val partSvc = hz.getPartitionService
+      val keysByPartId = localKeys.groupBy(partSvc.getPartition(_).getPartitionId).values.par
+      hz.userCtx.get(Aggregator.TaskSupport).foreach { tc =>
+        keysByPartId.tasksupport = tc
+      }
+      val entries = keysByPartId.map(parKeys => blocking(imap.getAll(parKeys.asJava))).flatMap(_.entrySet.asScala)
+      entries.aggregate(aggr.remoteInit)(seqop, aggr.remoteCombine)
+    }
+  }
+}
+
 private object AggrMapDDS {
 
   private def aggregate[K, E, R, AW](
@@ -100,47 +148,8 @@ private object AggrMapDDS {
     pipe: Pipe[E],
     aggr: Aggregator[E, _]): Iterable[Future[aggr.W]] = {
 
-    es.submitInstanceAware(submitTo) { hz =>
-      aggr match {
-        case aggr: HazelcastInstanceAware => aggr.setHazelcastInstance(hz)
-        case _ => // Ignore
-      }
-      val folded = processLocalData[K, E, aggr.Q](hz, mapName, keysByMemberId, predicate, pipe, aggr)
-      aggr.remoteFinalize(folded)
-    }.values
-
-  }
-
-  private def processLocalData[K, E, AQ](hz: HazelcastInstance, mapName: String,
-                                         keysByMemberId: Map[String, collection.Set[K]],
-                                         predicate: Option[Predicate[_, _]],
-                                         pipe: Pipe[E], aggr: Aggregator[E, _] { type Q = AQ }): aggr.Q = {
-    val imap = hz.getMap[K, Any](mapName)
-    val (localKeys, includeEntry) = keysByMemberId.get(hz.getCluster.getLocalMember.getUuid) match {
-      case None =>
-        assert(keysByMemberId.isEmpty) // If keys are known, this code should not be running on this member
-        predicate.map(imap.localKeySet(_)).getOrElse(imap.localKeySet).asScala -> TruePredicate.INSTANCE.asInstanceOf[Predicate[K, Any]]
-      case Some(keys) =>
-        keys -> predicate.getOrElse(TruePredicate.INSTANCE).asInstanceOf[Predicate[K, Any]]
-    }
-    if (localKeys.isEmpty) aggr.remoteInit
-    else {
-      type Q = aggr.Q
-      val remoteFold = aggr.remoteFold _
-      val entryFold = pipe.prepare[Q](hz)
-      val seqop = (acc: Q, entry: Entry[K, Any]) => {
-        if (includeEntry(entry)) {
-          entryFold.foldEntry(acc, entry)(remoteFold)
-        } else acc
-      }
-      val partSvc = hz.getPartitionService
-      val keysByPartId = localKeys.groupBy(partSvc.getPartition(_).getPartitionId).values.par
-      hz.userCtx.get(Aggregator.TaskSupport).foreach { tc =>
-        keysByPartId.tasksupport = tc
-      }
-      val entries = keysByPartId.map(parKeys => blocking(imap.getAll(parKeys.asJava))).flatMap(_.entrySet.asScala)
-      entries.aggregate(aggr.remoteInit)(seqop, aggr.remoteCombine)
-    }
+    val remoteTask = new AggrMapDDSTask[K, E, aggr.W](aggr, mapName, keysByMemberId, predicate, pipe)
+    es.submitInstanceAware(submitTo)(remoteTask).values
   }
 
 }

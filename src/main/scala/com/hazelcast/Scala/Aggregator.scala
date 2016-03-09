@@ -56,7 +56,7 @@ object Aggregator {
     })
 
   class Grouped[G, T, R, GR](
-    val aggr: Aggregator[T, R], pf: PartialFunction[R, GR])
+    val aggr: Aggregator[T, R], val pf: PartialFunction[R, GR])
       extends Aggregator[(G, T), SM[G, GR]] {
 
     import collection.JavaConverters._
