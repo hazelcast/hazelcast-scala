@@ -51,6 +51,15 @@ class TestMap {
   }
 
   @Test
+  def asyncPutIfAbsent {
+    val map = getClientMap[Int, String]()
+    val firstPut = map.async.putIfAbsent(5, "Hello").await
+    assertEquals(None, firstPut)
+    val secondPut = map.async.putIfAbsent(5, "World").await
+    assertEquals(Some("Hello"), secondPut)
+  }
+
+  @Test
   def asyncUpdateIfPresent {
     val map = getClientMap[String, Int]()
     val fi = map.async.update("foo")(_ + 1)

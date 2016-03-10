@@ -1,14 +1,13 @@
 package com.hazelcast.Scala
 
 import java.util.Map.Entry
+
+import scala.collection.JavaConverters._
+import scala.concurrent._
 import scala.concurrent.Future
 import scala.concurrent.duration.Duration
-import com.hazelcast.core.{ IExecutorService, IMap, Member }
-import com.hazelcast.query.Predicate
-import scala.concurrent._
-import scala.collection.mutable.{ Map => mMap }
-import scala.collection.JavaConverters._
-import com.hazelcast.map.AbstractEntryProcessor
+
+import com.hazelcast.core.IMap
 
 final class AsyncMap[K, V] private[Scala] (protected val imap: IMap[K, V])
     extends IMapAsyncDeltaUpdates[K, V] {
@@ -34,6 +33,22 @@ final class AsyncMap[K, V] private[Scala] (protected val imap: IMap[K, V])
     } else {
       imap.putAsync(key, value).asScalaOpt
     }
+
+  def putIfAbsent(key: K, value: V): Future[Option[V]] = {
+    val ep = new SingleEntryCallbackUpdater[K, V, V] {
+      def onEntry(entry: Entry[K, V]): V = {
+        entry.value match {
+          case null =>
+            entry.value = value
+            null.asInstanceOf[V]
+          case value => value
+        }
+      }
+    }
+    val callback = ep.newCallbackOpt
+    imap.submitToKey(key, ep, callback)
+    callback.future
+  }
 
   def remove(key: K): Future[Option[V]] =
     imap.removeAsync(key).asScalaOpt
