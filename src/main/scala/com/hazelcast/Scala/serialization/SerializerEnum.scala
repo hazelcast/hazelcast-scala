@@ -23,7 +23,7 @@ abstract class SerializerEnum(private val offset: Int) extends Enumeration {
   abstract class ByteArraySerializer[T: ClassTag] extends ClassSerializer[T] with com.hazelcast.nio.serialization.ByteArraySerializer[T]
   abstract class StreamSerializer[T: ClassTag] extends ClassSerializer[T] with com.hazelcast.nio.serialization.StreamSerializer[T]
 
-  def register(conf: SerializationConfig): Unit =
-    this.values.iterator.map(_.asInstanceOf[ClassSerializer[_]]).foreach(_.register(conf))
+  def register(conf: SerializationConfig): Unit = serializers.foreach(_.register(conf))
 
+  def serializers: Iterator[ClassSerializer[_]] = this.values.iterator.map(_.asInstanceOf[ClassSerializer[_]])
 }
