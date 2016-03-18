@@ -7,8 +7,15 @@ import com.hazelcast.nio.ObjectDataInput
 import com.hazelcast.nio.ObjectDataOutput
 import com.hazelcast.nio.UnsafeHelper
 import com.hazelcast.nio.serialization.HazelcastSerializationException
+import sun.misc.Unsafe
 
 private[serialization] object UnsafeSerializer {
+
+  private[this] val UNSAFE = Try(Unsafe.getUnsafe) match {
+    case Failure(_: SecurityException) | Success(null) => UnsafeHelper.UNSAFE.ensuring(_ != null, "Unable to obtain sun.misc.Unsafe")
+    case Failure(e) => throw e
+    case Success(unsafe) => unsafe
+  }
 
   private def shouldSerialize(f: Field): Boolean =
     !Modifier.isStatic(f.getModifiers) &&
@@ -38,7 +45,7 @@ private[serialization] object UnsafeSerializer {
     } else Nil
   }
   def read(inp: ObjectDataInput, cls: Class[_]): Any = {
-    val instance = UnsafeHelper.UNSAFE.allocateInstance(cls)
+    val instance = UNSAFE.allocateInstance(cls)
     fields.get(cls).foreach { field =>
       field.set(instance, inp.readObject)
     }
