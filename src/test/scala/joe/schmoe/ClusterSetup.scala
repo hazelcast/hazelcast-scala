@@ -15,10 +15,13 @@ import com.hazelcast.cache.ICache
 import scala.reflect.ClassTag
 import scala.util.Random
 import scala.concurrent.duration._
-import com.hazelcast.Scala.serialization.DefaultSerializers
 import com.hazelcast.instance.HazelcastInstanceFactory
+import scala.concurrent.ExecutionContext
 
 trait ClusterSetup {
+
+  implicit def ec = ExecutionContext.global
+
   private[this] var _hz: Vector[HazelcastInstance] = _
   def hz = _hz
   private[this] var _client: HazelcastInstance = _
@@ -38,7 +41,7 @@ trait ClusterSetup {
   def beforeClass {
     init()
     val group = UUID.randomUUID.toString
-    List(DefaultSerializers, TestSerializers).foreach { serializers =>
+    List(serialization.Defaults, TestSerializers).foreach { serializers =>
       serializers.register(memberConfig.getSerializationConfig)
       serializers.register(clientConfig.getSerializationConfig)
     }
