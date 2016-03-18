@@ -9,7 +9,6 @@ import scala.concurrent.duration._
 import java.util.concurrent.CountDownLatch
 import java.util.concurrent.LinkedBlockingQueue
 import scala.concurrent.Future
-import scala.concurrent.ExecutionContext.Implicits.global
 
 object TestRingBuffer extends ClusterSetup {
   override def clusterSize = 1
