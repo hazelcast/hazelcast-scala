@@ -1,5 +1,5 @@
 [![Build Status](https://drone.io/github.com/hazelcast/hazelcast-scala/status.png)](https://drone.io/github.com/hazelcast/hazelcast-scala)
-[![Scala version](https://img.shields.io/badge/scala-2.11-orange.svg)](http://www.scala-lang.org/api/2.11.7/)
+[![Scala version](https://img.shields.io/badge/scala-2.11-orange.svg)](http://www.scala-lang.org/api/2.11.8/)
 [![Join Chat at https://gitter.im/hazelcast/hazelcast-scala](https://badges.gitter.im/Join%20Chat.svg)](https://gitter.im/hazelcast/hazelcast-scala)
 [![Download](https://api.bintray.com/packages/nilskp/maven/hazelcast-scala/images/download.svg)](https://bintray.com/nilskp/maven/hazelcast-scala/_latestVersion#files)
 
@@ -35,7 +35,7 @@ Add this to your project's `build.sbt`:
     import com.hazelcast.Scala._
     
     val conf = new Config
-    serialization.DefaultSerializers.register(conf.getSerializationConfig)
+    serialization.Defaults.register(conf.getSerializationConfig)
     val hz = conf.newInstance()
 
 
