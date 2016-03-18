@@ -29,9 +29,9 @@ trait AggrDDS[E] {
   def count()(implicit ec: ExecutionContext): Future[Int] = submit(aggr.Count)
   def mode()(implicit ec: ExecutionContext): Future[aSet[E]] = distribution().map(AggrDDS.mode)
 
-  def max[O: Ordering](m: E => O)(implicit ec: ExecutionContext): Future[Option[E]] = this submit new aggr.Max(m)
-  def min[O: Ordering](m: E => O)(implicit ec: ExecutionContext): Future[Option[E]] = this submit new aggr.Min(m)
-  def minMax[O: Ordering](m: E => O)(implicit ec: ExecutionContext): Future[Option[(E, E)]] = this submit new aggr.MinMax(m)
+  def maxBy[O: Ordering](m: E => O)(implicit ec: ExecutionContext): Future[Option[E]] = this submit new aggr.Max(m)
+  def minBy[O: Ordering](m: E => O)(implicit ec: ExecutionContext): Future[Option[E]] = this submit new aggr.Min(m)
+  def minMaxBy[O: Ordering](m: E => O)(implicit ec: ExecutionContext): Future[Option[(E, E)]] = this submit new aggr.MinMax(m)
 
   def aggregate[A](init: => A, es: IExecutorService = null)(seqop: (A, E) => A, combop: (A, A) => A)(implicit ec: ExecutionContext): Future[A] = {
     val aggregator = new InlineAggregator(init _, seqop, combop)
@@ -54,9 +54,9 @@ trait AggrGroupDDS[G, E] {
   def count()(implicit ec: ExecutionContext): Future[aMap[G, Int]] = submit(aggr.Count)
   def mode()(implicit ec: ExecutionContext): Future[aMap[G, aSet[E]]] = distribution() map (_.mapValues(AggrDDS.mode))
 
-  def max[O: Ordering](m: E => O)(implicit ec: ExecutionContext): Future[aMap[G, E]] = submitGrouped(Aggregator.groupSome(new aggr.Max(m)))
-  def min[O: Ordering](m: E => O)(implicit ec: ExecutionContext): Future[aMap[G, E]] = submitGrouped(Aggregator.groupSome(new aggr.Min(m)))
-  def minMax[O: Ordering](m: E => O)(implicit ec: ExecutionContext): Future[aMap[G, (E, E)]] = submitGrouped(Aggregator.groupSome(new aggr.MinMax(m)))
+  def maxBy[O: Ordering](m: E => O)(implicit ec: ExecutionContext): Future[aMap[G, E]] = submitGrouped(Aggregator.groupSome(new aggr.Max(m)))
+  def minBy[O: Ordering](m: E => O)(implicit ec: ExecutionContext): Future[aMap[G, E]] = submitGrouped(Aggregator.groupSome(new aggr.Min(m)))
+  def minMaxBy[O: Ordering](m: E => O)(implicit ec: ExecutionContext): Future[aMap[G, (E, E)]] = submitGrouped(Aggregator.groupSome(new aggr.MinMax(m)))
 
   def aggregate[A](init: => A, es: IExecutorService = null)(seqop: (A, E) => A, combop: (A, A) => A)(implicit ec: ExecutionContext): Future[aMap[G, A]] = {
     val aggregator = new InlineAggregator(init _, seqop, combop)

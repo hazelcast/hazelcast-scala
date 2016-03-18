@@ -10,7 +10,6 @@ import java.util.concurrent.TimeUnit
 
 import scala.BigDecimal.RoundingMode._
 import scala.collection.JavaConverters._
-import scala.concurrent.ExecutionContext.Implicits.global
 import scala.concurrent.duration._
 import scala.io.Source
 import scala.util._
@@ -498,7 +497,7 @@ class TestMap {
     assertEquals(expectedTopTen, top10ByCount)
     println(s"Top 10 words took $countMs ms")
 
-    val longestWord = words.max(_.length).await.get
+    val longestWord = words.maxBy(_.length).await.get
     println(s""""Alice in Wonderland", longest word: $longestWord""")
     val top5LongestWords = words.sortBy(_.length).reverse.take(5).values.await
     assertTrue(top5LongestWords contains longestWord)
@@ -556,7 +555,7 @@ class TestMap {
     assertEquals(267, topTwenty("for"))
     assertEquals(252, topTwenty("be"))
 
-    val longestWord = words.max(_.length).await.get
+    val longestWord = words.maxBy(_.length).await.get
     println(s""""Flatland", longest word: $longestWord""")
     val top5LongestWords = words.sortBy(_.length).reverse.take(5).values.await
     assertTrue(top5LongestWords contains longestWord)
@@ -757,10 +756,10 @@ class TestMap {
 
     val maxByStr = strMap.map(_.value).max().await.get
     assertEquals("xyz", maxByStr)
-    val maxByLen = strMap.map(_.value).max(_.length).await.get
+    val maxByLen = strMap.map(_.value).maxBy(_.length).await.get
     assertEquals("abcdefghijklmnop", maxByLen)
 
-    val longestByMax = strMap.max(_.value.length).await.get
+    val longestByMax = strMap.maxBy(_.value.length).await.get
     assertEquals(3, longestByMax.key)
     assertEquals(strMap.get(3), longestByMax.value)
     val longestBySort = strMap.sortBy(_.value.length).reverse.take(1).values.await.head
@@ -778,7 +777,7 @@ class TestMap {
     strMap.putAll(localMap)
     for (i <- 1 to 5) {
       val (bySort, bySortTime) = timed()(strMap.sortBy(_.value.length).reverse.take(1).values.await.head)
-      val (byMax, byMaxTime) = timed()(strMap.max(_.value.length).await.get)
+      val (byMax, byMaxTime) = timed()(strMap.maxBy(_.value.length).await.get)
       assertEquals(byMax.key, bySort.key)
       if (i >= 3) println(s"Longest string: max(): $byMaxTime ms, sortBy(): $bySortTime ms")
     }
