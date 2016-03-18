@@ -13,16 +13,16 @@ import com.hazelcast.query.Predicate
 import java.util.Comparator
 
 /**
-  * Serializers for remote execution.
+  * Serializers for dynamic execution.
   * NOTE: Not intended for production use.
   * Not only is the code experimental, it's
   * very inefficient.
   */
-object RemoteExecutionSerializers extends RemoteExecutionSerializers {
+object DynamicExecution extends DynamicExecution {
   protected def serializeBytecodeFor(cls: Class[_]) = true
 }
 
-abstract class RemoteExecutionSerializers extends SerializerEnum(DefaultSerializers) {
+abstract class DynamicExecution extends SerializerEnum(Defaults) {
   protected def serializeBytecodeFor(cls: Class[_]): Boolean
   private[this] val loaderByClass = new ClassValue[Option[ByteArrayClassLoader]] {
     private[this] val excludePackages = Set("com.hazelcast.", "scala.", "java.", "javax.")

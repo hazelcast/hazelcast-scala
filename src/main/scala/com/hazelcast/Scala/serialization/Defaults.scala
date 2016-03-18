@@ -17,7 +17,7 @@ import com.hazelcast.Scala.aggr._
 import com.hazelcast.core.HazelcastInstance
 import com.hazelcast.query.Predicate
 
-object DefaultSerializers extends SerializerEnum(-987654321) {
+object Defaults extends SerializerEnum(-987654321) {
 
   val SomeSer = new OptionSerializer[Some[_]]
   val NoneSer = new OptionSerializer[None.type]
