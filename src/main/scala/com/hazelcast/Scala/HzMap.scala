@@ -167,7 +167,7 @@ final class HzMap[K, V](protected val imap: IMap[K, V]) extends IMapDeltaUpdates
     if (dropValues == 0) result
     else result.drop(dropValues)
   }
-  def entrySet[O: Ordering](range: Range, pred: Predicate[_, _] = null)(sortBy: Entry[K, V] => O, reverse: Boolean = false): collection.Set[Entry[K, V]] = {
+  def entries[O: Ordering](range: Range, pred: Predicate[_, _] = null)(sortBy: Entry[K, V] => O, reverse: Boolean = false): Iterable[Entry[K, V]] = {
     val pageSize = range.length
     val pageIdx = range.min / pageSize
     val dropEntries = range.min % pageSize
@@ -181,7 +181,25 @@ final class HzMap[K, V](protected val imap: IMap[K, V]) extends IMapDeltaUpdates
     }.asInstanceOf[Comparator[Entry[_, _]]]
     val pp = new PagingPredicate(pred, comparator, pageSize)
     pp.setPage(pageIdx)
-    val result = imap.entrySet(pp).asScala
+    val result = imap.entrySet(pp).iterator.asScala.toIterable
+    if (dropEntries == 0) result
+    else result.drop(dropEntries)
+  }
+  def keys[O: Ordering](range: Range, localOnly: Boolean = false, pred: Predicate[_, _] = null)(sortBy: Entry[K, V] => O, reverse: Boolean = false): Iterable[K] = {
+    val pageSize = range.length
+    val pageIdx = range.min / pageSize
+    val dropEntries = range.min % pageSize
+    val comparator = new Comparator[Entry[K, V]] with Serializable {
+      private[this] val ordering = implicitly[Ordering[O]] match {
+        case comp if reverse => comp.reverse
+        case comp => comp
+      }
+      def compare(a: Entry[K, V], b: Entry[K, V]): Int =
+        ordering.compare(sortBy(a), sortBy(b))
+    }.asInstanceOf[Comparator[Entry[_, _]]]
+    val pp = new PagingPredicate(pred, comparator, pageSize)
+    pp.setPage(pageIdx)
+    val result = (if (localOnly) imap.localKeySet(pp) else imap.keySet(pp)).iterator.asScala.toIterable
     if (dropEntries == 0) result
     else result.drop(dropEntries)
   }
