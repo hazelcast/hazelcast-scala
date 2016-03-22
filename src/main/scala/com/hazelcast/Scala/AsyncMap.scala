@@ -8,6 +8,9 @@ import scala.concurrent.Future
 import scala.concurrent.duration.Duration
 
 import com.hazelcast.core.IMap
+import com.hazelcast.core.HazelcastInstanceAware
+import scala.beans.BeanProperty
+import com.hazelcast.core.HazelcastInstance
 
 final class AsyncMap[K, V] private[Scala] (protected val imap: IMap[K, V])
     extends IMapAsyncDeltaUpdates[K, V] {
@@ -27,24 +30,40 @@ final class AsyncMap[K, V] private[Scala] (protected val imap: IMap[K, V])
     Future.sequence(fResults).map(_.flatten.toMap)
   }
 
-  def put(key: K, value: V, ttl: Duration = Duration.Zero): Future[Option[V]] =
+  def put(key: K, value: V, ttl: Duration = Duration.Inf): Future[Option[V]] =
     if (ttl.isFinite && ttl.length > 0) {
       imap.putAsync(key, value, ttl.length, ttl.unit).asScalaOpt
     } else {
       imap.putAsync(key, value).asScalaOpt
     }
 
-  def putIfAbsent(key: K, value: V): Future[Option[V]] = {
-    val ep = new SingleEntryCallbackUpdater[K, V, V] {
-      def onEntry(entry: Entry[K, V]): V = {
-        entry.value match {
-          case null =>
-            entry.value = value
-            null.asInstanceOf[V]
-          case value => value
+  def putIfAbsent(key: K, value: V, ttl: Duration = Duration.Inf): Future[Option[V]] = {
+    val ep =
+      if (ttl.isFinite && ttl.length > 0) {
+        val mapName = imap.getName
+        new SingleEntryCallbackUpdater[K, V, V] with HazelcastInstanceAware {
+          @BeanProperty @transient @volatile
+          var hazelcastInstance: HazelcastInstance = _
+          def onEntry(entry: Entry[K, V]): V = {
+            val existing = entry.value
+            if (existing == null) {
+              val imap = hazelcastInstance.getMap[K, V](mapName)
+              imap.set(key, value, ttl.length, ttl.unit)
+            }
+            existing
+          }
+        }
+      } else {
+        new SingleEntryCallbackUpdater[K, V, V] {
+          def onEntry(entry: Entry[K, V]): V = {
+            val existing = entry.value
+            if (existing == null) {
+              entry.value = value
+            }
+            existing
+          }
         }
       }
-    }
     val callback = ep.newCallbackOpt
     imap.submitToKey(key, ep, callback)
     callback.future

@@ -56,6 +56,15 @@ class TestMap {
     assertEquals(None, firstPut)
     val secondPut = map.async.putIfAbsent(5, "World").await
     assertEquals(Some("Hello"), secondPut)
+    val thirdPut = map.async.putIfAbsent(5, "Doh!", 2.seconds).await
+    assertEquals(Some("Hello"), thirdPut)
+    val remove = map.async.remove(5).await
+    assertEquals(Some("Hello"), remove)
+    val fourthPut = map.async.putIfAbsent(5, "TTL", 1.second).await
+    assertEquals(None, fourthPut)
+    assertEquals("TTL", map.get(5))
+    Thread sleep 1000
+    assertNull(map.get(5))
   }
 
   @Test

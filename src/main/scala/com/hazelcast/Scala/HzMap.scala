@@ -36,15 +36,18 @@ final class HzMap[K, V](protected val imap: IMap[K, V]) extends IMapDeltaUpdates
   def getAs[R](key: K, map: V => R): Option[R] = async.getAs(key, map).await(DefaultFutureTimeout)
 
   def getAllAs[R](keys: Set[K], mf: V => R): mMap[K, R] = {
-    val ep = new AbstractEntryProcessor[K, V](false) {
-      def process(entry: Entry[K, V]): Object = {
-        entry.value match {
-          case null => null
-          case value => mf(value).asInstanceOf[Object]
+    if (keys.isEmpty) mMap.empty
+    else {
+      val ep = new AbstractEntryProcessor[K, V](false) {
+        def process(entry: Entry[K, V]): Object = {
+          entry.value match {
+            case null => null
+            case value => mf(value).asInstanceOf[Object]
+          }
         }
       }
+      imap.executeOnKeys(keys.asJava, ep).asScala.asInstanceOf[mMap[K, R]]
     }
-    imap.executeOnKeys(keys.asJava, ep).asScala.asInstanceOf[mMap[K, R]]
   }
 
   def query[T](pred: Predicate[_, _])(mf: V => T): mMap[K, T] = {
