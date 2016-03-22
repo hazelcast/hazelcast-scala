@@ -1,14 +1,15 @@
 package com.hazelcast.Scala
 
-import com.hazelcast.config.Config
 import scala.concurrent.duration.Duration
 import scala.concurrent.duration.FiniteDuration
-import com.hazelcast.internal.monitors.HealthMonitorLevel
-import com.hazelcast.logging.LoggerFactory
-import com.hazelcast.core.PartitioningStrategy
-import com.hazelcast.memory.MemorySize
+
 import com.hazelcast.client.config.ClientConfig
+
+import com.hazelcast.config.Config
+import com.hazelcast.core.PartitioningStrategy
 import com.hazelcast.internal.metrics.ProbeLevel
+import com.hazelcast.internal.monitors.HealthMonitorLevel
+import com.hazelcast.memory.MemorySize
 import com.hazelcast.query.impl.predicates.QueryOptimizerFactory
 
 class HzClientProperties(private val conf: ClientConfig) extends AnyVal {
@@ -35,6 +36,9 @@ class HzClientProperties(private val conf: ClientConfig) extends AnyVal {
   /** @see com.hazelcast.client.config.ClientProperties.MAX_CONCURRENT_INVOCATIONS */
   def setMaxConcurrentInvocations(max: Int): ClientConfig =
     conf.setProperty(MAX_CONCURRENT_INVOCATIONS, max.toString)
+  /** @see com.hazelcast.instance.GroupProperty.LOGGING_TYPE */
+  def setLoggingType(lt: String): ClientConfig =
+    conf.setProperty(com.hazelcast.instance.GroupProperty.LOGGING_TYPE, lt)
 }
 
 class HzMemberProperties(private val conf: Config) extends AnyVal {
@@ -181,8 +185,8 @@ class HzMemberProperties(private val conf: Config) extends AnyVal {
   def setJmxDetailed(detailed: Boolean): Config =
     conf.setProperty(ENABLE_JMX_DETAILED, detailed.toString)
   /** @see com.hazelcast.instance.GroupProperty.LOGGING_TYPE */
-  def setLoggingFramework(fw: String): Config =
-    conf.setProperty(LOGGING_TYPE, fw)
+  def setLoggingType(lt: String): Config =
+    conf.setProperty(LOGGING_TYPE, lt)
   /** @see com.hazelcast.instance.GroupProperty.MAP_EXPIRY_DELAY_SECONDS */
   def setMapExpiryDelay(delay: FiniteDuration): Config =
     conf.setProperty(MAP_EXPIRY_DELAY_SECONDS, delay.toSeconds.toString)
