@@ -11,6 +11,7 @@ import com.hazelcast.core.IMap
 import com.hazelcast.core.HazelcastInstanceAware
 import scala.beans.BeanProperty
 import com.hazelcast.core.HazelcastInstance
+import java.util.concurrent.TimeUnit
 
 final class AsyncMap[K, V] private[Scala] (protected val imap: IMap[K, V])
     extends IMapAsyncDeltaUpdates[K, V] {
@@ -40,29 +41,9 @@ final class AsyncMap[K, V] private[Scala] (protected val imap: IMap[K, V])
   def putIfAbsent(key: K, value: V, ttl: Duration = Duration.Inf): Future[Option[V]] = {
     val ep =
       if (ttl.isFinite && ttl.length > 0) {
-        val mapName = imap.getName
-        new SingleEntryCallbackUpdater[K, V, V] with HazelcastInstanceAware {
-          @BeanProperty @transient @volatile
-          var hazelcastInstance: HazelcastInstance = _
-          def onEntry(entry: Entry[K, V]): V = {
-            val existing = entry.value
-            if (existing == null) {
-              val imap = hazelcastInstance.getMap[K, V](mapName)
-              imap.set(key, value, ttl.length, ttl.unit)
-            }
-            existing
-          }
-        }
+        new AsyncMap.TTLPutIfAbsentEP(imap.getName, value, ttl.length, ttl.unit)
       } else {
-        new SingleEntryCallbackUpdater[K, V, V] {
-          def onEntry(entry: Entry[K, V]): V = {
-            val existing = entry.value
-            if (existing == null) {
-              entry.value = value
-            }
-            existing
-          }
-        }
+        new AsyncMap.PutIfAbsentEP(value)
       }
     val callback = ep.newCallbackOpt
     imap.submitToKey(key, ep, callback)
@@ -73,17 +54,46 @@ final class AsyncMap[K, V] private[Scala] (protected val imap: IMap[K, V])
     imap.removeAsync(key).asScalaOpt
 
   def getAs[R](key: K, map: V => R): Future[Option[R]] = {
-    val ep = new SingleEntryCallbackReader[K, V, R] {
-      def onEntry(key: K, value: V): R = {
-        value match {
-          case null => null.asInstanceOf[R]
-          case value => map(value)
-        }
-      }
-    }
+    val ep = new AsyncMap.GetAsEP(map)
     val callback = ep.newCallbackOpt
     imap.submitToKey(key, ep, callback)
     callback.future
   }
 
+}
+
+private[Scala] object AsyncMap {
+  final class GetAsEP[V, R](val mf: V => R)
+      extends SingleEntryCallbackReader[Any, V, R] {
+    def onEntry(key: Any, value: V): R = {
+      value match {
+        case null => null.asInstanceOf[R]
+        case value => mf(value)
+      }
+    }
+  }
+  final class TTLPutIfAbsentEP[V](val mapName: String, val putIfAbsent: V, val ttl: Long, val unit: TimeUnit)
+      extends SingleEntryCallbackUpdater[Any, V, V]
+      with HazelcastInstanceAware {
+    @BeanProperty @transient
+    var hazelcastInstance: HazelcastInstance = _
+    def onEntry(entry: Entry[Any, V]): V = {
+      val existing = entry.value
+      if (existing == null) {
+        val imap = hazelcastInstance.getMap[Any, V](mapName)
+        imap.set(entry.key, putIfAbsent, ttl, unit)
+      }
+      existing
+    }
+  }
+  final class PutIfAbsentEP[V](val putIfAbsent: V)
+      extends SingleEntryCallbackUpdater[Any, V, V] {
+    def onEntry(entry: Entry[Any, V]): V = {
+      val existing = entry.value
+      if (existing == null) {
+        entry.value = putIfAbsent
+      }
+      existing
+    }
+  }
 }

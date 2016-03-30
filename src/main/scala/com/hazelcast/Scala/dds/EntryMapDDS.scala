@@ -51,6 +51,10 @@ class EntryMapDDS[K, V](dds: MapDDS[K, V, Entry[K, V]]) extends MapEntryEventSub
     subscribeEntries(new KeyListener(pf, Option(runOn)), localOnly, includeValue = false)
   def onEntryEvents(localOnly: Boolean, runOn: ExecutionContext)(pf: PartialFunction[EntryEvent[K, V], Unit]): MSR =
     subscribeEntries(new EntryListener(pf, Option(runOn)), localOnly, includeValue = true)
+  def onKeyEvents(cb: OnKeyEvent[K], localOnly: Boolean): MSR =
+    subscribeEntries(cb, localOnly, includeValue = false)
+  def onEntryEvents(cb: OnEntryEvent[K, V], localOnly: Boolean): MSR =
+    subscribeEntries(cb, localOnly, includeValue = true)
 
   private def subscribeEntries(
     listener: com.hazelcast.map.listener.MapListener,

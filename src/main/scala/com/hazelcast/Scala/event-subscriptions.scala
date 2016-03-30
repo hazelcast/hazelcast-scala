@@ -48,7 +48,7 @@ private[Scala] trait EventSubscription {
     }
 
   }
-  protected def asPartitionLostListener(listener: PartitionLostEvent => Unit, ec: Option[ExecutionContext]) = new PfProxy(listener, ec) with PartitionLostListener {
+  protected def asPartitionLostListener(listener: PartitionLostEvent => Unit, ec: Option[ExecutionContext]) = new PfProxy(PartialFunction(listener), ec) with PartitionLostListener {
     def partitionLost(evt: PartitionLostEvent): Unit = invokeWith(evt)
   }
 
@@ -108,7 +108,13 @@ private[Scala] trait MapEventSubscription {
 
 private[Scala] trait MapEntryEventSubscription[K, V] {
   type MSR
+
   def onKeyEvents(localOnly: Boolean = false, runOn: ExecutionContext = null)(pf: PartialFunction[KeyEvent[K], Unit]): MSR
   def onEntryEvents(localOnly: Boolean = false, runOn: ExecutionContext = null)(pf: PartialFunction[EntryEvent[K, V], Unit]): MSR
+
+  def onKeyEvents(cb: OnKeyEvent[K], localOnly: Boolean): MSR
+  final def onKeyEvents(cb: OnKeyEvent[K]): MSR = onKeyEvents(cb, false)
+  def onEntryEvents(cb: OnEntryEvent[K, V], localOnly: Boolean): MSR
+  final def onEntryEvents(cb: OnEntryEvent[K, V]): MSR = onEntryEvents(cb, false)
 
 }

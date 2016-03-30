@@ -107,22 +107,43 @@ class TestMap {
   @Test
   def syncUpdateWithDefault {
     val map = getClientMap[String, Int]()
-    val latch = new CountDownLatch(2)
+    val latch = new CountDownLatch(4)
     val reg = map.filterKeys("foo").onEntryEvents() {
       case EntryAdded(key, value) =>
+        assertEquals("foo", key)
         assertEquals(1, value)
         latch.countDown()
       case EntryUpdated(key, oldValue, newValue) =>
+        assertEquals("foo", key)
         assertEquals(1, oldValue)
         assertEquals(2, newValue)
         latch.countDown()
     }
+    val callback = new OnEntryAdded[String, Int] with OnEntryUpdated[String, Int] {
+      def apply(evt: EntryAdded[String, Int]) {
+        assertEquals("foo", evt.key)
+        assertEquals(1, evt.value)
+        latch.countDown()
+      }
+      def apply(evt: EntryUpdated[String, Int]) {
+        assertEquals("foo", evt.key)
+        assertEquals(1, evt.oldValue)
+        assertEquals(2, evt.newValue)
+        latch.countDown()
+
+      }
+    }
+    val cbReg = map.filterKeys("foo").onEntryEvents(callback)
+
     val updated1 = map.upsertAndGet("foo", 1)(_ + 1)
     assertEquals(1, updated1)
+    map.upsertAndGet("bar", 1)(_ + 1)
     val updated2 = map.upsertAndGet("foo", 1)(_ + 1)
     assertEquals(2, updated2)
+    map.upsertAndGet("bar", 1)(_ + 1)
     assertTrue(latch.await(5, TimeUnit.SECONDS))
     reg.cancel()
+    cbReg.cancel()
   }
 
   @Test
@@ -845,4 +866,29 @@ class TestMap {
     employees.clear()
     employees.destroy()
   }
+
+  @Test
+  def `for each` {
+    hz.foreach { hz =>
+      hz.userCtx(Entries) = new collection.concurrent.TrieMap[Int, String]
+    }
+    val imap = getClientMap[Int, String]()
+    (0 to 5000) foreach { i =>
+      imap.set(i, (i * 37).toString)
+    }
+    imap.foreach(_.userCtx(Entries), where.key.between(501, 510)) {
+      (map, entry) =>
+        assertEquals(None, map.putIfAbsent(entry.key, entry.value))
+    }
+    val entries = hz.map { hz =>
+      hz.userCtx(Entries)
+    }.reduce(_ ++ _)
+    assertEquals(10, entries.size)
+    entries.foreach {
+      case (key, value) =>
+        assertEquals(value, imap.get(key))
+    }
+  }
 }
+
+object Entries extends UserContext.Key[collection.concurrent.TrieMap[Int, String]]

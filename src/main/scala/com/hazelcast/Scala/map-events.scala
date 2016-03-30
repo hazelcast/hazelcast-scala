@@ -38,23 +38,23 @@ private[Scala] class EntryListener[K, V](pf: PartialFunction[EntryEvent[K, V], U
   with EntryUpdatedListener[K, V]
   with EntryExpiredListener[K, V]
 
-private[Scala] trait KeyAddedListener[K] extends map.listener.EntryAddedListener[K, Object] { self: PfProxy[KeyEvent[K]] =>
-  def entryAdded(evt: core.EntryEvent[K, Object]): Unit = invokeWith(KeyAdded(evt.getKey)(evt))
+private[Scala] trait KeyAddedListener[K] extends OnKeyAdded[K] { self: PfProxy[KeyEvent[K]] =>
+  final def apply(evt: KeyAdded[K]) = invokeWith(evt)
 }
-private[Scala] trait KeyEvictedListener[K] extends map.listener.EntryEvictedListener[K, Object] { self: PfProxy[KeyEvent[K]] =>
-  def entryEvicted(evt: core.EntryEvent[K, Object]): Unit = invokeWith(KeyEvicted(evt.getKey)(evt))
+private[Scala] trait KeyEvictedListener[K] extends OnKeyEvicted[K] { self: PfProxy[KeyEvent[K]] =>
+  final def apply(evt: KeyEvicted[K]) = invokeWith(evt)
 }
-private[Scala] trait KeyMergedListener[K] extends map.listener.EntryMergedListener[K, Object] { self: PfProxy[KeyEvent[K]] =>
-  def entryMerged(evt: core.EntryEvent[K, Object]): Unit = invokeWith(KeyMerged(evt.getKey)(evt))
+private[Scala] trait KeyMergedListener[K] extends OnKeyMerged[K] { self: PfProxy[KeyEvent[K]] =>
+  final def apply(evt: KeyMerged[K]) = invokeWith(evt)
 }
-private[Scala] trait KeyRemovedListener[K] extends map.listener.EntryRemovedListener[K, Object] { self: PfProxy[KeyEvent[K]] =>
-  def entryRemoved(evt: core.EntryEvent[K, Object]): Unit = invokeWith(KeyRemoved(evt.getKey)(evt))
+private[Scala] trait KeyRemovedListener[K] extends OnKeyRemoved[K] { self: PfProxy[KeyEvent[K]] =>
+  final def apply(evt: KeyRemoved[K]) = invokeWith(evt)
 }
-private[Scala] trait KeyUpdatedListener[K] extends map.listener.EntryUpdatedListener[K, Object] { self: PfProxy[KeyEvent[K]] =>
-  def entryUpdated(evt: core.EntryEvent[K, Object]): Unit = invokeWith(KeyUpdated(evt.getKey)(evt))
+private[Scala] trait KeyUpdatedListener[K] extends OnKeyUpdated[K] { self: PfProxy[KeyEvent[K]] =>
+  final def apply(evt: KeyUpdated[K]) = invokeWith(evt)
 }
-private[Scala] trait KeyExpiredListener[K] extends map.listener.EntryExpiredListener[K, Object] { self: PfProxy[KeyEvent[K]] =>
-  def entryExpired(evt: core.EntryEvent[K, Object]): Unit = invokeWith(KeyExpired(evt.getKey)(evt))
+private[Scala] trait KeyExpiredListener[K] extends OnKeyExpired[K] { self: PfProxy[KeyEvent[K]] =>
+  final def apply(evt: KeyExpired[K]) = invokeWith(evt)
 }
 
 private[Scala] class KeyListener[K](pf: PartialFunction[KeyEvent[K], Unit], ec: Option[ExecutionContext]) extends PfProxy(pf, ec)
@@ -95,4 +95,56 @@ final case class EntryExpired[K, V](key: K, value: V)(evt: core.EntryEvent[K, V]
 
 final case class PartitionLost(member: core.Member, partitionId: Int)(evt: map.MapPartitionLostEvent) {
   override def toString() = evt.toString()
+}
+
+sealed trait OnKeyEvent[K] extends map.listener.MapListener
+trait OnKeyAdded[K] extends OnKeyEvent[K] with map.listener.EntryAddedListener[K, Object] {
+  final def entryAdded(evt: core.EntryEvent[K, Object]): Unit = apply(new KeyAdded(evt.getKey)(evt))
+  def apply(evt: KeyAdded[K])
+}
+trait OnKeyEvicted[K] extends OnKeyEvent[K] with map.listener.EntryEvictedListener[K, Object] {
+  final def entryEvicted(evt: core.EntryEvent[K, Object]): Unit = apply(new KeyEvicted(evt.getKey)(evt))
+  def apply(evt: KeyEvicted[K])
+}
+trait OnKeyMerged[K] extends OnKeyEvent[K] with map.listener.EntryMergedListener[K, Object] {
+  final def entryMerged(evt: core.EntryEvent[K, Object]): Unit = apply(new KeyMerged(evt.getKey)(evt))
+  def apply(evt: KeyMerged[K])
+}
+trait OnKeyRemoved[K] extends OnKeyEvent[K] with map.listener.EntryRemovedListener[K, Object] {
+  final def entryRemoved(evt: core.EntryEvent[K, Object]): Unit = apply(new KeyRemoved(evt.getKey)(evt))
+  def apply(evt: KeyRemoved[K])
+}
+trait OnKeyUpdated[K] extends OnKeyEvent[K] with map.listener.EntryUpdatedListener[K, Object] {
+  final def entryUpdated(evt: core.EntryEvent[K, Object]): Unit = apply(new KeyUpdated(evt.getKey)(evt))
+  def apply(evt: KeyUpdated[K])
+}
+trait OnKeyExpired[K] extends OnKeyEvent[K] with map.listener.EntryExpiredListener[K, Object] {
+  final def entryExpired(evt: core.EntryEvent[K, Object]): Unit = apply(new KeyExpired(evt.getKey)(evt))
+  def apply(evt: KeyExpired[K])
+}
+
+sealed trait OnEntryEvent[K, V] extends map.listener.MapListener
+trait OnEntryAdded[K, V] extends OnEntryEvent[K, V] with map.listener.EntryAddedListener[K, V] {
+  final def entryAdded(evt: core.EntryEvent[K, V]): Unit = apply(new EntryAdded(evt.getKey, evt.getValue)(evt))
+  def apply(evt: EntryAdded[K, V])
+}
+trait OnEntryEvicted[K, V] extends OnEntryEvent[K, V] with map.listener.EntryEvictedListener[K, V] {
+  final def entryEvicted(evt: core.EntryEvent[K, V]): Unit = apply(new EntryEvicted(evt.getKey, evt.getValue)(evt))
+  def apply(evt: EntryEvicted[K, V])
+}
+trait OnEntryMerged[K, V] extends OnEntryEvent[K, V] with map.listener.EntryMergedListener[K, V] {
+  final def entryMerged(evt: core.EntryEvent[K, V]): Unit = apply(new EntryMerged(evt.getKey, Option(evt.getOldValue), evt.getMergingValue, Option(evt.getValue))(evt))
+  def apply(evt: EntryMerged[K, V])
+}
+trait OnEntryRemoved[K, V] extends OnEntryEvent[K, V] with map.listener.EntryRemovedListener[K, V] {
+  final def entryRemoved(evt: core.EntryEvent[K, V]): Unit = apply(new EntryRemoved(evt.getKey, evt.getOldValue)(evt))
+  def apply(evt: EntryRemoved[K, V])
+}
+trait OnEntryUpdated[K, V] extends OnEntryEvent[K, V] with map.listener.EntryUpdatedListener[K, V] {
+  final def entryUpdated(evt: core.EntryEvent[K, V]): Unit = apply(new EntryUpdated(evt.getKey, evt.getOldValue, evt.getValue)(evt))
+  def apply(evt: EntryUpdated[K, V])
+}
+trait OnEntryExpired[K, V] extends OnEntryEvent[K, V] with map.listener.EntryExpiredListener[K, V] {
+  final def entryExpired(evt: core.EntryEvent[K, V]): Unit = apply(new EntryExpired(evt.getKey, evt.getValue)(evt))
+  def apply(evt: EntryExpired[K, V])
 }

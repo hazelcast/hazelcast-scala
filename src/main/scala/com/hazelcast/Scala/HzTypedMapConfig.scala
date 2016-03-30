@@ -24,5 +24,12 @@ class HzTypedMapConfig[K, V](mapConfig: MapConfig) extends MapEntryEventSubscrip
     mapConfig.onPartitionLost(runOn)(listener)
     this
   }
-
+  def onKeyEvents(cb: OnKeyEvent[K], localOnly: Boolean): MSR = {
+    mapConfig addEntryListenerConfig new EntryListenerConfig(cb, localOnly, false)
+    this
+  }
+  def onEntryEvents(cb: OnEntryEvent[K, V], localOnly: Boolean): MSR = {
+    mapConfig addEntryListenerConfig new EntryListenerConfig(cb, localOnly, true)
+    this
+  }
 }

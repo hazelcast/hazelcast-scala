@@ -3,19 +3,23 @@ package com.hazelcast.Scala
 import java.util.Collections
 import java.util.Comparator
 import java.util.Map.Entry
+
 import scala.collection.JavaConverters._
 import scala.collection.mutable.{ Map => mMap }
 import scala.concurrent.ExecutionContext
 import scala.concurrent.duration.Duration
 import scala.concurrent.duration.FiniteDuration
+
 import com.hazelcast.Scala.dds.DDS
 import com.hazelcast.Scala.dds.MapDDS
-import com.hazelcast.core.{ HazelcastInstance, IMap }
+import com.hazelcast.core.HazelcastInstance
+import com.hazelcast.core.HazelcastInstanceAware
+import com.hazelcast.core.IMap
 import com.hazelcast.map.AbstractEntryProcessor
-import com.hazelcast.query.{ PagingPredicate, Predicate, PredicateBuilder }
+import com.hazelcast.query.PagingPredicate
+import com.hazelcast.query.Predicate
+import com.hazelcast.query.PredicateBuilder
 import com.hazelcast.spi.AbstractDistributedObject
-import scala.util.Try
-import scala.util.control.NonFatal
 
 final class HzMap[K, V](protected val imap: IMap[K, V]) extends IMapDeltaUpdates[K, V] with MapEventSubscription {
 
@@ -51,19 +55,20 @@ final class HzMap[K, V](protected val imap: IMap[K, V]) extends IMapDeltaUpdates
   }
 
   def query[T](pred: Predicate[_, _])(mf: V => T): mMap[K, T] = {
-    val ep = new AbstractEntryProcessor[K, V](false) {
-      def process(entry: Entry[K, V]): Object = mf(entry.value).asInstanceOf[Object]
-    }
+    val ep = new HzMap.QueryEP(mf)
     imap.executeOnEntries(ep, pred).asScala.asInstanceOf[mMap[K, T]]
   }
 
-  private def updateValues(predicate: Option[Predicate[_, _]], update: V => V, returnValue: V => Object): mMap[K, V] = {
-    val ep = new AbstractEntryProcessor[K, V] {
-      def process(entry: Entry[K, V]): Object = {
-        entry.value = update(entry.value)
-        returnValue(entry.value)
-      }
+  def foreach[E](env: HazelcastInstance => E, pred: Predicate[_, _] = null)(thunk: (E, Entry[K, V]) => Unit): Unit = {
+    val ep = new HzMap.ForEachEP(env, thunk)
+    pred match {
+      case null => imap.executeOnEntries(ep)
+      case pred => imap.executeOnEntries(ep, pred)
     }
+  }
+
+  private def updateValues(predicate: Option[Predicate[_, _]], update: V => V, returnValue: V => Object): mMap[K, V] = {
+    val ep = new HzMap.ValueUpdaterEP(update, returnValue)
     val map = predicate match {
       case Some(predicate) => imap.executeOnEntries(ep, predicate)
       case None => imap.executeOnEntries(ep)
@@ -108,12 +113,7 @@ final class HzMap[K, V](protected val imap: IMap[K, V]) extends IMapDeltaUpdates
   }
 
   def execute[R](filter: EntryFilter[K, V])(thunk: Entry[K, V] => R): mMap[K, R] = {
-      def ep = new AbstractEntryProcessor[K, V] {
-        def process(entry: Entry[K, V]): Object = thunk(entry) match {
-          case null | Unit => null
-          case value => value.asInstanceOf[Object]
-        }
-      }
+      def ep = new HzMap.ExecuteEP(thunk)
     val jMap: java.util.Map[K, Object] = filter match {
       case OnValues(include) =>
         imap.executeOnEntries(ep, include)
@@ -205,5 +205,39 @@ final class HzMap[K, V](protected val imap: IMap[K, V]) extends IMapDeltaUpdates
     val result = (if (localOnly) imap.localKeySet(pp) else imap.keySet(pp)).iterator.asScala.toIterable
     if (dropEntries == 0) result
     else result.drop(dropEntries)
+  }
+}
+
+private[Scala] object HzMap {
+  final class QueryEP[V, T](_mf: V => T) extends AbstractEntryProcessor[Any, V](false) {
+    def mf = _mf
+    def process(entry: Entry[Any, V]): Object = _mf(entry.value).asInstanceOf[Object]
+  }
+  final class ForEachEP[K, V, E](val getEnv: HazelcastInstance => E, _thunk: (E, Entry[K, V]) => Unit)
+      extends AbstractEntryProcessor[K, V](false)
+      with HazelcastInstanceAware {
+    def thunk = _thunk
+    @transient
+    private[this] var env: E = _
+    def setHazelcastInstance(hz: HazelcastInstance) = env = getEnv(hz)
+    def process(entry: Entry[K, V]): Object = {
+      _thunk(env, entry)
+      null
+    }
+  }
+  final class ValueUpdaterEP[V](_update: V => V, _returnValue: V => Object) extends AbstractEntryProcessor[Any, V](true) {
+    def update = _update
+    def returnValue = _returnValue
+    def process(entry: Entry[Any, V]): Object = {
+      entry.value = _update(entry.value)
+      _returnValue(entry.value)
+    }
+  }
+  final class ExecuteEP[K, V, R](_thunk: Entry[K, V] => R) extends AbstractEntryProcessor[K, V](true) {
+    def thunk = _thunk
+    def process(entry: Entry[K, V]): Object = _thunk(entry) match {
+      case null | _: Unit => null
+      case value => value.asInstanceOf[Object]
+    }
   }
 }

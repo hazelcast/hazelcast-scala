@@ -1,5 +1,6 @@
 package com.hazelcast.Scala.serialization
 
+import java.util.Map.Entry
 import java.math.{ MathContext, RoundingMode }
 import java.util.{ Comparator, UUID }
 import scala.annotation.tailrec
@@ -8,32 +9,78 @@ import scala.reflect.ClassTag
 import scala.util.{ Either, Failure, Left, Right, Success, Try }
 import com.hazelcast.nio.{ ObjectDataInput, ObjectDataOutput }
 import scala.collection.immutable.Nil
-import scala.runtime.IntRef
-import scala.runtime.LongRef
-import scala.runtime.DoubleRef
-import scala.runtime.FloatRef
+import scala.runtime.{ IntRef, LongRef, DoubleRef, FloatRef }
 import com.hazelcast.Scala._
 import com.hazelcast.Scala.aggr._
 import com.hazelcast.core.HazelcastInstance
 import com.hazelcast.query.Predicate
+import scala.concurrent.duration._
+import Duration.Infinite
 
 object Defaults extends SerializerEnum(-987654321) {
 
-  val SomeSer = new OptionSerializer[Some[_]]
-  val NoneSer = new OptionSerializer[None.type]
+  val SomeSer = new StreamSerializer[Some[Any]] {
+    def write(out: ObjectDataOutput, some: Some[Any]) = out.writeObject(some.x)
+    def read(inp: ObjectDataInput) = new Some(inp.readObject[Any])
+  }
+  val NoneSer = new StreamSerializer[None.type] {
+    def write(out: ObjectDataOutput, none: None.type) = ()
+    def read(inp: ObjectDataInput) = None
+  }
 
-  val SuccessSer = new TrySerializer[Success[_]]
-  val FailureSer = new TrySerializer[Failure[_]]
+  val SuccessSer = new StreamSerializer[Success[Any]] {
+    def write(out: ObjectDataOutput, success: Success[Any]) = out.writeObject(success.value)
+    def read(inp: ObjectDataInput) = new Success(inp.readObject[Any])
+  }
+  val FailureSer = new StreamSerializer[Failure[_]] {
+    def write(out: ObjectDataOutput, failure: Failure[_]) = out.writeObject(failure.exception)
+    def read(inp: ObjectDataInput) = new Failure(inp.readObject[Throwable])
+  }
 
-  val LeftSer = new EitherSerializer[Left[_, _]]
-  val RightSer = new EitherSerializer[Right[_, _]]
+  val LeftSer = new StreamSerializer[Left[Any, _]] {
+    def write(out: ObjectDataOutput, left: Left[Any, _]) = out.writeObject(left.a)
+    def read(inp: ObjectDataInput) = new Left(inp.readObject[Any])
+  }
+  val RightSer = new StreamSerializer[Right[_, Any]] {
+    def write(out: ObjectDataOutput, right: Right[_, Any]) = out.writeObject(right.b)
+    def read(inp: ObjectDataInput) = new Right(inp.readObject[Any])
+  }
 
-  val NilSer = new ListSerializer[Nil.type]
+  val NilSer = new StreamSerializer[Nil.type] {
+    def write(out: ObjectDataOutput, nil: Nil.type) = ()
+    def read(inp: ObjectDataInput) = Nil
+  }
   val NEListSer = new ListSerializer[::[_]]
+
+  val UpdateUpsertResultSer = new UpsertResultSerializer(Update)
+  val InsertUpsertResultSer = new UpsertResultSerializer(Insert)
+
+  val FiniteDurationSer = new StreamSerializer[FiniteDuration] {
+    def write(out: ObjectDataOutput, dur: FiniteDuration): Unit = {
+      out.writeLong(dur.length)
+      out.writeObject(dur.unit)
+    }
+    def read(inp: ObjectDataInput) =
+      new FiniteDuration(inp.readLong, inp.readObject[TimeUnit])
+  }
+  val InfiniteDurationSer = new StreamSerializer[Infinite] {
+    def write(out: ObjectDataOutput, dur: Infinite): Unit = {
+      if (dur eq Duration.Inf) out.writeByte(0)
+      else if (dur eq Duration.MinusInf) out.writeByte(1)
+      else if (dur eq Duration.Undefined) out.writeByte(2)
+      else sys.error(s"New Infinite Duration encountered: $dur (${dur.getClass})")
+    }
+    def read(inp: ObjectDataInput) = inp.readByte match {
+      case 0 => Duration.Inf
+      case 1 => Duration.MinusInf
+      case 2 => Duration.Undefined
+      case b => sys.error(s"Unexpected Infinite duration type: ${b.toInt}")
+    }
+  }
 
   val IMapEntrySer = new JMapEntrySerializer[ImmutableEntry[_, _]]((key, value) => new ImmutableEntry(key, value))
   val MMapEntrySer = new JMapEntrySerializer[MutableEntry[_, _]]((key, value) => new MutableEntry(key, value))
-  val UMapEntrySer = new JMapEntrySerializer[java.util.Map.Entry[_, _]]((key, value) => new ImmutableEntry(key, value))
+  val UMapEntrySer = new JMapEntrySerializer[Entry[_, _]]((key, value) => new ImmutableEntry(key, value))
 
   val InlineAggregatorSer = new StreamSerializer[InlineAggregator[_, _]] {
     def write(out: ObjectDataOutput, agg: InlineAggregator[_, _]): Unit = {
@@ -108,6 +155,119 @@ object Defaults extends SerializerEnum(-987654321) {
       new InstanceAwareTask(thunk)
     }
   }
+  val ForEachEPSer = new StreamSerializer[HzMap.ForEachEP[_, _, Any]] {
+    def write(out: ObjectDataOutput, ep: HzMap.ForEachEP[_, _, Any]): Unit = {
+      out.writeObject(ep.getEnv)
+      out.writeObject(ep.thunk)
+    }
+    def read(inp: ObjectDataInput): HzMap.ForEachEP[_, _, Any] = {
+      val getEnv = inp.readObject[HazelcastInstance => Any]
+      val thunk = inp.readObject[(Any, Entry[_, _]) => Unit]
+      new HzMap.ForEachEP(getEnv, thunk)
+    }
+  }
+  val QueryEPSer = new StreamSerializer[HzMap.QueryEP[Any, Any]] {
+    def write(out: ObjectDataOutput, ep: HzMap.QueryEP[Any, Any]): Unit = {
+      out.writeObject(ep.mf)
+    }
+    def read(inp: ObjectDataInput): HzMap.QueryEP[Any, Any] = {
+      val mf = inp.readObject[Any => Any]
+      new HzMap.QueryEP(mf)
+    }
+  }
+  val ExecuteEPSer = new StreamSerializer[HzMap.ExecuteEP[_, _, Any]] {
+    def write(out: ObjectDataOutput, ep: HzMap.ExecuteEP[_, _, Any]): Unit = {
+      out.writeObject(ep.thunk)
+    }
+    def read(inp: ObjectDataInput): HzMap.ExecuteEP[_, _, Any] = {
+      val thunk = inp.readObject[Entry[_, _] => Any]
+      new HzMap.ExecuteEP(thunk)
+    }
+  }
+  val ValueUpdaterEPSer = new StreamSerializer[HzMap.ValueUpdaterEP[Any]] {
+    def write(out: ObjectDataOutput, ep: HzMap.ValueUpdaterEP[Any]): Unit = {
+      out.writeObject(ep.update)
+      out.writeObject(ep.returnValue)
+    }
+    def read(inp: ObjectDataInput) = {
+      val update = inp.readObject[Any => Any]
+      val returnValue = inp.readObject[Any => Object]
+      new HzMap.ValueUpdaterEP(update, returnValue)
+    }
+  }
+  val GetAsEPSer = new StreamSerializer[AsyncMap.GetAsEP[Any, Any]] {
+    def write(out: ObjectDataOutput, ep: AsyncMap.GetAsEP[Any, Any]): Unit = {
+      out.writeObject(ep.mf)
+    }
+    def read(inp: ObjectDataInput) = {
+      val mf = inp.readObject[Any => Any]
+      new AsyncMap.GetAsEP(mf)
+    }
+  }
+  val PutIfAbsentEPSer = new StreamSerializer[AsyncMap.PutIfAbsentEP[Any]] {
+    def write(out: ObjectDataOutput, ep: AsyncMap.PutIfAbsentEP[Any]): Unit = {
+      out.writeObject(ep.putIfAbsent)
+    }
+    def read(inp: ObjectDataInput) = {
+      val value = inp.readObject[Any]
+      new AsyncMap.PutIfAbsentEP(value)
+    }
+  }
+  val TTLPutIfAbsentEPSer = new StreamSerializer[AsyncMap.TTLPutIfAbsentEP[Any]] {
+    def write(out: ObjectDataOutput, ep: AsyncMap.TTLPutIfAbsentEP[Any]): Unit = {
+      out.writeUTF(ep.mapName)
+      out.writeObject(ep.putIfAbsent)
+      out.writeLong(ep.ttl)
+      out.writeObject(ep.unit)
+    }
+    def read(inp: ObjectDataInput) = {
+      new AsyncMap.TTLPutIfAbsentEP(inp.readUTF, inp.readObject[Any], inp.readLong, inp.readObject[TimeUnit])
+    }
+  }
+  val UpsertEPSer = new StreamSerializer[DeltaUpdates.UpsertEP[Any]] {
+    type EP = DeltaUpdates.UpsertEP[Any]
+    def write(out: ObjectDataOutput, ep: EP): Unit = {
+      out.writeObject(ep.insertIfMissing)
+      out.writeObject(ep.updateIfPresent)
+    }
+    def read(inp: ObjectDataInput): EP = {
+      val insert = inp.readObject[Any]
+      val update = inp.readObject[Any => Any]
+      new EP(insert, update)
+    }
+  }
+  val UpsertAndGetEPSer = new StreamSerializer[DeltaUpdates.UpsertAndGetEP[Any]] {
+    type EP = DeltaUpdates.UpsertAndGetEP[Any]
+    def write(out: ObjectDataOutput, ep: EP): Unit = {
+      out.writeObject(ep.insertIfMissing)
+      out.writeObject(ep.updateIfPresent)
+    }
+    def read(inp: ObjectDataInput): EP = {
+      val insert = inp.readObject[Any]
+      val update = inp.readObject[Any => Any]
+      new EP(insert, update)
+    }
+  }
+  val UpdateEPSer = new StreamSerializer[DeltaUpdates.UpdateEP[Any]] {
+    type EP = DeltaUpdates.UpdateEP[Any]
+    def write(out: ObjectDataOutput, ep: EP): Unit = {
+      out.writeObject(ep.updateIfPresent)
+    }
+    def read(inp: ObjectDataInput): EP = {
+      val update = inp.readObject[Any => Any]
+      new EP(update)
+    }
+  }
+  val UpdateAndGetEPSer = new StreamSerializer[DeltaUpdates.UpdateAndGetEP[Any]] {
+    type EP = DeltaUpdates.UpdateAndGetEP[Any]
+    def write(out: ObjectDataOutput, ep: EP): Unit = {
+      out.writeObject(ep.updateIfPresent)
+    }
+    def read(inp: ObjectDataInput): EP = {
+      val update = inp.readObject[Any => Any]
+      new EP(update)
+    }
+  }
   val AggrMapDDSTaskSer = new StreamSerializer[dds.AggrMapDDSTask[_, _, _]] {
     type Task = dds.AggrMapDDSTask[_, _, _]
     def write(out: ObjectDataOutput, task: Task): Unit = {
@@ -140,7 +300,7 @@ object Defaults extends SerializerEnum(-987654321) {
       val arr = new Array[Object](inp.readInt)
       var idx = 0
       while (idx < arr.length) {
-        arr(idx) = inp.readObject
+        arr(idx) = inp.readObject[Object]
         idx += 1
       }
       arr
@@ -166,7 +326,7 @@ object Defaults extends SerializerEnum(-987654321) {
 
   val ClassTagSer = new StreamSerializer[ClassTag[_]] {
     def write(out: ObjectDataOutput, tag: ClassTag[_]): Unit = out.writeObject(tag.runtimeClass)
-    def read(inp: ObjectDataInput): ClassTag[_] = ClassTag(inp.readObject)
+    def read(inp: ObjectDataInput): ClassTag[_] = ClassTag(inp.readObject[Class[_]])
   }
 
   val UUIDSer = new StreamSerializer[UUID] {
@@ -348,12 +508,12 @@ object Defaults extends SerializerEnum(-987654321) {
     }
   }
 
-  final class JMapEntrySerializer[E <: java.util.Map.Entry[_, _]: ClassTag](ctor: (Any, Any) => E) extends StreamSerializer[E] {
+  final class JMapEntrySerializer[E <: Entry[_, _]: ClassTag](ctor: (Any, Any) => E) extends StreamSerializer[E] {
     def write(out: ObjectDataOutput, e: E): Unit = {
       out.writeObject(e.getKey)
       out.writeObject(e.getValue)
     }
-    def read(inp: ObjectDataInput): E = ctor(inp.readObject, inp.readObject)
+    def read(inp: ObjectDataInput): E = ctor(inp.readObject[Any], inp.readObject[Any])
   }
 
   val VectorSer = new StreamSerializer[Vector[Any]] {
@@ -377,7 +537,7 @@ object Defaults extends SerializerEnum(-987654321) {
       out.writeObject(t._2)
     }
     def read(inp: ObjectDataInput): Tuple2[_, _] = {
-      (inp.readObject, inp.readObject)
+      (inp.readObject[Any], inp.readObject[Any])
     }
   }
   val Tuple3Ser = new StreamSerializer[Tuple3[_, _, _]] {
@@ -387,7 +547,7 @@ object Defaults extends SerializerEnum(-987654321) {
       out.writeObject(t._3)
     }
     def read(inp: ObjectDataInput): Tuple3[_, _, _] = {
-      (inp.readObject, inp.readObject, inp.readObject)
+      (inp.readObject[Any], inp.readObject[Any], inp.readObject[Any])
     }
   }
   val Tuple4Ser = new StreamSerializer[Tuple4[_, _, _, _]] {
@@ -398,7 +558,7 @@ object Defaults extends SerializerEnum(-987654321) {
       out.writeObject(t._4)
     }
     def read(inp: ObjectDataInput): Tuple4[_, _, _, _] = {
-      (inp.readObject, inp.readObject, inp.readObject, inp.readObject)
+      (inp.readObject[Any], inp.readObject[Any], inp.readObject[Any], inp.readObject[Any])
     }
   }
   val Tuple5Ser = new StreamSerializer[Tuple5[_, _, _, _, _]] {
@@ -410,7 +570,36 @@ object Defaults extends SerializerEnum(-987654321) {
       out.writeObject(t._5)
     }
     def read(inp: ObjectDataInput): Tuple5[_, _, _, _, _] = {
-      (inp.readObject, inp.readObject, inp.readObject, inp.readObject, inp.readObject)
+      (inp.readObject[Any], inp.readObject[Any], inp.readObject[Any], inp.readObject[Any], inp.readObject[Any])
+    }
+  }
+  val Tuple6Ser = new StreamSerializer[Tuple6[_, _, _, _, _, _]] {
+    type Tuple = Tuple6[_, _, _, _, _, _]
+    def write(out: ObjectDataOutput, t: Tuple): Unit = {
+      out.writeObject(t._1)
+      out.writeObject(t._2)
+      out.writeObject(t._3)
+      out.writeObject(t._4)
+      out.writeObject(t._5)
+      out.writeObject(t._6)
+    }
+    def read(inp: ObjectDataInput): Tuple = {
+      (inp.readObject[Any], inp.readObject[Any], inp.readObject[Any], inp.readObject[Any], inp.readObject[Any], inp.readObject[Any])
+    }
+  }
+  val Tuple7Ser = new StreamSerializer[Tuple7[_, _, _, _, _, _, _]] {
+    type Tuple = Tuple7[_, _, _, _, _, _, _]
+    def write(out: ObjectDataOutput, t: Tuple): Unit = {
+      out.writeObject(t._1)
+      out.writeObject(t._2)
+      out.writeObject(t._3)
+      out.writeObject(t._4)
+      out.writeObject(t._5)
+      out.writeObject(t._6)
+      out.writeObject(t._7)
+    }
+    def read(inp: ObjectDataInput): Tuple = {
+      (inp.readObject[Any], inp.readObject[Any], inp.readObject[Any], inp.readObject[Any], inp.readObject[Any], inp.readObject[Any], inp.readObject[Any])
     }
   }
 
@@ -435,53 +624,9 @@ object Defaults extends SerializerEnum(-987654321) {
     def read(inp: ObjectDataInput): BigInt = new BigInt(inp.readObject[java.math.BigInteger])
   }
 
-  final class OptionSerializer[O <: Option[_]: ClassTag] extends StreamSerializer[O] {
-    def write(out: ObjectDataOutput, opt: O): Unit =
-      if (opt.isEmpty) {
-        out.write(0)
-      } else {
-        out.write(1)
-        out.writeObject(opt.get)
-      }
-    def read(inp: ObjectDataInput): O =
-      if (inp.readByte == 0) {
-        None.asInstanceOf[O]
-      } else {
-        new Some(inp.readObject).asInstanceOf[O]
-      }
-  }
-  final class TrySerializer[T <: Try[_]: ClassTag] extends StreamSerializer[T] {
-    def write(out: ObjectDataOutput, tr: T): Unit = tr match {
-      case Success(obj) =>
-        out.write(1)
-        out.writeObject(obj)
-      case Failure(th) =>
-        out.write(0)
-        out.writeObject(th)
-    }
-    def read(inp: ObjectDataInput): T =
-      if (inp.readByte == 1) {
-        new Success(inp.readObject).asInstanceOf[T]
-      } else {
-        new Failure(inp.readObject).asInstanceOf[T]
-      }
-  }
-
-  final class EitherSerializer[E <: Either[_, _]: ClassTag] extends StreamSerializer[E] {
-    def write(out: ObjectDataOutput, e: E): Unit = e match {
-      case Right(obj) =>
-        out.write(1)
-        out.writeObject(obj)
-      case Left(obj) =>
-        out.write(0)
-        out.writeObject(obj)
-    }
-    def read(inp: ObjectDataInput): E =
-      if (inp.readByte == 1) {
-        new Right(inp.readObject).asInstanceOf[E]
-      } else {
-        new Left(inp.readObject).asInstanceOf[E]
-      }
+  final class UpsertResultSerializer[UR <: UpsertResult: ClassTag](ur: UR) extends StreamSerializer[UR] {
+    def write(out: ObjectDataOutput, ur: UR): Unit = ()
+    def read(inp: ObjectDataInput): UR = ur
   }
 
   final class ListSerializer[L <: List[_]: ClassTag] extends StreamSerializer[L] {
@@ -509,7 +654,7 @@ object Defaults extends SerializerEnum(-987654321) {
 
   @tailrec private def readJMap[M <: java.util.Map[Any, Any]](size: Int, map: M, inp: ObjectDataInput, idx: Int = 0): M = {
     if (idx < size) {
-      map.put(inp.readObject, inp.readObject)
+      map.put(inp.readObject[Any], inp.readObject[Any])
       readJMap(size, map, inp, idx + 1)
     } else map
   }
