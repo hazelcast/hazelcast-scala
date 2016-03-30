@@ -12,12 +12,12 @@ import scala.util.Try
 import com.hazelcast.config.RingbufferConfig
 
 object TestTopic extends ClusterSetup {
-  val shortRB = "short"
-  val shortRBCapacity = 3
+  val smallRB = "smallRB"
+  val smallRBCapacity = 3
   override def clusterSize = 1
   def init = {
-    val rbConf = new RingbufferConfig(shortRB)
-    rbConf.setCapacity(shortRBCapacity)
+    val rbConf = new RingbufferConfig(smallRB)
+    rbConf.setCapacity(smallRBCapacity)
     memberConfig.addRingBufferConfig(rbConf)
   }
   def destroy = ()
@@ -62,8 +62,8 @@ class TestTopic {
   @Test @Ignore // FIXME: Un-ignore when fixed: https://github.com/hazelcast/hazelcast/issues/7317
   def stale {
     val messages = Seq("a", "b", "c", "d", "e")
-    val cdl = new CountDownLatch(shortRBCapacity)
-    val rTopic = client.getReliableTopic[String](shortRB)
+    val cdl = new CountDownLatch(smallRBCapacity)
+    val rTopic = client.getReliableTopic[String](smallRB)
     messages.foreach(rTopic.publish)
     val reg = rTopic.onSeqMessage(startFrom = 0, gapTolerant = true) {
       case (seq, msg) =>
