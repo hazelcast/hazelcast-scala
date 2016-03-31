@@ -889,6 +889,24 @@ class TestMap {
         assertEquals(value, imap.get(key))
     }
   }
+  @Test
+  def `shape shifter` {
+      implicit def utf8 = UTF8Serializer
+    val mapName = UUID.randomUUID.toString
+    val stringMap = client.getByteArrayMap[String, String](mapName)
+    stringMap.put("hello", "hello")
+    assertEquals("hello", stringMap.get("hello"))
+    val updated = stringMap.updateAndGet("hello")(_ => "world")
+    assertEquals(Some("world"), updated)
+    val foo = hz(0).getByteArrayMap[String, String](mapName)
+    assertEquals("world", foo.get("hello"))
+  }
+}
+case object UTF8Serializer extends com.hazelcast.nio.serialization.ByteArraySerializer[String] {
+  def destroy() = ()
+  def getTypeId() = 500
+  def write(str: String) = str.getBytes("UTF-8")
+  def read(arr: Array[Byte]) = new String(arr, "UTF-8")
 }
 
 object Entries extends UserContext.Key[collection.concurrent.TrieMap[Int, String]]

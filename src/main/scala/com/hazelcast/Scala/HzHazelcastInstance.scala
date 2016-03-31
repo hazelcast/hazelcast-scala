@@ -13,6 +13,9 @@ import com.hazelcast.transaction.TransactionOptions
 import com.hazelcast.transaction.TransactionOptions.TransactionType
 import com.hazelcast.transaction.TransactionalTask
 import com.hazelcast.transaction.TransactionalTaskContext
+import com.hazelcast.nio.serialization.ByteArraySerializer
+import com.hazelcast.Scala.serialization.ByteArrayInterceptor
+import scala.reflect.ClassTag
 
 private object HzHazelcastInstance {
   private[this] val DefaultTxnOpts = TransactionOptions.getDefault
@@ -124,4 +127,19 @@ final class HzHazelcastInstance(hz: HazelcastInstance) extends MemberEventSubscr
   }
 
   def userCtx: UserContext = new UserContext(hz.getUserContext)
+
+  /**
+   *  Experimental, and of questionable value.
+   *  Main purpose is to avoid registering a serializer
+   *  in the configuration, but instead supply one here
+   *  and using an interceptor to convert to/from byte array.
+   *  NOTICE: This is marked as deprecated to indicate that
+   *  it may be removed in a future version, pending feedback.
+   */
+  @deprecated
+  def getByteArrayMap[K, V <: AnyRef: ByteArraySerializer: ClassTag](name: String): IMap[K, V] = {
+    val imap = hz.getMap[K, Array[Byte]](name)
+    imap.addInterceptor(new ByteArrayInterceptor[V])
+    imap.asInstanceOf[IMap[K, V]]
+  }
 }
