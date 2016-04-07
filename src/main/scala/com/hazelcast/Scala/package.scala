@@ -142,7 +142,7 @@ package object Scala extends HighPriorityImplicits {
   implicit class ScalaEntry[K, V](private val entry: Entry[K, V]) extends AnyVal {
     @inline def key: K = entry.getKey
     @inline def value: V = entry.getValue
-    @inline def value_=(newValue: V) = entry.setValue(newValue)
+    @inline def value_=(newValue: V): Unit = entry.setValue(newValue)
   }
 
   implicit class HzPredicate(private val pred: Predicate[_, _]) extends AnyVal {
