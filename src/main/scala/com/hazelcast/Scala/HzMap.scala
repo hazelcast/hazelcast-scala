@@ -115,17 +115,18 @@ final class HzMap[K, V](protected val imap: IMap[K, V]) extends IMapDeltaUpdates
   def execute[R](filter: EntryFilter[K, V])(thunk: Entry[K, V] => R): mMap[K, R] = {
       def ep = new HzMap.ExecuteEP(thunk)
     val jMap: java.util.Map[K, Object] = filter match {
-      case OnValues(include) =>
-        imap.executeOnEntries(ep, include)
       case OnEntries(null) =>
         imap.executeOnEntries(ep)
       case OnEntries(predicate) =>
         imap.executeOnEntries(ep, predicate)
-      case OnKeys(key) =>
+      case OnKey(key) =>
         val value = imap.executeOnKey(key, ep)
         Collections.singletonMap(key, value)
-      case OnKeys(keys @ _*) =>
-        imap.executeOnKeys(keys.toSet.asJava, ep)
+      case OnKeys(keys) =>
+        if (keys.isEmpty) java.util.Collections.emptyMap()
+        else imap.executeOnKeys(keys.asJava, ep)
+      case OnValues(include) =>
+        imap.executeOnEntries(ep, include)
     }
     jMap.asInstanceOf[java.util.Map[K, R]].asScala
   }

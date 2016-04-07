@@ -889,6 +889,41 @@ class TestMap {
         assertEquals(value, imap.get(key))
     }
   }
+
+  @Test
+  def `on key(s)` {
+    val myMap = getClientMap[String, Int]()
+    (1 to 2500) foreach { i =>
+      myMap.set(i.toString, i * 271)
+    }
+
+    myMap.execute(OnKey("45")) { entry =>
+      entry.value = entry.value * 2
+    }
+    assertEquals(45 * 271 * 2, myMap.get("45"))
+
+    myMap.execute(OnKeys(Set("1", "2", "3"))) { entry =>
+      entry.value = 0
+    }
+    assertEquals(0, myMap.get("1"))
+    assertEquals(0, myMap.get("2"))
+    assertEquals(0, myMap.get("3"))
+
+    val resMap = myMap.execute(OnKeys("1", "2", "3")) { entry =>
+      entry.value = -1
+    }
+    assertTrue(resMap.isEmpty)
+    assertEquals(-1, myMap.get("1"))
+    assertEquals(-1, myMap.get("2"))
+    assertEquals(-1, myMap.get("3"))
+
+    myMap.execute(OnKey("1")) { entry =>
+      entry.value = -5
+    }
+    assertEquals(-5, myMap.get("1"))
+
+  }
+
   @Test
   def `shape shifter` {
       implicit def utf8 = UTF8Serializer
