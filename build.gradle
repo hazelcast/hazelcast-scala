@@ -15,7 +15,7 @@ ext {
     junitVersion = '4.12'
     scalaMinorVersion = '2.11'
     scalaVersion = "$scalaMinorVersion.8"
-    hzVersion = '3.6.1'
+    hzVersion = '3.6.2'
     scoverageVersion = '1.1.0'
 }
 
@@ -48,6 +48,7 @@ repositories {
 
 dependencies {
     testCompile "junit:junit:$junitVersion"
+    testCompile "org.scala-lang:scala-compiler:$scalaVersion"
     scoverage "org.scoverage:scalac-scoverage-plugin_$scalaMinorVersion:$scoverageVersion", "org.scoverage:scalac-scoverage-runtime_$scalaMinorVersion:$scoverageVersion"
     //testCompile fileTree(dir: 'lib', include: '*.jar')
     //testCompile "com.hazelcast:hazelcast:$hzVersion:tests"
