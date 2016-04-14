@@ -717,7 +717,7 @@ class TestMap {
     }
     val hzVarianceDbl = numMap.map(_.value.toDouble).variance().await.get
     val hzVarianceBD = numMap.map(_.value).variance().await.get
-    assertEquals(localVariance, hzVarianceBD)
+    assertEquals(localVariance.setScale(15, HALF_UP), hzVarianceBD.setScale(15, HALF_UP))
     assertEquals(localVariance.toDouble, hzVarianceDbl, 0.00000001)
   }
 
