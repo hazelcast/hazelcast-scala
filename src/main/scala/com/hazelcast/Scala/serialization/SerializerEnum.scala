@@ -7,7 +7,7 @@ import com.hazelcast.config.SerializerConfig
 
 abstract class SerializerEnum(private val offset: Int) extends Enumeration {
   type Value = ClassSerializer[_]
-  def this(extendFrom: SerializerEnum) = this(extendFrom.maxId + 1 + extendFrom.offset)
+  def this(extendFrom: SerializerEnum) = this(if (extendFrom != null) extendFrom.maxId + 1 + extendFrom.offset else 0)
   def this() = this(0)
 
   sealed abstract class ClassSerializer[T: ClassTag] extends Val with Serializer {
