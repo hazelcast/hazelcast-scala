@@ -12,11 +12,13 @@ plugins {
 }
 
 ext {
-    junitVersion = '4.12'
-    scalaMinorVersion = '2.11'
-    scalaVersion = "$scalaMinorVersion.8"
-    hzVersion = '3.6.2'
-    scoverageVersion = '1.1.0'
+    vJUnit = '4.12'
+    vScala = '2.11'
+    vScalaFull = "$vScala.8"
+    vHazelcast = '3.6.2'
+    vScoverage = '1.1.0'
+    vKryo = '3.0.3'
+    vObjenesis = '2.2'
 }
 
 apply plugin: "scala"
@@ -27,7 +29,7 @@ sourceCompatibility = 1.7
 targetCompatibility = 1.7
 
 task wrapper(type: Wrapper) {
-    gradleVersion = "2.11"
+    gradleVersion = '2.12'
 }
 if (version == '') {
     version = 'SNAPSHOT'
@@ -47,32 +49,36 @@ repositories {
 }
 
 dependencies {
-    testCompile "junit:junit:$junitVersion"
-    testCompile "org.scala-lang:scala-compiler:$scalaVersion"
-    scoverage "org.scoverage:scalac-scoverage-plugin_$scalaMinorVersion:$scoverageVersion", "org.scoverage:scalac-scoverage-runtime_$scalaMinorVersion:$scoverageVersion"
+    testCompile "junit:junit:$vJUnit"
+    testCompile "org.scala-lang:scala-compiler:$vScalaFull"
+    scoverage "org.scoverage:scalac-scoverage-plugin_$vScala:$vScoverage", "org.scoverage:scalac-scoverage-runtime_$vScala:$vScoverage"
     //testCompile fileTree(dir: 'lib', include: '*.jar')
-    //testCompile "com.hazelcast:hazelcast:$hzVersion:tests"
-    compile "org.scala-lang:scala-reflect:$scalaVersion"
-    compile "com.hazelcast:hazelcast:$hzVersion"
-    compile "com.hazelcast:hazelcast-client:$hzVersion"
+    //testCompile "com.hazelcast:hazelcast:$vHazelcast:tests"
+    compile "org.scala-lang:scala-reflect:$vScalaFull"
+    compile "com.hazelcast:hazelcast:$vHazelcast"
+    compile "com.hazelcast:hazelcast-client:$vHazelcast"
     compile "javax.cache:cache-api:1.0.0"
     compile "javax.transaction:transaction-api:1.1"
+    
+    compile "com.esotericsoftware:kryo:$vKryo"
+    compile "org.objenesis:objenesis:$vObjenesis"
+    
 }
 
 jar {
-    baseName = "${project.name}_$scalaMinorVersion"
+    baseName = "${project.name}_$vScala"
     manifest {
         attributes "Implementation-Title": project.name, "Implementation-Version": version
     }
 }
 
 task sourceJar(type: Jar) {
-    baseName "${project.name}_$scalaMinorVersion"
+    baseName "${project.name}_$vScala"
     classifier "sources"
     from sourceSets.main.allScala
 }
 task docsJar(type: Jar, dependsOn: scaladoc) {
-    baseName "${project.name}_$scalaMinorVersion"
+    baseName "${project.name}_$vScala"
     classifier "docs"
     from scaladoc.destinationDir
 }

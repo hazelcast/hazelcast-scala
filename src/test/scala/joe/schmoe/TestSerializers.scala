@@ -6,6 +6,7 @@ import scala.reflect.{ ClassTag, classTag }
 
 import com.hazelcast.Scala.serialization.SerializerEnum
 import com.hazelcast.nio.{ ObjectDataInput, ObjectDataOutput }
+import com.hazelcast.Scala.serialization.kryo.KryoSerializers
 
 object TestSerializers extends SerializerEnum {
 
@@ -32,14 +33,18 @@ object TestSerializers extends SerializerEnum {
     }
   }
 
-  val Stats = new StreamSerializer[Stats] {
-    def write(out: ObjectDataOutput, st: Stats): Unit = {
-      out.writeLong(st.sum)
-      out.writeInt(st.count)
-      out.writeInt(st.min)
-      out.writeInt(st.max)
-    }
-    def read(inp: ObjectDataInput): Stats =
-      new Stats(inp.readLong, inp.readInt, inp.readInt, inp.readInt)
-  }
+//  val Stats = new StreamSerializer[Stats] {
+//    def write(out: ObjectDataOutput, st: Stats): Unit = {
+//      out.writeLong(st.sum)
+//      out.writeInt(st.count)
+//      out.writeInt(st.min)
+//      out.writeInt(st.max)
+//    }
+//    def read(inp: ObjectDataInput): Stats =
+//      new Stats(inp.readLong, inp.readInt, inp.readInt, inp.readInt)
+//  }
+}
+
+object TestKryoSerializers extends KryoSerializers(TestSerializers) {
+  val StatsSer = new KryoSerializer[Stats]
 }

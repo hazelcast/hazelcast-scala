@@ -27,6 +27,9 @@ import com.hazelcast.query.Predicate
 object TestMap extends ClusterSetup {
   override val clusterSize = 3
   def init {
+    TestKryoSerializers.register(memberConfig.getSerializationConfig)
+    TestKryoSerializers.register(clientConfig.getSerializationConfig)
+
     memberConfig.getMapConfig("employees").
       addMapIndexConfig(new MapIndexConfig("salary", true)).
       setInMemoryFormat(InMemoryFormat.OBJECT)

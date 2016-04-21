@@ -11,7 +11,7 @@ abstract class SerializerEnum(private val offset: Int) extends Enumeration {
   def this() = this(0)
 
   sealed abstract class ClassSerializer[T: ClassTag] extends Val with Serializer {
-    def theClass = classTag[T].runtimeClass.asInstanceOf[Class[T]]
+    val theClass = classTag[T].runtimeClass.asInstanceOf[Class[T]]
     def register(conf: SerializationConfig): Unit = {
       val serConf = new SerializerConfig
       serConf.setImplementation(this).setTypeClass(theClass)
