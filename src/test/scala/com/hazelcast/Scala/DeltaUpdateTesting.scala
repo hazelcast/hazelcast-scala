@@ -6,7 +6,7 @@ import org.junit.Assert._
 
 object DeltaUpdateTesting {
 
-  type Map = DeltaUpdates[UUID, Int] { type UpdateR[T] = T }
+  type Map = KeyedDeltaUpdates[UUID, Int] { type UpdateR[T] = T }
 
   def testUpsert(numbers: Map, get: UUID => Int) {
     val key = UUID.randomUUID()

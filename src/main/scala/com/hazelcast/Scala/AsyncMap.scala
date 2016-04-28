@@ -14,7 +14,7 @@ import com.hazelcast.core.HazelcastInstance
 import java.util.concurrent.TimeUnit
 
 final class AsyncMap[K, V] private[Scala] (protected val imap: IMap[K, V])
-    extends IMapAsyncDeltaUpdates[K, V] {
+    extends KeyedIMapAsyncDeltaUpdates[K, V] {
 
   def get(key: K): Future[Option[V]] = imap.getAsync(key).asScalaOpt
 

@@ -9,7 +9,7 @@ import com.hazelcast.cache
 import com.hazelcast.cache.impl.event.CachePartitionLostEvent
 import com.hazelcast.cache.impl.event.CachePartitionLostListener
 
-final class HzCache[K, V](icache: cache.ICache[K, V]) extends DeltaUpdates[K, V] {
+final class HzCache[K, V](icache: cache.ICache[K, V]) extends KeyedDeltaUpdates[K, V] {
   import javax.cache._
   import processor._
 

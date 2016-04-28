@@ -23,6 +23,11 @@ import com.hazelcast.config.MapIndexConfig
 import com.hazelcast.core.IMap
 import com.hazelcast.map.AbstractEntryProcessor
 import com.hazelcast.query.Predicate
+import scala.collection.immutable.Vector
+import java.util.concurrent.atomic.AtomicReference
+import com.hazelcast.config.MapStoreConfig
+import com.hazelcast.core.MapStore
+import scala.util.control.NoStackTrace
 
 object TestMap extends ClusterSetup {
   override val clusterSize = 3
@@ -87,6 +92,21 @@ class TestMap {
   def update {
     val map = getClientMap[UUID, Int]()
     DeltaUpdateTesting.testUpdate(map, map.get, map.put(_, _))
+    map.clear()
+    (1 to 10) foreach { _ =>
+      map.set(UUID.randomUUID, 5)
+    }
+    map.update()(_ + 6)
+    val values = map.values
+    assertEquals(10, values.size)
+    values.asScala.foreach { value =>
+      assertEquals(11, value)
+    }
+    val updated = map.updateAndGet(where.value = 11)(_ - 12)
+    assertEquals(10, updated.size)
+    updated.values.foreach { value =>
+      assertEquals(-1, value)
+    }
   }
   @Test
   def asyncUpdateWithDefault {
@@ -164,6 +184,10 @@ class TestMap {
       tempMap.put("key" + i, i)
     }
     map.putAll(tempMap)
+    val all = map.execute(OnEntries()) { entry =>
+      None
+    }
+    assertEquals(tempMap.keySet.asScala, all.keySet)
     val predicate37 = new Predicate[String, Int] {
       def apply(entry: Entry[String, Int]) = isFactor37(entry.value)
     }
@@ -176,6 +200,11 @@ class TestMap {
     val verifyFactor37 = result1a.values.forall(obj => isFactor37(obj.asInstanceOf[Int] / 2))
     assertTrue(verifyFactor37)
     val result1b = map.executeOnEntries(entryProcessor, isFactor37).asScala
+    assertEquals(result1a, result1b.toMap)
+    val result1c = map.execute(OnEntries((value: Int) => isFactor37(value))) { entry =>
+      entry.value * 2
+    }
+    assertEquals(result1a, result1c)
     val result2a = map.execute(OnValues(isFactor37)) { entry =>
       entry.value * 2
     }
@@ -308,6 +337,20 @@ class TestMap {
     val sqlSalaries = sqlResult.asScala.map(e => e.id -> e.salary).toMap
     val querySalaryResult = map.query(sqlPred)(_.salary)
     assertEquals(sqlSalaries, querySalaryResult)
+  }
+
+  @Test
+  def `getAs` {
+    val map = getClientMap[UUID, Employee]()
+    val emp = Employee.random
+    map.set(emp.id, emp)
+    val age = map.getAs(emp.id, _.age).get
+    assertEquals(emp.age, age)
+    val emp2 = Employee.random
+    map.set(emp2.id, emp2)
+    val salaries = map.getAllAs(Set(emp.id, emp2.id), _.salary)
+    assertEquals(emp.salary, salaries(emp.id))
+    assertEquals(emp2.salary, salaries(emp2.id))
   }
 
   @Test
@@ -768,13 +811,16 @@ class TestMap {
     val ppDesc = new PagingPredicate(wellPaid, desc, 10)
     ppDesc.setPage(3)
     val fromJavaDesc = employees.values(ppDesc).asScala.map(_.salary)
+    val entriesFromJavaDesc = employees.entrySet(ppDesc).iterator.asScala.toSeq.map(_.value.salary)
     assertEquals(10, fromJavaDesc.size)
     val fromScalaAsc = employees.values(40 until 50, wellPaid)(_.value.salary).map(_.salary)
     assertEquals(10, fromScalaAsc.size)
     val fromScalaDesc = employees.values(30 until 40, wellPaid)(_.value.salary, reverse = true).map(_.salary)
+    val entriesFromScalaDesc = employees.entries(30 until 40, wellPaid)(_.value.salary, reverse = true).toSeq.map(_.value.salary)
     assertEquals(10, fromScalaDesc.size)
     assertEquals(fromJavaAsc, fromScalaAsc)
     assertEquals(fromJavaDesc, fromScalaDesc)
+    assertEquals(entriesFromJavaDesc, entriesFromScalaDesc)
   }
 
   @Test
@@ -880,8 +926,8 @@ class TestMap {
       imap.set(i, (i * 37).toString)
     }
     imap.foreach(_.userCtx(Entries), where.key.between(501, 510)) {
-      (map, entry) =>
-        assertEquals(None, map.putIfAbsent(entry.key, entry.value))
+      (map, key, value) =>
+        assertEquals(None, map.putIfAbsent(key, value))
     }
     val entries = hz.map { hz =>
       hz.userCtx(Entries)
@@ -899,11 +945,22 @@ class TestMap {
     (1 to 2500) foreach { i =>
       myMap.set(i.toString, i * 271)
     }
+    val changes = new AtomicReference[List[(String, Int)]](Nil)
+      def addChange(key: String, value: Int) {
+        val list = changes.get
+        if (!changes.compareAndSet(list, (key, value) :: list)) {
+          addChange(key, value)
+        }
+      }
+    myMap.onEntryEvents() {
+      case EntryUpdated(key, _, newValue) => addChange(key, newValue)
+    }
 
     myMap.execute(OnKey("45")) { entry =>
       entry.value = entry.value * 2
     }
     assertEquals(45 * 271 * 2, myMap.get("45"))
+    assertEquals("45" -> (45 * 271 * 2), changes.get.head)
 
     myMap.execute(OnKeys(Set("1", "2", "3"))) { entry =>
       entry.value = 0
@@ -911,6 +968,10 @@ class TestMap {
     assertEquals(0, myMap.get("1"))
     assertEquals(0, myMap.get("2"))
     assertEquals(0, myMap.get("3"))
+    changes.get.take(3).sortBy(_._1) match {
+      case ("1", 0) :: ("2", 0) :: ("3", 0) :: Nil => // As expected
+      case _ => fail(s"Changes: $changes")
+    }
 
     val resMap = myMap.execute(OnKeys("1", "2", "3")) { entry =>
       entry.value = -1
@@ -938,6 +999,36 @@ class TestMap {
     assertEquals(Some("world"), updated)
     val foo = hz(0).getByteArrayMap[String, String](mapName)
     assertEquals("world", foo.get("hello"))
+  }
+
+  @Test
+  def transient {
+    val mapStore = new MapStore[String, String] {
+      def load(key: String) = null
+      def loadAll(keys: java.util.Collection[String]) = java.util.Collections.emptyMap()
+      def loadAllKeys() = null
+      def delete(key: String) = throw new UnsupportedOperationException with NoStackTrace
+      def deleteAll(keys: java.util.Collection[String]) = throw new UnsupportedOperationException with NoStackTrace
+      def store(k: String, v: String) = throw new UnsupportedOperationException with NoStackTrace
+      def storeAll(kv: java.util.Map[String, String]) = throw new UnsupportedOperationException with NoStackTrace
+    }
+    val name = UUID.randomUUID.toString
+    hz.foreach { hz =>
+      hz.getConfig.getMapConfig(name).getMapStoreConfig.setImplementation(mapStore).setEnabled(true)
+    }
+    val map = getMemberMap[String, String](name)
+    try {
+      map.set("Hello", "world")
+      fail("Should throw exception")
+    } catch {
+      case _: UnsupportedOperationException => // Ok
+    }
+    map.setTransient("Hello", "world")
+    map.setTransient("World", "hello", 1.second)
+    assertEquals("hello", map.get("World"))
+    Thread sleep 1111
+    assertNull(map.get("World"))
+    assertEquals("world", map.get("Hello"))
   }
 }
 case object UTF8Serializer extends com.hazelcast.nio.serialization.ByteArraySerializer[String] {

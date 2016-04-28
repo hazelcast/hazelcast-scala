@@ -7,8 +7,7 @@ import java.util.Map.Entry
 import scala.collection.JavaConverters._
 import scala.collection.mutable.{ Map => mMap }
 import scala.concurrent.ExecutionContext
-import scala.concurrent.duration.Duration
-import scala.concurrent.duration.FiniteDuration
+import scala.concurrent.duration._
 
 import com.hazelcast.Scala.dds.DDS
 import com.hazelcast.Scala.dds.MapDDS
@@ -21,7 +20,9 @@ import com.hazelcast.query.Predicate
 import com.hazelcast.query.PredicateBuilder
 import com.hazelcast.spi.AbstractDistributedObject
 
-final class HzMap[K, V](protected val imap: IMap[K, V]) extends IMapDeltaUpdates[K, V] with MapEventSubscription {
+final class HzMap[K, V](protected val imap: IMap[K, V])
+    extends KeyedIMapDeltaUpdates[K, V]
+    with MapEventSubscription {
 
   private[Scala] def getHZ: HazelcastInstance = imap match {
     case ado: AbstractDistributedObject[_] => ado.getNodeEngine.getHazelcastInstance
@@ -59,8 +60,8 @@ final class HzMap[K, V](protected val imap: IMap[K, V]) extends IMapDeltaUpdates
     imap.executeOnEntries(ep, pred).asScala.asInstanceOf[mMap[K, T]]
   }
 
-  def foreach[E](env: HazelcastInstance => E, pred: Predicate[_, _] = null)(thunk: (E, Entry[K, V]) => Unit): Unit = {
-    val ep = new HzMap.ForEachEP(env, thunk)
+  def foreach[C](ctx: HazelcastInstance => C, pred: Predicate[_, _] = null)(thunk: (C, K, V) => Unit): Unit = {
+    val ep = new HzMap.ForEachEP(ctx, thunk)
     pred match {
       case null => imap.executeOnEntries(ep)
       case pred => imap.executeOnEntries(ep, pred)
@@ -98,10 +99,11 @@ final class HzMap[K, V](protected val imap: IMap[K, V]) extends IMapDeltaUpdates
       Option(imap.put(key, value))
     }
   }
-  def setTransient(key: K, value: V, ttl: Duration): Unit = {
-    ttl match {
-      case _: FiniteDuration => imap.putTransient(key, value, ttl.length, ttl.unit)
-      case _ => imap.putTransient(key, value, 0, null)
+  def setTransient(key: K, value: V, ttl: Duration = Duration.Inf): Unit = {
+    if (ttl.isFinite) {
+      imap.putTransient(key, value, ttl.length, ttl.unit)
+    } else {
+      imap.putTransient(key, value, 0, MILLISECONDS)
     }
   }
   def putIfAbsent(key: K, value: V, ttl: Duration): Option[V] = {
@@ -214,15 +216,15 @@ private[Scala] object HzMap {
     def mf = _mf
     def process(entry: Entry[Any, V]): Object = _mf(entry.value).asInstanceOf[Object]
   }
-  final class ForEachEP[K, V, E](val getEnv: HazelcastInstance => E, _thunk: (E, Entry[K, V]) => Unit)
+  final class ForEachEP[K, V, C](val getCtx: HazelcastInstance => C, _thunk: (C, K, V) => Unit)
       extends AbstractEntryProcessor[K, V](false)
       with HazelcastInstanceAware {
     def thunk = _thunk
     @transient
-    private[this] var env: E = _
-    def setHazelcastInstance(hz: HazelcastInstance) = env = getEnv(hz)
+    private[this] var ctx: C = _
+    def setHazelcastInstance(hz: HazelcastInstance) = ctx = getCtx(hz)
     def process(entry: Entry[K, V]): Object = {
-      _thunk(env, entry)
+      _thunk(ctx, entry.key, entry.value)
       null
     }
   }

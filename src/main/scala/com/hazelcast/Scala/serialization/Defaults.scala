@@ -157,12 +157,12 @@ object Defaults extends SerializerEnum(-987654321) {
   }
   val ForEachEPSer = new StreamSerializer[HzMap.ForEachEP[_, _, Any]] {
     def write(out: ObjectDataOutput, ep: HzMap.ForEachEP[_, _, Any]): Unit = {
-      out.writeObject(ep.getEnv)
+      out.writeObject(ep.getCtx)
       out.writeObject(ep.thunk)
     }
     def read(inp: ObjectDataInput): HzMap.ForEachEP[_, _, Any] = {
       val getEnv = inp.readObject[HazelcastInstance => Any]
-      val thunk = inp.readObject[(Any, Entry[_, _]) => Unit]
+      val thunk = inp.readObject[(Any, Any, Any) => Unit]
       new HzMap.ForEachEP(getEnv, thunk)
     }
   }
@@ -224,8 +224,8 @@ object Defaults extends SerializerEnum(-987654321) {
       new AsyncMap.TTLPutIfAbsentEP(inp.readUTF, inp.readObject[Any], inp.readLong, inp.readObject[TimeUnit])
     }
   }
-  val UpsertEPSer = new StreamSerializer[DeltaUpdates.UpsertEP[Any]] {
-    type EP = DeltaUpdates.UpsertEP[Any]
+  val UpsertEPSer = new StreamSerializer[KeyedDeltaUpdates.UpsertEP[Any]] {
+    type EP = KeyedDeltaUpdates.UpsertEP[Any]
     def write(out: ObjectDataOutput, ep: EP): Unit = {
       out.writeObject(ep.insertIfMissing)
       out.writeObject(ep.updateIfPresent)
@@ -236,8 +236,8 @@ object Defaults extends SerializerEnum(-987654321) {
       new EP(insert, update)
     }
   }
-  val UpsertAndGetEPSer = new StreamSerializer[DeltaUpdates.UpsertAndGetEP[Any]] {
-    type EP = DeltaUpdates.UpsertAndGetEP[Any]
+  val UpsertAndGetEPSer = new StreamSerializer[KeyedDeltaUpdates.UpsertAndGetEP[Any]] {
+    type EP = KeyedDeltaUpdates.UpsertAndGetEP[Any]
     def write(out: ObjectDataOutput, ep: EP): Unit = {
       out.writeObject(ep.insertIfMissing)
       out.writeObject(ep.updateIfPresent)
@@ -248,8 +248,8 @@ object Defaults extends SerializerEnum(-987654321) {
       new EP(insert, update)
     }
   }
-  val UpdateEPSer = new StreamSerializer[DeltaUpdates.UpdateEP[Any]] {
-    type EP = DeltaUpdates.UpdateEP[Any]
+  val UpdateEPSer = new StreamSerializer[KeyedDeltaUpdates.UpdateEP[Any]] {
+    type EP = KeyedDeltaUpdates.UpdateEP[Any]
     def write(out: ObjectDataOutput, ep: EP): Unit = {
       out.writeObject(ep.updateIfPresent)
     }
@@ -258,8 +258,8 @@ object Defaults extends SerializerEnum(-987654321) {
       new EP(update)
     }
   }
-  val UpdateAndGetEPSer = new StreamSerializer[DeltaUpdates.UpdateAndGetEP[Any]] {
-    type EP = DeltaUpdates.UpdateAndGetEP[Any]
+  val UpdateAndGetEPSer = new StreamSerializer[KeyedDeltaUpdates.UpdateAndGetEP[Any]] {
+    type EP = KeyedDeltaUpdates.UpdateAndGetEP[Any]
     def write(out: ObjectDataOutput, ep: EP): Unit = {
       out.writeObject(ep.updateIfPresent)
     }

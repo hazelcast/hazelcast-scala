@@ -140,6 +140,8 @@ class HzMemberProperties(conf: Config) extends HzProperties(conf) {
   def setJmxEnabled(enabled: Boolean): Config = set(ENABLE_JMX, enabled)
   /** @see com.hazelcast.instance.GroupProperty.ENABLE_JMX_DETAILED */
   def setJmxDetailed(detailed: Boolean): Config = set(ENABLE_JMX_DETAILED, detailed)
+  /** @see com.hazelcast.instance.GroupProperty.JMX_UPDATE_INTERVAL_SECONDS */
+  def setJmxUpdateInterval(interval: FiniteDuration): Config = set(JMX_UPDATE_INTERVAL_SECONDS, interval.toSeconds)
   /** @see com.hazelcast.instance.GroupProperty.MAP_EXPIRY_DELAY_SECONDS */
   def setMapExpiryDelay(delay: FiniteDuration): Config = set(MAP_EXPIRY_DELAY_SECONDS, delay.toSeconds)
   /** @see com.hazelcast.instance.GroupProperty.MAP_LOAD_CHUNK_SIZE */
@@ -147,7 +149,7 @@ class HzMemberProperties(conf: Config) extends HzProperties(conf) {
   /** @see com.hazelcast.instance.GroupProperty.MAP_REPLICA_SCHEDULED_TASK_DELAY_SECONDS */
   def setMapReplicaDelay(delay: FiniteDuration): Config = set(MAP_REPLICA_SCHEDULED_TASK_DELAY_SECONDS, delay.toSeconds)
   /** @see com.hazelcast.instance.GroupProperty.MAP_WRITE_BEHIND_QUEUE_CAPACITY */
-  def setMapWriteBehindQueueCapacity(capacity: Int): Config = set(MAP_WRITE_BEHIND_QUEUE_CAPACITY, capacity)
+  def setMapWriteBehindNonCoalescingCapacity(capacity: Int): Config = set(MAP_WRITE_BEHIND_QUEUE_CAPACITY, capacity)
   /** @see com.hazelcast.instance.GroupProperty.MASTER_CONFIRMATION_INTERVAL_SECONDS */
   def setMasterConfirmationInterval(interval: FiniteDuration): Config = set(MASTER_CONFIRMATION_INTERVAL_SECONDS, interval.toSeconds)
   /** @see com.hazelcast.instance.GroupProperty.MAX_JOIN_MERGE_TARGET_SECONDS */
