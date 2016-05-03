@@ -144,7 +144,7 @@ final class HzMap[K, V](protected val imap: IMap[K, V])
     }
   }
   def onPartitionLost(runOn: ExecutionContext)(listener: PartialFunction[PartitionLost, Unit]): MSR = {
-    val regId = imap addPartitionLostListener asPartitionLostListener(listener, Option(runOn))
+    val regId = imap addPartitionLostListener EventSubscription.asPartitionLostListener(listener, Option(runOn))
     new ListenerRegistration {
       def cancel = imap removePartitionLostListener regId
     }

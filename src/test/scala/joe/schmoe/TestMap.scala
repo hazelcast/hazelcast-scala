@@ -54,7 +54,7 @@ class TestMap {
   @Test
   def upsert {
     val map = getClientMap[UUID, Int]()
-    DeltaUpdateTesting.testUpsert(map, map.get)
+    DeltaUpdateTesting.testUpsert(map, key => Option(map.get(key)), key => map.remove(key))
   }
 
   @Test
@@ -91,7 +91,7 @@ class TestMap {
   @Test
   def update {
     val map = getClientMap[UUID, Int]()
-    DeltaUpdateTesting.testUpdate(map, map.get, map.put(_, _))
+    DeltaUpdateTesting.testUpdate(map, key => Option(map.get(key)), map.put(_, _), key => map.remove(key))
     map.clear()
     (1 to 10) foreach { _ =>
       map.set(UUID.randomUUID, 5)
@@ -1029,6 +1029,33 @@ class TestMap {
     Thread sleep 1111
     assertNull(map.get("World"))
     assertEquals("world", map.get("Hello"))
+  }
+
+  @Test
+  def `more async` {
+    val employees = getClientMap[UUID, Employee]()
+    1 to 1000 foreach { _ =>
+      val emp = Employee.random
+      val dur = if (emp.age % 2 == 0) Duration.Inf else 90.seconds
+      employees.async.put(emp.id, emp, dur)
+    }
+
+    val top3 = employees.map(_.value).sortBy(_.salary).reverse.take(3).values.await
+    assertEquals(3, top3.size)
+    val top3Again = employees.async.getAll(top3.map(_.id).toSet).await
+    assertEquals(3, top3Again.size)
+    top3.foreach { emp =>
+      assertEquals(emp, top3Again(emp.id))
+    }
+    val ceo = employees.async.get(top3.head.id).await.get
+    assertEquals(top3.head, ceo)
+    val ceoSalary = employees.async.getAs(top3.head.id, _.salary).await.get
+    assertEquals(ceo.salary, ceoSalary)
+    val top3salaries = employees.async.getAllAs(top3.map(_.id).toSet, _.salary).await
+    assertEquals(3, top3salaries.size)
+    top3 foreach { emp =>
+      assertEquals(emp.salary, top3salaries(emp.id))
+    }
   }
 }
 case object UTF8Serializer extends com.hazelcast.nio.serialization.ByteArraySerializer[String] {

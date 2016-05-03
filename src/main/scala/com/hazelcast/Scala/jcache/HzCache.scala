@@ -39,36 +39,36 @@ final class HzCache[K, V](icache: cache.ICache[K, V]) extends KeyedDeltaUpdates[
   type UpdateR[T] = T
 
   def upsertAndGet(key: K, insertIfMissing: V)(updateIfPresent: V => V): V = {
-    val ep = new EntryProcessor[K, V, Object] with Serializable {
-      def process(entry: MutableEntry[K, V], args: Object*): Object = {
+    val ep = new EntryProcessor[K, V, V] with Serializable {
+      def process(entry: MutableEntry[K, V], args: Object*): V = {
         val newValue = entry.getValue match {
           case null => insertIfMissing
           case oldValue => updateIfPresent(oldValue)
         }
         entry.setValue(newValue)
-        newValue.asInstanceOf[Object]
+        newValue
       }
     }
-    icache.invoke(key, ep).asInstanceOf[V]
+    icache.invoke(key, ep)
   }
 
   def updateAndGet(key: K)(updateIfPresent: V => V): Option[V] = {
-    val ep = new EntryProcessor[K, V, Object] with Serializable {
-      def process(entry: MutableEntry[K, V], args: Object*): Object = {
+    val ep = new EntryProcessor[K, V, V] with Serializable {
+      def process(entry: MutableEntry[K, V], args: Object*): V = {
         entry.getValue match {
-          case null => null
+          case null => null.asInstanceOf[V]
           case oldValue =>
             val newValue = updateIfPresent(oldValue)
             entry.setValue(newValue)
-            newValue.asInstanceOf[Object]
+            newValue
         }
       }
     }
-    Option(icache.invoke(key, ep).asInstanceOf[V])
+    Option(icache.invoke(key, ep))
   }
 
   def upsert(key: K, insertIfMissing: V)(updateIfPresent: V => V): UpsertResult = {
-    val ep = new EntryProcessor[K, V, Object] with Serializable {
+    val ep = new EntryProcessor[K, V, UpsertResult] with Serializable {
       def process(entry: MutableEntry[K, V], args: Object*): Object = {
         entry.getValue match {
           case null =>
@@ -80,7 +80,7 @@ final class HzCache[K, V](icache: cache.ICache[K, V]) extends KeyedDeltaUpdates[
         }
       }
     }
-    icache.invoke(key, ep).asInstanceOf[UpsertResult]
+    icache.invoke(key, ep)
   }
 
   def update(key: K)(updateIfPresent: V => V): Boolean = {
@@ -97,5 +97,32 @@ final class HzCache[K, V](icache: cache.ICache[K, V]) extends KeyedDeltaUpdates[
     }
     icache.invoke(key, ep).asInstanceOf[Boolean]
   }
-
+  def getAndUpsert(key: K, insertIfMissing: V)(updateIfPresent: V => V): Option[V] = {
+    val ep = new EntryProcessor[K, V, V] with Serializable {
+      def process(entry: MutableEntry[K, V], args: Object*): V = {
+        entry.getValue match {
+          case null =>
+            entry.setValue(insertIfMissing)
+            null.asInstanceOf[V]
+          case value =>
+            entry.setValue(updateIfPresent(value))
+            value
+        }
+      }
+    }
+    Option(icache.invoke(key, ep))
+  }
+  def getAndUpdate(key: K)(updateIfPresent: V => V): Option[V] = {
+    val ep = new EntryProcessor[K, V, V] with Serializable {
+      def process(entry: MutableEntry[K, V], args: Object*): V = {
+        entry.getValue match {
+          case null => null.asInstanceOf[V]
+          case value =>
+            entry.setValue(updateIfPresent(value))
+            value
+        }
+      }
+    }
+    Option(icache.invoke(key, ep))
+  }
 }

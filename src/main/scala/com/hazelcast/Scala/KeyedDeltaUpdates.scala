@@ -11,6 +11,8 @@ private[Scala] trait KeyedDeltaUpdates[K, V] {
   def updateAndGet(key: K)(updateIfPresent: V => V): UpdateR[Option[V]]
   def upsert(key: K, insertIfMissing: V)(updateIfPresent: V => V): UpdateR[UpsertResult]
   def update(key: K)(updateIfPresent: V => V): UpdateR[Boolean]
+  def getAndUpsert(key: K, insertIfMissing: V)(updateIfPresent: V => V): UpdateR[Option[V]]
+  def getAndUpdate(key: K)(updateIfPresent: V => V): UpdateR[Option[V]]
 
 }
 
@@ -61,6 +63,29 @@ private[Scala] object KeyedDeltaUpdates {
           entry.value
       }
   }
+  final class GetAndUpsertEP[V](val insertIfMissing: V, val updateIfPresent: V => V)
+      extends SingleEntryCallbackUpdater[Any, V, V] {
+    def onEntry(entry: Entry[Any, V]): V = {
+      entry.value match {
+        case null =>
+          entry.value = insertIfMissing
+          null.asInstanceOf[V]
+        case value =>
+          entry.value = updateIfPresent(value)
+          value
+      }
+    }
+  }
+  final class GetAndUpdateEP[V](val updateIfPresent: V => V)
+      extends SingleEntryCallbackUpdater[Any, V, V] {
+    def onEntry(entry: Entry[Any, V]): V =
+      entry.value match {
+        case null => null.asInstanceOf[V]
+        case value =>
+          entry.value = updateIfPresent(value)
+          value
+      }
+  }
 }
 
 private[Scala] trait KeyedIMapDeltaUpdates[K, V]
@@ -80,6 +105,10 @@ private[Scala] trait KeyedIMapDeltaUpdates[K, V]
     async.upsert(key, insertIfMissing)(updateIfPresent).await
   def update(key: K)(updateIfPresent: V => V): UpdateR[Boolean] =
     async.update(key)(updateIfPresent).await
+  def getAndUpsert(key: K, insertIfMissing: V)(updateIfPresent: V => V): UpdateR[Option[V]] =
+    async.getAndUpsert(key, insertIfMissing)(updateIfPresent).await
+  def getAndUpdate(key: K)(updateIfPresent: V => V): UpdateR[Option[V]] =
+    async.getAndUpdate(key)(updateIfPresent).await
 
 }
 
@@ -114,6 +143,20 @@ private[Scala] trait KeyedIMapAsyncDeltaUpdates[K, V] extends KeyedDeltaUpdates[
   def update(key: K)(updateIfPresent: V => V): Future[Boolean] = {
     val ep = new KeyedDeltaUpdates.UpdateEP(updateIfPresent)
     val callback = ep.newCallback()
+    imap.submitToKey(key, ep, callback)
+    callback.future
+  }
+
+  def getAndUpsert(key: K, insertIfMissing: V)(updateIfPresent: V => V): Future[Option[V]] = {
+    val ep = new KeyedDeltaUpdates.GetAndUpsertEP(insertIfMissing, updateIfPresent)
+    val callback = ep.newCallbackOpt
+    imap.submitToKey(key, ep, callback)
+    callback.future
+  }
+
+  def getAndUpdate(key: K)(updateIfPresent: V => V): Future[Option[V]] = {
+    val ep = new KeyedDeltaUpdates.GetAndUpdateEP(updateIfPresent)
+    val callback = ep.newCallbackOpt
     imap.submitToKey(key, ep, callback)
     callback.future
   }

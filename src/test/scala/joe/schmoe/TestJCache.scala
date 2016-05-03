@@ -44,12 +44,12 @@ class TestJCache {
   @Test
   def upsert {
     val numbers = getClientCache[UUID, Int]()
-    DeltaUpdateTesting.testUpsert(numbers, numbers.get)
+    DeltaUpdateTesting.testUpsert(numbers, key => Option(numbers.get(key)), key => numbers.remove(key))
   }
 
   @Test
   def update {
     val numbers = getClientCache[UUID, Int]()
-    DeltaUpdateTesting.testUpdate(numbers, numbers.get, numbers.put)
+    DeltaUpdateTesting.testUpdate(numbers, key => Option(numbers.get(key)), numbers.put, key => numbers.remove(key))
   }
 }
