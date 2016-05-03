@@ -40,17 +40,11 @@ final class HzExecutorService(private val exec: IExecutorService) extends AnyVal
     callback.future
   }
 
-  def submitInstanceAware[T](toMember: SingleMember = ToOne)(thunk: HazelcastInstance => T): Future[T] =
-    submitSingle(toMember, new InstanceAwareTask(thunk))
+  def submit[T](toMember: SingleMember = ToOne)(thunk: HazelcastInstance => T): Future[T] =
+    submitSingle(toMember, new RemoteTask(thunk))
 
-  def submit[T](toMember: SingleMember = ToOne)(thunk: => T): Future[T] =
-    submitSingle(toMember, new Task(thunk _))
-
-  def submitInstanceAware[T](toMembers: MultipleMembers)(thunk: HazelcastInstance => T): Map[Member, Future[T]] =
-    submitMultiple(toMembers, new InstanceAwareTask(thunk))
-
-  def submit[T](toMembers: MultipleMembers)(thunk: => T): Map[Member, Future[T]] =
-    submitMultiple(toMembers, new Task(thunk _))
+  def submit[T](toMembers: MultipleMembers)(thunk: HazelcastInstance => T): Map[Member, Future[T]] =
+    submitMultiple(toMembers, new RemoteTask(thunk))
 
   private def submitMultiple[T](toMembers: MultipleMembers, task: Callable[T]): Map[Member, Future[T]] = {
     toMembers match {

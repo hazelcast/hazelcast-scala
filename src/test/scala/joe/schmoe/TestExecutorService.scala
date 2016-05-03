@@ -24,7 +24,7 @@ class TestExecutorService {
       hz.userCtx(MemberId) = UUID fromString hz.getLocalEndpoint.getUuid
     }
     val es = hz(0).getExecutorService("default")
-    val result = es.submitInstanceAware(ToAll) { hz =>
+    val result = es.submit(ToAll) { hz =>
       hz.getLocalEndpoint.getUuid -> hz.userCtx(MemberId)
     }
     val resolved = result.mapValues(_.await)
@@ -33,5 +33,24 @@ class TestExecutorService {
         assertEquals(mbr.getUuid, id)
         assertEquals(id, uuid.toString)
     }
+  }
+
+  @Test
+  def `tasks` {
+    val clusterSize = client.getCluster.getMembers.size
+    val myMap = getClientMap[Int, String]()
+    1 to 10000 foreach { i =>
+      myMap.set(i, i.toString)
+    }
+    val approxSizePerMember = myMap.size / clusterSize
+    val exec = client.getExecutorService("executioner")
+    val mapName = myMap.getName
+    val localSize = exec.submit(ToOne) { hz =>
+      val myMap = hz.getMap[Int, String](mapName)
+      myMap.localKeySet.size
+    }.await
+    val diff = (localSize - approxSizePerMember).abs
+    println(s"Diff: $diff")
+    assertTrue(diff < 25)
   }
 }

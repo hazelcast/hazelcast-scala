@@ -43,7 +43,7 @@ final class HzHazelcastInstance(hz: HazelcastInstance) extends MemberEventSubscr
   private[Scala] def queryPool(): IExecutorService = hz.getExecutorService("hz:query")
 
   def onDistributedObjectEvent(runOn: ExecutionContext = null)(listener: PartialFunction[DistributedObjectChange, Unit]): ESR = {
-    val regId = hz addDistributedObjectListener asDistributedObjectListener(listener, Option(runOn))
+    val regId = hz addDistributedObjectListener EventSubscription.asDistributedObjectListener(listener, Option(runOn))
     new ListenerRegistration {
       def cancel() = hz removeDistributedObjectListener regId
     }
@@ -51,41 +51,24 @@ final class HzHazelcastInstance(hz: HazelcastInstance) extends MemberEventSubscr
 
   def onLifecycleStateChange(runOn: ExecutionContext = null)(listener: PartialFunction[LifecycleState, Unit]): ESR = {
     val service = hz.getLifecycleService
-    val regId = service addLifecycleListener asLifecycleListener(listener, Option(runOn))
+    val regId = service addLifecycleListener EventSubscription.asLifecycleListener(listener, Option(runOn))
     new ListenerRegistration {
       def cancel() = service removeLifecycleListener regId
     }
   }
 
   def onPartitionLost(runOn: ExecutionContext = null)(listener: PartitionLostEvent => Unit): ESR = {
-    val service = hz.getPartitionService
-    val regId = service addPartitionLostListener asPartitionLostListener(listener, Option(runOn))
-    new ListenerRegistration {
-      def cancel(): Unit = service removePartitionLostListener regId
-    }
+    hz.getPartitionService.onPartitionLost(runOn)(listener)
   }
   def onMigration(runOn: ExecutionContext = null)(listener: PartialFunction[MigrationEvent, Unit]): ESR = {
-    val service = hz.getPartitionService
-    val regId = service addMigrationListener asMigrationListener(listener, Option(runOn))
-    new ListenerRegistration {
-      def cancel(): Unit = service removeMigrationListener regId
-    }
+    hz.getPartitionService.onMigration(runOn)(listener)
   }
   def onClient(runOn: ExecutionContext = null)(listener: PartialFunction[ClientEvent, Unit]): ESR = {
-    val service = hz.getClientService
-    val regId = service addClientListener asClientListener(listener, Option(runOn))
-    new ListenerRegistration {
-      def cancel(): Unit = service removeClientListener regId
-    }
+    hz.getClientService.onClient(runOn)(listener)
   }
   type MER = (ESR, Future[InitialMembershipEvent])
   def onMemberChange(runOn: ExecutionContext = null)(listener: PartialFunction[MemberEvent, Unit]): MER = {
-    val cluster = hz.getCluster
-    val (future, mbrListener) = asMembershipListener(listener, Option(runOn))
-    val regId = cluster addMembershipListener mbrListener
-    new ListenerRegistration {
-      def cancel(): Unit = cluster removeMembershipListener regId
-    } -> future
+    hz.getCluster.onMemberChange(runOn)(listener)
   }
 
   /**
@@ -129,13 +112,13 @@ final class HzHazelcastInstance(hz: HazelcastInstance) extends MemberEventSubscr
   def userCtx: UserContext = new UserContext(hz.getUserContext)
 
   /**
-   *  Experimental, and of questionable value.
-   *  Main purpose is to avoid registering a serializer
-   *  in the configuration, but instead supply one here
-   *  and using an interceptor to convert to/from byte array.
-   *  NOTICE: This is marked as deprecated to indicate that
-   *  it may be removed in a future version, pending feedback.
-   */
+    *  Experimental, and of questionable value.
+    *  Main purpose is to avoid registering a serializer
+    *  in the configuration, but instead supply one here
+    *  and using an interceptor to convert to/from byte array.
+    *  NOTICE: This is marked as deprecated to indicate that
+    *  it may be removed in a future version, pending feedback.
+    */
   @deprecated
   def getByteArrayMap[K, V <: AnyRef: ByteArraySerializer: ClassTag](name: String): IMap[K, V] = {
     val imap = hz.getMap[K, Array[Byte]](name)

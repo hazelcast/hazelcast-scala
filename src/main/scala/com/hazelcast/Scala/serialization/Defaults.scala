@@ -137,22 +137,13 @@ object Defaults extends SerializerEnum(-987654321) {
       new InlineSavingGroupAggregator(mapName, unitAggr)
     }
   }
-  val TaskSer = new StreamSerializer[Task[_]] {
-    def write(out: ObjectDataOutput, task: Task[_]): Unit = {
+  val RemoteTaskSer = new StreamSerializer[RemoteTask[_]] {
+    def write(out: ObjectDataOutput, task: RemoteTask[_]): Unit = {
       out.writeObject(task.thunk)
     }
-    def read(inp: ObjectDataInput): Task[_] = {
-      val thunk = inp.readObject[() => Any]
-      new Task(thunk)
-    }
-  }
-  val InstanceAwareTaskSer = new StreamSerializer[InstanceAwareTask[_]] {
-    def write(out: ObjectDataOutput, task: InstanceAwareTask[_]): Unit = {
-      out.writeObject(task.thunk)
-    }
-    def read(inp: ObjectDataInput): InstanceAwareTask[_] = {
+    def read(inp: ObjectDataInput): RemoteTask[_] = {
       val thunk = inp.readObject[HazelcastInstance => Any]
-      new InstanceAwareTask(thunk)
+      new RemoteTask(thunk)
     }
   }
   val ForEachEPSer = new StreamSerializer[HzMap.ForEachEP[_, _, Any]] {
@@ -161,9 +152,9 @@ object Defaults extends SerializerEnum(-987654321) {
       out.writeObject(ep.thunk)
     }
     def read(inp: ObjectDataInput): HzMap.ForEachEP[_, _, Any] = {
-      val getEnv = inp.readObject[HazelcastInstance => Any]
+      val getCtx = inp.readObject[HazelcastInstance => Any]
       val thunk = inp.readObject[(Any, Any, Any) => Unit]
-      new HzMap.ForEachEP(getEnv, thunk)
+      new HzMap.ForEachEP(getCtx, thunk)
     }
   }
   val QueryEPSer = new StreamSerializer[HzMap.QueryEP[Any, Any]] {
@@ -248,6 +239,18 @@ object Defaults extends SerializerEnum(-987654321) {
       new EP(insert, update)
     }
   }
+  val GetAndUpsertEPSer = new StreamSerializer[KeyedDeltaUpdates.GetAndUpsertEP[Any]] {
+    type EP = KeyedDeltaUpdates.GetAndUpsertEP[Any]
+    def write(out: ObjectDataOutput, ep: EP): Unit = {
+      out.writeObject(ep.insertIfMissing)
+      out.writeObject(ep.updateIfPresent)
+    }
+    def read(inp: ObjectDataInput): EP = {
+      val insert = inp.readObject[Any]
+      val update = inp.readObject[Any => Any]
+      new EP(insert, update)
+    }
+  }
   val UpdateEPSer = new StreamSerializer[KeyedDeltaUpdates.UpdateEP[Any]] {
     type EP = KeyedDeltaUpdates.UpdateEP[Any]
     def write(out: ObjectDataOutput, ep: EP): Unit = {
@@ -268,12 +271,23 @@ object Defaults extends SerializerEnum(-987654321) {
       new EP(update)
     }
   }
+  val GetAndUpdateEPSer = new StreamSerializer[KeyedDeltaUpdates.GetAndUpdateEP[Any]] {
+    type EP = KeyedDeltaUpdates.GetAndUpdateEP[Any]
+    def write(out: ObjectDataOutput, ep: EP): Unit = {
+      out.writeObject(ep.updateIfPresent)
+    }
+    def read(inp: ObjectDataInput): EP = {
+      val update = inp.readObject[Any => Any]
+      new EP(update)
+    }
+  }
   val AggrMapDDSTaskSer = new StreamSerializer[dds.AggrMapDDSTask[_, _, _]] {
     type Task = dds.AggrMapDDSTask[_, _, _]
     def write(out: ObjectDataOutput, task: Task): Unit = {
       out.writeUTF(task.mapName)
       out.writeObject(task.predicate)
       out.writeObject(task.aggr)
+      out.writeObject(task.taskSupport)
       out.writeObject(task.pipe)
       out.writeObject(task.keysByMemberId)
     }
@@ -281,9 +295,10 @@ object Defaults extends SerializerEnum(-987654321) {
       val mapName = inp.readUTF
       val predicate = inp.readObject[Option[Predicate[_, _]]]
       val aggr = inp.readObject[Aggregator[Any, _] { type W = Any }]
+      val taskSupport = inp.readObject[Option[UserContext.Key[collection.parallel.TaskSupport]]]
       val pipe = inp.readObject[Pipe[_]]
       val keysByMemberId = inp.readObject[Map[String, collection.Set[Any]]]
-      new dds.AggrMapDDSTask[Any, Any, Any](aggr, mapName, keysByMemberId, predicate, pipe)
+      new dds.AggrMapDDSTask[Any, Any, Any](aggr, taskSupport, mapName, keysByMemberId, predicate, pipe)
     }
   }
 

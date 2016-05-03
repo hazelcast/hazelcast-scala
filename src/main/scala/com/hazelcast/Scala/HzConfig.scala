@@ -20,19 +20,19 @@ class HzConfig(conf: Config) extends MemberEventSubscription {
   def getInstance(): HazelcastInstance = Hazelcast.getOrCreateHazelcastInstance(conf)
 
   def onClient(runOn: ExecutionContext = null)(listener: PartialFunction[ClientEvent, Unit]): Config =
-    conf addListenerConfig new ListenerConfig(asClientListener(listener, Option(runOn)))
+    conf addListenerConfig new ListenerConfig(EventSubscription.asClientListener(listener, Option(runOn)))
   def onLifecycleStateChange(runOn: ExecutionContext = null)(listener: PartialFunction[LifecycleState, Unit]): ESR =
-    conf addListenerConfig new ListenerConfig(asLifecycleListener(listener, Option(runOn)))
+    conf addListenerConfig new ListenerConfig(EventSubscription.asLifecycleListener(listener, Option(runOn)))
   def onDistributedObjectEvent(runOn: ExecutionContext = null)(listener: PartialFunction[DistributedObjectChange, Unit]): ESR =
-    conf addListenerConfig new ListenerConfig(asDistributedObjectListener(listener, Option(runOn)))
+    conf addListenerConfig new ListenerConfig(EventSubscription.asDistributedObjectListener(listener, Option(runOn)))
   def onPartitionLost(runOn: ExecutionContext = null)(listener: PartitionLostEvent => Unit): ESR =
-    conf addListenerConfig new ListenerConfig(asPartitionLostListener(listener, Option(runOn)))
+    conf addListenerConfig new ListenerConfig(EventSubscription.asPartitionLostListener(listener, Option(runOn)))
   def onMigration(runOn: ExecutionContext = null)(listener: PartialFunction[MigrationEvent, Unit]): ESR =
-    conf addListenerConfig new ListenerConfig(asMigrationListener(listener, Option(runOn)))
+    conf addListenerConfig new ListenerConfig(EventSubscription.asMigrationListener(listener, Option(runOn)))
 
   type MER = Future[InitialMembershipEvent]
   def onMemberChange(runOn: ExecutionContext = null)(listener: PartialFunction[MemberEvent, Unit]): MER = {
-    val (future, mbrListener) = asMembershipListener(listener, Option(runOn))
+    val (future, mbrListener) = EventSubscription.asMembershipListener(listener, Option(runOn))
     conf addListenerConfig new ListenerConfig(mbrListener)
     future
   }

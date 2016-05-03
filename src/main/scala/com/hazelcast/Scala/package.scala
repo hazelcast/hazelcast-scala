@@ -3,24 +3,20 @@ package com.hazelcast
 import java.lang.reflect.Method
 import java.util.AbstractMap
 import java.util.Map.Entry
+
 import scala.concurrent.Await
 import scala.concurrent.ExecutionContext
 import scala.concurrent.Future
 import scala.concurrent.blocking
 import scala.concurrent.duration.DurationInt
 import scala.concurrent.duration.FiniteDuration
+import scala.language.implicitConversions
 import scala.util.Try
 import scala.util.control.NonFatal
+
 import Scala._
 import Scala.dds._
-import core.DistributedObject
-import core.HazelcastInstance
-import core.ICollection
-import core.ICompletableFuture
-import core.IExecutorService
-import core.IMap
-import core.ITopic
-import core.Message
+import core._
 import memory.MemorySize
 import memory.MemoryUnit
 import query.EntryObject
@@ -29,7 +25,6 @@ import query.PredicateBuilder
 import query.Predicates
 import query.SqlPredicate
 import ringbuffer.Ringbuffer
-import language.implicitConversions
 
 package Scala {
 
@@ -92,6 +87,9 @@ package Scala {
     @inline implicit def imap2dds[K, V](imap: IMap[K, V]): DDS[Entry[K, V]] = new MapDDS(imap)
     @inline implicit def imap2aggrDds[K, V](imap: IMap[K, V]): AggrDDS[Entry[K, V]] = dds2aggrDds(new MapDDS(imap))
     @inline implicit def inst2scala(inst: HazelcastInstance) = new HzHazelcastInstance(inst)
+    @inline implicit def cluster2scala(cl: Cluster) = new HzCluster(cl)
+    @inline implicit def clientsvc2scala(cs: ClientService) = new HzClientService(cs)
+    @inline implicit def partsvc2scala(ps: PartitionService) = new HzPartitionService(ps)
     @inline implicit def topic2scala[T](topic: ITopic[T]) = new HzTopic(topic)
     @inline implicit def exec2scala(exec: IExecutorService) = new HzExecutorService(exec)
     @inline implicit def vfunc2pred[K, V](f: V => Boolean): Predicate[_, V] = new ValuePredicate(f)
@@ -162,7 +160,7 @@ package object Scala extends HighPriorityImplicits {
       this
     }
     def onPartitionLost(runOn: ExecutionContext)(listener: PartialFunction[PartitionLost, Unit]): MSR = {
-      conf addMapPartitionLostListenerConfig new config.MapPartitionLostListenerConfig(asPartitionLostListener(listener, Option(runOn)))
+      conf addMapPartitionLostListenerConfig new config.MapPartitionLostListenerConfig(EventSubscription.asPartitionLostListener(listener, Option(runOn)))
       this
     }
   }
