@@ -18,23 +18,25 @@ private[Scala] class AggrMapDDS[K, E](val dds: MapDDS[K, _, E], sorted: Option[S
 
   final def submit[R](
     aggregator: Aggregator[E, R],
-    es: IExecutorService)(implicit ec: ExecutionContext): Future[R] = {
+    es: IExecutorService,
+    ts: UserContext.Key[collection.parallel.TaskSupport])(implicit ec: ExecutionContext): Future[R] = {
 
     val hz = dds.imap.getHZ
     val keysByMember = dds.keySet.map(hz.groupByMember)
     val exec = if (es == null) hz.queryPool else es
+    val taskSupport = Option(ts)
 
     sorted match {
       case None =>
-        AggrMapDDS.aggregate[K, E, R, aggregator.W](dds.imap.getName, keysByMember, dds.predicate, dds.pipe, exec, aggregator)
+        AggrMapDDS.aggregate[K, E, R, aggregator.W](dds.imap.getName, keysByMember, dds.predicate, dds.pipe, exec, aggregator, taskSupport)
       case Some(sorted) =>
         aggregator match {
           case _: Values.Complete[_] =>
             val fetch = aggr.Values(sorted)
-            AggrMapDDS.aggregate(dds.imap.getName, keysByMember, dds.predicate, dds.pipe, exec, fetch)
+            AggrMapDDS.aggregate(dds.imap.getName, keysByMember, dds.predicate, dds.pipe, exec, fetch, taskSupport)
           case _ =>
             val adapter = aggr.Values.Adapter(aggregator, sorted)
-            AggrMapDDS.aggregate[K, E, R, adapter.W](dds.imap.getName, keysByMember, dds.predicate, dds.pipe, exec, adapter)
+            AggrMapDDS.aggregate[K, E, R, adapter.W](dds.imap.getName, keysByMember, dds.predicate, dds.pipe, exec, adapter, taskSupport)
         }
     }
   }
@@ -44,7 +46,9 @@ private[Scala] class AggrMapDDS[K, E](val dds: MapDDS[K, _, E], sorted: Option[S
 private[Scala] class AggrGroupMapDDS[G, E](dds: MapDDS[_, _, (G, E)]) extends AggrGroupDDS[G, E] {
   def submitGrouped[AR, GR](
     aggr: Aggregator.Grouped[G, E, AR, GR],
-    es: IExecutorService)(implicit ec: ExecutionContext): Future[cMap[G, GR]] = dds.submit(aggr, es)
+    es: IExecutorService,
+    ts: UserContext.Key[collection.parallel.TaskSupport])(implicit ec: ExecutionContext): Future[cMap[G, GR]] =
+      dds.submit(aggr, es, ts)
 }
 
 private[Scala] class OrderingMapDDS[K, O: Ordering](
@@ -71,6 +75,7 @@ private[Scala] class NumericGroupMapDDS[G, N: Numeric](dds: MapDDS[_, _, (G, N)]
 
 private[Scala] final class AggrMapDDSTask[K, E, AW](
   val aggr: Aggregator[E, _] { type W = AW },
+  val taskSupport: Option[UserContext.Key[collection.parallel.TaskSupport]],
   val mapName: String,
   val keysByMemberId: Map[String, collection.Set[K]],
   val predicate: Option[Predicate[_, _]],
@@ -108,8 +113,8 @@ private[Scala] final class AggrMapDDSTask[K, E, AW](
       }
       val partSvc = hz.getPartitionService
       val keysByPartId = localKeys.groupBy(partSvc.getPartition(_).getPartitionId).values.par
-      hz.userCtx.get(Aggregator.TaskSupport).foreach { tc =>
-        keysByPartId.tasksupport = tc
+      taskSupport.foreach { taskSupport =>
+        keysByPartId.tasksupport = hz.userCtx(taskSupport)
       }
       val entries = keysByPartId.map(parKeys => blocking(imap.getAll(parKeys.asJava))).flatMap(_.entrySet.asScala)
       entries.aggregate(aggr.remoteInit)(seqop, aggr.remoteCombine)
@@ -119,13 +124,16 @@ private[Scala] final class AggrMapDDSTask[K, E, AW](
 
 private object AggrMapDDS {
 
+  type OptionalTaskSupport = Option[UserContext.Key[collection.parallel.TaskSupport]]
+
   private def aggregate[K, E, R, AW](
     mapName: String,
     keysByMember: Option[Map[Member, collection.Set[K]]],
     predicate: Option[Predicate[_, _]],
     pipe: Option[Pipe[E]],
     es: IExecutorService,
-    aggr: Aggregator[E, R] { type W = AW })(implicit ec: ExecutionContext): Future[R] = {
+    aggr: Aggregator[E, R] { type W = AW },
+    taskSupport: OptionalTaskSupport)(implicit ec: ExecutionContext): Future[R] = {
 
     val (keysByMemberId, submitTo) = keysByMember match {
       case None => Map.empty[String, Set[K]] -> ToAll
@@ -135,7 +143,7 @@ private object AggrMapDDS {
         }
         keysByMemberId -> ToMembers(keysByMember.keys)
     }
-    val values = submitFold(es, submitTo, mapName, keysByMemberId, predicate, pipe getOrElse PassThroughPipe[E], aggr)
+    val values = submitFold(es, submitTo, mapName, keysByMemberId, predicate, pipe getOrElse PassThroughPipe[E], aggr, taskSupport)
     val reduced = Future.reduce(values)(aggr.localCombine)
     reduced.map(aggr.localFinalize(_))(SameThread)
   }
@@ -146,10 +154,11 @@ private object AggrMapDDS {
     keysByMemberId: Map[String, collection.Set[K]],
     predicate: Option[Predicate[_, _]],
     pipe: Pipe[E],
-    aggr: Aggregator[E, _]): Iterable[Future[aggr.W]] = {
+    aggr: Aggregator[E, _],
+    taskSupport: OptionalTaskSupport): Iterable[Future[aggr.W]] = {
 
-    val remoteTask = new AggrMapDDSTask[K, E, aggr.W](aggr, mapName, keysByMemberId, predicate, pipe)
-    es.submitInstanceAware(submitTo)(remoteTask).values
+    val remoteTask = new AggrMapDDSTask[K, E, aggr.W](aggr, taskSupport, mapName, keysByMemberId, predicate, pipe)
+    es.submit(submitTo)(remoteTask).values
   }
 
 }

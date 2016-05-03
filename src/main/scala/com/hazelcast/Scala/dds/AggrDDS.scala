@@ -22,7 +22,10 @@ private object AggrDDS {
 }
 
 trait AggrDDS[E] {
-  def submit[R](aggregator: Aggregator[E, R], es: IExecutorService = null)(implicit ec: ExecutionContext): Future[R]
+  def submit[R](
+      aggregator: Aggregator[E, R],
+      es: IExecutorService = null,
+      ts: UserContext.Key[collection.parallel.TaskSupport] = null)(implicit ec: ExecutionContext): Future[R]
   def values()(implicit classTag: ClassTag[E], ec: ExecutionContext): Future[IndexedSeq[E]] = this submit aggr.Values[E]()
   def distinct()(implicit ec: ExecutionContext): Future[Set[E]] = this submit aggr.Distinct()
   def distribution()(implicit ec: ExecutionContext): Future[aMap[E, Freq]] = this submit aggr.Distribution()
@@ -33,21 +36,33 @@ trait AggrDDS[E] {
   def minBy[O: Ordering](m: E => O)(implicit ec: ExecutionContext): Future[Option[E]] = this submit new aggr.Min(m)
   def minMaxBy[O: Ordering](m: E => O)(implicit ec: ExecutionContext): Future[Option[(E, E)]] = this submit new aggr.MinMax(m)
 
-  def aggregate[A](init: => A, es: IExecutorService = null)(seqop: (A, E) => A, combop: (A, A) => A)(implicit ec: ExecutionContext): Future[A] = {
+  def aggregate[A](
+      init: => A,
+      es: IExecutorService = null,
+      ts: UserContext.Key[collection.parallel.TaskSupport] = null)(seqop: (A, E) => A, combop: (A, A) => A)(implicit ec: ExecutionContext): Future[A] = {
     val aggregator = new InlineAggregator(init _, seqop, combop)
-    submit(aggregator, es)
+    submit(aggregator, es, ts)
   }
-  def aggregateInto[AK, A](to: IMap[AK, A], key: AK)(init: => A, es: IExecutorService = null)(seqop: (A, E) => A, combop: (A, A) => A)(implicit ec: ExecutionContext): Future[Unit] = {
+  def aggregateInto[AK, A](to: IMap[AK, A], key: AK)(
+      init: => A,
+      es: IExecutorService = null,
+      ts: UserContext.Key[collection.parallel.TaskSupport] = null)(seqop: (A, E) => A, combop: (A, A) => A)(implicit ec: ExecutionContext): Future[Unit] = {
     val aggregator = new InlineSavingAggregator(to.getName, key, init _, seqop, combop)
-    submit(aggregator, es)
+    submit(aggregator, es, ts)
   }
 }
 
 trait AggrGroupDDS[G, E] {
-  def submitGrouped[AR, GR](aggr: Aggregator.Grouped[G, E, AR, GR], es: IExecutorService = null)(implicit ec: ExecutionContext): Future[aMap[G, GR]]
+  def submitGrouped[AR, GR](
+      aggr: Aggregator.Grouped[G, E, AR, GR],
+      es: IExecutorService = null,
+      ts: UserContext.Key[collection.parallel.TaskSupport] = null)(implicit ec: ExecutionContext): Future[aMap[G, GR]]
 
-  final def submit[R](aggr: Aggregator[E, R], es: IExecutorService = null)(implicit ec: ExecutionContext): Future[aMap[G, R]] =
-    submitGrouped(Aggregator.groupAll(aggr), es)
+  final def submit[R](
+      aggr: Aggregator[E, R],
+      es: IExecutorService = null,
+      ts: UserContext.Key[collection.parallel.TaskSupport] = null)(implicit ec: ExecutionContext): Future[aMap[G, R]] =
+    submitGrouped(Aggregator.groupAll(aggr), es, ts)
 
   def distinct()(implicit ec: ExecutionContext): Future[aMap[G, Set[E]]] = submit(aggr.Distinct[E]())
   def distribution()(implicit ec: ExecutionContext): Future[aMap[G, aMap[E, Freq]]] = submit(aggr.Distribution[E]())
@@ -58,14 +73,20 @@ trait AggrGroupDDS[G, E] {
   def minBy[O: Ordering](m: E => O)(implicit ec: ExecutionContext): Future[aMap[G, E]] = submitGrouped(Aggregator.groupSome(new aggr.Min(m)))
   def minMaxBy[O: Ordering](m: E => O)(implicit ec: ExecutionContext): Future[aMap[G, (E, E)]] = submitGrouped(Aggregator.groupSome(new aggr.MinMax(m)))
 
-  def aggregate[A](init: => A, es: IExecutorService = null)(seqop: (A, E) => A, combop: (A, A) => A)(implicit ec: ExecutionContext): Future[aMap[G, A]] = {
+  def aggregate[A](
+      init: => A,
+      es: IExecutorService = null,
+      ts: UserContext.Key[collection.parallel.TaskSupport] = null)(seqop: (A, E) => A, combop: (A, A) => A)(implicit ec: ExecutionContext): Future[aMap[G, A]] = {
     val aggregator = new InlineAggregator(init _, seqop, combop)
-    submit(aggregator, es)
+    submit(aggregator, es, ts)
   }
 
-  def aggregateInto[A](to: IMap[G, A])(init: => A, es: IExecutorService = null)(seqop: (A, E) => A, combop: (A, A) => A)(implicit ec: ExecutionContext): Future[aSet[G]] = {
+  def aggregateInto[A](to: IMap[G, A])(
+      init: => A,
+      es: IExecutorService = null,
+      ts: UserContext.Key[collection.parallel.TaskSupport] = null)(seqop: (A, E) => A, combop: (A, A) => A)(implicit ec: ExecutionContext): Future[aSet[G]] = {
     val aggregator = new InlineSavingGroupAggregator[G, E, A](to.getName, init _, seqop, combop)
-    submitGrouped(aggregator, es).map(_.keySet)
+    submitGrouped(aggregator, es, ts).map(_.keySet)
   }
 
 }
