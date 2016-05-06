@@ -18,25 +18,25 @@ private[Scala] class AggrMapDDS[K, E](val dds: MapDDS[K, _, E], sorted: Option[S
 
   final def submit[R](
     aggregator: Aggregator[E, R],
-    es: IExecutorService,
-    ts: UserContext.Key[collection.parallel.TaskSupport])(implicit ec: ExecutionContext): Future[R] = {
+    esOrNull: IExecutorService,
+    tsOrNull: UserContext.Key[collection.parallel.TaskSupport])(implicit ec: ExecutionContext): Future[R] = {
 
     val hz = dds.imap.getHZ
     val keysByMember = dds.keySet.map(hz.groupByMember)
-    val exec = if (es == null) hz.queryPool else es
-    val taskSupport = Option(ts)
+    val es = if (esOrNull == null) hz.queryPool else esOrNull
+    val ts = Option(tsOrNull)
 
     sorted match {
       case None =>
-        AggrMapDDS.aggregate[K, E, R, aggregator.W](dds.imap.getName, keysByMember, dds.predicate, dds.pipe, exec, aggregator, taskSupport)
+        AggrMapDDS.aggregate[K, E, R, aggregator.W](dds.imap.getName, keysByMember, dds.predicate, dds.pipe, es, aggregator, ts)
       case Some(sorted) =>
         aggregator match {
           case _: Values.Complete[_] =>
             val fetch = aggr.Values(sorted)
-            AggrMapDDS.aggregate(dds.imap.getName, keysByMember, dds.predicate, dds.pipe, exec, fetch, taskSupport)
+            AggrMapDDS.aggregate(dds.imap.getName, keysByMember, dds.predicate, dds.pipe, es, fetch, ts)
           case _ =>
             val adapter = aggr.Values.Adapter(aggregator, sorted)
-            AggrMapDDS.aggregate[K, E, R, adapter.W](dds.imap.getName, keysByMember, dds.predicate, dds.pipe, exec, adapter, taskSupport)
+            AggrMapDDS.aggregate[K, E, R, adapter.W](dds.imap.getName, keysByMember, dds.predicate, dds.pipe, es, adapter, ts)
         }
     }
   }

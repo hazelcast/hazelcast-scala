@@ -24,8 +24,8 @@ private object AggrDDS {
 trait AggrDDS[E] {
   def submit[R](
       aggregator: Aggregator[E, R],
-      es: IExecutorService = null,
-      ts: UserContext.Key[collection.parallel.TaskSupport] = null)(implicit ec: ExecutionContext): Future[R]
+      esOrNull: IExecutorService = null,
+      tsOrNull: UserContext.Key[collection.parallel.TaskSupport] = null)(implicit ec: ExecutionContext): Future[R]
   def values()(implicit classTag: ClassTag[E], ec: ExecutionContext): Future[IndexedSeq[E]] = this submit aggr.Values[E]()
   def distinct()(implicit ec: ExecutionContext): Future[Set[E]] = this submit aggr.Distinct()
   def distribution()(implicit ec: ExecutionContext): Future[aMap[E, Freq]] = this submit aggr.Distribution()

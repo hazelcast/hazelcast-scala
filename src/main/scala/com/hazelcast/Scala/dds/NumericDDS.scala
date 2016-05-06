@@ -32,23 +32,22 @@ trait NumericDDS[N] extends OrderingDDS[N] {
 
   def range()(implicit ec: ExecutionContext): Future[Option[N]] = {
     val n = num
-    minMax() map { maybe =>
-      maybe map {
-        case (min, max) => n.minus(max, min)
-      }
-    }
+    minMax().map(_.map {
+      case (min, max) => n.minus(max, min)
+    })(SameThread)
   }
 
   def median()(implicit ec: ExecutionContext): Future[Option[N]] = {
-    medianValues() map { maybe =>
-      maybe map {
-        case (a, b) => NumericDDS.numMedian(a, b)
-      }
-    }
+    medianValues().map(_.map {
+      case (a, b) => NumericDDS.numMedian(a, b)
+    })(SameThread)
   }
 
   def variance(nCorrection: (Int) => N = aggr.Variance.NoCorrection[N])(implicit ec: ExecutionContext): Future[Option[N]] =
     submit(aggr.Variance[N](nCorrection))
+
+  def stdDev(nCorrection: (Int) => N = aggr.Variance.NoCorrection[N])(implicit ec: ExecutionContext, ev: N =:= Double): Future[Option[Double]] =
+    variance(nCorrection).map(_.map(n => math.sqrt(n.asInstanceOf[Double])))(SameThread)
 
 }
 
@@ -61,22 +60,21 @@ trait NumericGroupDDS[G, N] extends OrderingGroupDDS[G, N] {
 
   def range()(implicit ec: ExecutionContext): Future[cMap[G, N]] = {
     val n = num
-    minMax() map { grouped =>
-      grouped mapValues {
-        case (min, max) => n.minus(max, min)
-      }
-    }
+    minMax().map(_.mapValues {
+      case (min, max) => n.minus(max, min)
+    })(SameThread)
   }
 
   def median()(implicit ec: ExecutionContext): Future[cMap[G, N]] = {
-    medianValues() map { grouped =>
-      grouped mapValues {
-        case (a, b) => NumericDDS.numMedian(a, b)
-      }
-    }
+    medianValues().map(_.mapValues {
+      case (a, b) => NumericDDS.numMedian(a, b)
+    })(SameThread)
   }
 
   def variance(nCorrection: (Int) => N = aggr.Variance.NoCorrection[N])(implicit ec: ExecutionContext): Future[cMap[G, N]] =
     submitGrouped(Aggregator groupSome aggr.Variance[N](nCorrection))
+
+  def stdDev(nCorrection: (Int) => N = aggr.Variance.NoCorrection[N])(implicit ec: ExecutionContext, ev: N =:= Double): Future[cMap[G, Double]] =
+    variance(nCorrection).map(_.mapValues(n => math.sqrt(n.asInstanceOf[Double])))(SameThread)
 
 }

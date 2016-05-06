@@ -746,8 +746,13 @@ class TestMap {
     val meanBD = dMap.filterKeys(keys).map(e => BigDecimal(e.value)).mean.await.get
     assertEquals(5d, meanDbl, err)
     assertEquals(BigDecimal("5"), meanBD)
-    val stdDev = dMap.filterKeys(keys).map(_.value).variance().await.map(math.sqrt).get
-    assertEquals(2d, stdDev, err)
+    val keysVariance = dMap.filterKeys(keys).map(_.value).variance().await.get
+    val keysStdDev = dMap.filterKeys(keys).map(_.value).stdDev().await.get
+    assertEquals(math.sqrt(keysVariance), keysStdDev, err)
+    assertEquals(2d, keysStdDev, err)
+    val keysVarianceC = dMap.filterKeys(keys).map(_.value).variance(_ - 1).await.get
+    val keysStdDevC = dMap.filterKeys(keys).map(_.value).stdDev(_ - 1).await.get
+    assertEquals(math.sqrt(keysVarianceC), keysStdDevC, err)
 
     dMap.set("foo", 5d)
     val varianceSingleEntry = dMap.filterKeys("foo").map(_.value).variance(_ - 1).await.get
