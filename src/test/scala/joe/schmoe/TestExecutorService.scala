@@ -42,15 +42,18 @@ class TestExecutorService {
     1 to 10000 foreach { i =>
       myMap.set(i, i.toString)
     }
-    val approxSizePerMember = myMap.size / clusterSize
     val exec = client.getExecutorService("executioner")
     val mapName = myMap.getName
-    val localSize = exec.submit(ToOne) { hz =>
+    val randomLocal = exec.submit(ToOne) { hz =>
       val myMap = hz.getMap[Int, String](mapName)
       myMap.localKeySet.size
     }.await
-    val diff = (localSize - approxSizePerMember).abs
-    println(s"Diff: $diff")
-    assertTrue(diff < 25)
+    val allLocals = exec.submit(ToAll) { hz =>
+      val myMap = hz.getMap[Int, String](mapName)
+      myMap.localKeySet.size
+    }.mapValues(_.await)
+    assertEquals(clusterSize, allLocals.size)
+    assertTrue(allLocals.values.exists(_ == randomLocal))
+    assertEquals(myMap.size, allLocals.values.sum)
   }
 }
