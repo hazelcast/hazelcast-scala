@@ -344,11 +344,11 @@ class TestMap {
     val map = getClientMap[UUID, Employee]()
     val emp = Employee.random
     map.set(emp.id, emp)
-    val age = map.getAs(emp.id, _.age).get
+    val age = map.getAs(emp.id)(_.age).get
     assertEquals(emp.age, age)
     val emp2 = Employee.random
     map.set(emp2.id, emp2)
-    val salaries = map.getAllAs(Set(emp.id, emp2.id), _.salary)
+    val salaries = map.getAllAs(Set(emp.id, emp2.id))(_.salary)
     assertEquals(emp.salary, salaries(emp.id))
     assertEquals(emp2.salary, salaries(emp2.id))
   }
@@ -1054,9 +1054,9 @@ class TestMap {
     }
     val ceo = employees.async.get(top3.head.id).await.get
     assertEquals(top3.head, ceo)
-    val ceoSalary = employees.async.getAs(top3.head.id, _.salary).await.get
+    val ceoSalary = employees.async.getAs(top3.head.id)(_.salary).await.get
     assertEquals(ceo.salary, ceoSalary)
-    val top3salaries = employees.async.getAllAs(top3.map(_.id).toSet, _.salary).await
+    val top3salaries = employees.async.getAllAs(top3.map(_.id).toSet)(_.salary).await
     assertEquals(3, top3salaries.size)
     top3 foreach { emp =>
       assertEquals(emp.salary, top3salaries(emp.id))

@@ -24,9 +24,9 @@ final class AsyncMap[K, V] private[Scala] (protected val imap: IMap[K, V])
     }
     Future.sequence(fResults).map(_.flatten.toMap)
   }
-  def getAllAs[R](keys: Set[K], mf: V => R)(implicit ec: ExecutionContext): Future[Map[K, R]] = {
+  def getAllAs[R](keys: Set[K])(mf: V => R)(implicit ec: ExecutionContext): Future[Map[K, R]] = {
     val fResults = keys.iterator.map { key =>
-      this.getAs(key, mf).map(_.map(key -> _))
+      this.getAs(key)(mf).map(_.map(key -> _))
     }
     Future.sequence(fResults).map(_.flatten.toMap)
   }
@@ -53,8 +53,14 @@ final class AsyncMap[K, V] private[Scala] (protected val imap: IMap[K, V])
   def remove(key: K): Future[Option[V]] =
     imap.removeAsync(key).asScalaOpt
 
-  def getAs[R](key: K, map: V => R): Future[Option[R]] = {
+  def getAs[R](key: K)(map: V => R): Future[Option[R]] = {
     val ep = new AsyncMap.GetAsEP(map)
+    val callback = ep.newCallbackOpt
+    imap.submitToKey(key, ep, callback)
+    callback.future
+  }
+  def getAs[C, R](getCtx: HazelcastInstance => C, key: K)(mf: (C, V) => R): Future[Option[R]] = {
+    val ep = new AsyncMap.ContextGetAsEP(getCtx, mf)
     val callback = ep.newCallbackOpt
     imap.submitToKey(key, ep, callback)
     callback.future
@@ -69,6 +75,20 @@ private[Scala] object AsyncMap {
       value match {
         case null => null.asInstanceOf[R]
         case value => mf(value)
+      }
+    }
+  }
+  final class ContextGetAsEP[C, V, R](val getCtx: HazelcastInstance => C, val mf: (C, V) => R)
+      extends SingleEntryCallbackReader[Any, V, R]
+      with HazelcastInstanceAware {
+    @BeanProperty @transient
+    var hazelcastInstance: HazelcastInstance = _
+    def onEntry(key: Any, value: V): R = {
+      value match {
+        case null => null.asInstanceOf[R]
+        case value =>
+          val ctx = getCtx(hazelcastInstance)
+          mf(ctx, value)
       }
     }
   }

@@ -157,6 +157,17 @@ object Defaults extends SerializerEnum(-987654321) {
       new HzMap.ForEachEP(getCtx, thunk)
     }
   }
+  val ContextQueryEPSer = new StreamSerializer[HzMap.ContextQueryEP[Any, _, _, Any]] {
+    def write(out: ObjectDataOutput, ep: HzMap.ContextQueryEP[Any, _, _, Any]): Unit = {
+      out.writeObject(ep.getCtx)
+      out.writeObject(ep.mf)
+    }
+    def read(inp: ObjectDataInput): HzMap.ContextQueryEP[Any, _, _, Any] = {
+      val getCtx = inp.readObject[HazelcastInstance => Any]
+      val mf = inp.readObject[(Any, Any, Any) => Any]
+      new HzMap.ContextQueryEP(getCtx, mf)
+    }
+  }
   val QueryEPSer = new StreamSerializer[HzMap.QueryEP[Any, Any]] {
     def write(out: ObjectDataOutput, ep: HzMap.QueryEP[Any, Any]): Unit = {
       out.writeObject(ep.mf)
@@ -164,6 +175,15 @@ object Defaults extends SerializerEnum(-987654321) {
     def read(inp: ObjectDataInput): HzMap.QueryEP[Any, Any] = {
       val mf = inp.readObject[Any => Any]
       new HzMap.QueryEP(mf)
+    }
+  }
+  val GetAllAsEPSer = new StreamSerializer[HzMap.GetAllAsEP[Any, Any, Any]] {
+    def write(out: ObjectDataOutput, ep: HzMap.GetAllAsEP[Any, Any, Any]): Unit = {
+      out.writeObject(ep.mf)
+    }
+    def read(inp: ObjectDataInput): HzMap.GetAllAsEP[Any, Any, Any] = {
+      val mf = inp.readObject[Any => Any]
+      new HzMap.GetAllAsEP(mf)
     }
   }
   val ExecuteEPSer = new StreamSerializer[HzMap.ExecuteEP[_, _, Any]] {
@@ -193,6 +213,17 @@ object Defaults extends SerializerEnum(-987654321) {
     def read(inp: ObjectDataInput) = {
       val mf = inp.readObject[Any => Any]
       new AsyncMap.GetAsEP(mf)
+    }
+  }
+  val ContextGetAsEPSer = new StreamSerializer[AsyncMap.ContextGetAsEP[Any, _, Any]] {
+    def write(out: ObjectDataOutput, ep: AsyncMap.ContextGetAsEP[Any, _, Any]): Unit = {
+      out.writeObject(ep.getCtx)
+      out.writeObject(ep.mf)
+    }
+    def read(inp: ObjectDataInput): AsyncMap.ContextGetAsEP[Any, _, Any] = {
+      val getCtx = inp.readObject[HazelcastInstance => Any]
+      val mf = inp.readObject[(Any, Any) => Any]
+      new AsyncMap.ContextGetAsEP(getCtx, mf)
     }
   }
   val PutIfAbsentEPSer = new StreamSerializer[AsyncMap.PutIfAbsentEP[Any]] {

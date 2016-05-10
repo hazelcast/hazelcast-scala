@@ -37,11 +37,15 @@ object TestJoin extends ClusterSetup {
   type Price = BigDecimal
   type ProdId = Id[Product]
   type CustId = Id[Customer]
-  type OrdId = Id[Order]
+  case class OrdId(uuid: UUID = UUID.randomUUID)(custId: CustId)
+      extends PartitionKey(custId)
+      with Comparable[OrdId] {
+
+    def compareTo(that: OrdId): Int = this.uuid.compareTo(that.uuid)
+  }
   case class Product(id: ProdId, name: String, price: Price)
   case class Customer(id: CustId, name: String)
   case class Order(id: OrdId, products: Map[ProdId, Int], customer: CustId)
-
 }
 
 class TestJoin {
@@ -67,10 +71,10 @@ class TestJoin {
       }
       map
     }
-    val orderId = new OrdId()
+    val bobId = customerMap.filter(where("name") = "Bob").map(_.key).values().await.head
+    val orderId = new OrdId()(bobId)
     val orderMap = {
       val map = getClientMap[OrdId, Order]("orders")
-      val bobId = customerMap.filter(where("name") = "Bob").map(_.key).values().await.head
       val productQtys = productMap.keySet().asScala.zipWithIndex.map {
         case (productId, idx) => productId -> (idx + 1) * 3
       }.toMap
@@ -90,8 +94,17 @@ class TestJoin {
             (order, customer, prodQty)
         }.values.await.head
     assertEquals(order.customer, customer.id)
-    val avgOrderQty = orderMap.flatMap(_.value.products.map(_._2)).mean().await.get
-    assertEquals(products.map(_._2).sum / products.size, avgOrderQty)
+    val err = 0.00005f
+    val avgOrderQty = orderMap.flatMap(_.value.products.map(_._2.toFloat)).mean().await.get
+    assertEquals(products.map(_._2.toFloat).sum / products.size, avgOrderQty, err)
+    val joinQueriedCustomer = orderMap.query(_.getMap[CustId, Customer]("customers"), where.key() = orderId) {
+      case (customers, _, order) => customers.get(order.customer)
+    }
+    assertEquals(customerMap.get(bobId), joinQueriedCustomer(orderId))
+    val joinGetAs = orderMap.getAs(_.getMap[CustId, Customer]("customers"), orderId) {
+      case (customers, order) => customers.get(order.customer)
+    }
+    assertEquals(customerMap.get(bobId), joinGetAs.get)
   }
 
 }

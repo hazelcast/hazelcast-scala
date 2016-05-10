@@ -6,6 +6,7 @@ import java.util.Map.Entry
 
 import scala.collection.JavaConverters._
 import scala.collection.mutable.{ Map => mMap }
+import scala.collection.{ Set => cSet }
 import scala.concurrent.ExecutionContext
 import scala.concurrent.duration._
 
@@ -38,25 +39,27 @@ final class HzMap[K, V](protected val imap: IMap[K, V])
     * subset of the data is needed, thus limiting
     * unnecessary network traffic.
     */
-  def getAs[R](key: K, map: V => R): Option[R] = async.getAs(key, map).await(DefaultFutureTimeout)
+  def getAs[R](key: K)(map: V => R): Option[R] = async.getAs(key)(map).await(DefaultFutureTimeout)
 
-  def getAllAs[R](keys: Set[K], mf: V => R): mMap[K, R] = {
+  def getAs[C, R](getCtx: HazelcastInstance => C, key: K)(mf: (C, V) => R): Option[R] = async.getAs(getCtx, key)(mf).await(DefaultFutureTimeout)
+
+  def getAll(keys: cSet[K]): mMap[K, V] =
+    if (keys.isEmpty) mMap.empty
+    else imap.getAll(keys.asJava).asScala
+
+  def getAllAs[R](keys: cSet[K])(mf: V => R): mMap[K, R] =
     if (keys.isEmpty) mMap.empty
     else {
-      val ep = new AbstractEntryProcessor[K, V](false) {
-        def process(entry: Entry[K, V]): Object = {
-          entry.value match {
-            case null => null
-            case value => mf(value).asInstanceOf[Object]
-          }
-        }
-      }
+      val ep = new HzMap.GetAllAsEP(mf)
       imap.executeOnKeys(keys.asJava, ep).asScala.asInstanceOf[mMap[K, R]]
     }
-  }
 
   def query[T](pred: Predicate[_, _])(mf: V => T): mMap[K, T] = {
     val ep = new HzMap.QueryEP(mf)
+    imap.executeOnEntries(ep, pred).asScala.asInstanceOf[mMap[K, T]]
+  }
+  def query[C, T](ctx: HazelcastInstance => C, pred: Predicate[_, _])(mf: (C, K, V) => T): mMap[K, T] = {
+    val ep = new HzMap.ContextQueryEP(ctx, mf)
     imap.executeOnEntries(ep, pred).asScala.asInstanceOf[mMap[K, T]]
   }
 
@@ -212,16 +215,34 @@ final class HzMap[K, V](protected val imap: IMap[K, V])
 }
 
 private[Scala] object HzMap {
+  final class GetAllAsEP[K, V, T](_mf: V => T) extends AbstractEntryProcessor[K, V](false) {
+    def mf = _mf
+    def process(entry: Entry[K, V]): Object = {
+      entry.value match {
+        case null => null
+        case value => _mf(value).asInstanceOf[Object]
+      }
+    }
+  }
   final class QueryEP[V, T](_mf: V => T) extends AbstractEntryProcessor[Any, V](false) {
     def mf = _mf
     def process(entry: Entry[Any, V]): Object = _mf(entry.value).asInstanceOf[Object]
+  }
+  final class ContextQueryEP[C, K, V, T](val getCtx: HazelcastInstance => C, _mf: (C, K, V) => T)
+      extends AbstractEntryProcessor[K, V](false)
+      with HazelcastInstanceAware {
+    @transient private[this] var ctx: C = _
+    def setHazelcastInstance(hz: HazelcastInstance) {
+      this.ctx = getCtx(hz)
+    }
+    def mf = _mf
+    def process(entry: Entry[K, V]): Object = _mf(ctx, entry.key, entry.value).asInstanceOf[Object]
   }
   final class ForEachEP[K, V, C](val getCtx: HazelcastInstance => C, _thunk: (C, K, V) => Unit)
       extends AbstractEntryProcessor[K, V](false)
       with HazelcastInstanceAware {
     def thunk = _thunk
-    @transient
-    private[this] var ctx: C = _
+    @transient private[this] var ctx: C = _
     def setHazelcastInstance(hz: HazelcastInstance) = ctx = getCtx(hz)
     def process(entry: Entry[K, V]): Object = {
       _thunk(ctx, entry.key, entry.value)
