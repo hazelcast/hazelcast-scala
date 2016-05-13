@@ -131,7 +131,7 @@ final class HzMap[K, V](protected val imap: IMap[K, V])
         if (keys.isEmpty) java.util.Collections.emptyMap()
         else imap.executeOnKeys(keys.asJava, ep)
       case OnValues(include) =>
-        imap.executeOnEntries(ep, include)
+        imap.executeOnEntries(ep, new ValuePredicate(include))
     }
     jMap.asInstanceOf[java.util.Map[K, R]].asScala
   }

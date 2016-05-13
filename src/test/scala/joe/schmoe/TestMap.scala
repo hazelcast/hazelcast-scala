@@ -199,12 +199,10 @@ class TestMap {
     val result1a = map.executeOnEntries(entryProcessor, predicate37).asScala.asInstanceOf[collection.mutable.Map[String, Int]]
     val verifyFactor37 = result1a.values.forall(obj => isFactor37(obj.asInstanceOf[Int] / 2))
     assertTrue(verifyFactor37)
-    val result1b = map.executeOnEntries(entryProcessor, isFactor37).asScala
-    assertEquals(result1a, result1b.toMap)
-    val result1c = map.execute(OnEntries((value: Int) => isFactor37(value))) { entry =>
+    val result1b = map.execute(OnValues(v => isFactor37(v))) { entry =>
       entry.value * 2
     }
-    assertEquals(result1a, result1c)
+    assertEquals(result1a, result1b)
     val result2a = map.execute(OnValues(isFactor37)) { entry =>
       entry.value * 2
     }
@@ -215,7 +213,6 @@ class TestMap {
       case value => value * 2
     }.values().await.sorted
     val result2d = map.filter(e => isFactor37(e.value)).map(_.value * 8).map(_ / 4).values().await.sorted
-    assertEquals(result1a, result1b)
     assertEquals(result1a, result2a)
     assertEquals(result1a.values.toSeq.sorted, result2b)
     assertEquals(result2b, result2c)

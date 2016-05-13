@@ -92,8 +92,6 @@ package Scala {
     @inline implicit def partsvc2scala(ps: PartitionService) = new HzPartitionService(ps)
     @inline implicit def topic2scala[T](topic: ITopic[T]) = new HzTopic(topic)
     @inline implicit def exec2scala(exec: IExecutorService) = new HzExecutorService(exec)
-    @inline implicit def vfunc2pred[K, V](f: V => Boolean): Predicate[_, V] = new ValuePredicate(f)
-    @inline implicit def kfunc2pred[K, V](f: K => Boolean): Predicate[K, _] = new KeyPredicate(f)
     @inline implicit def dds2numDds[N: Numeric](dds: DDS[N]): NumericDDS[N] = dds match {
       case dds: MapDDS[_, _, N] => new NumericMapDDS(dds)
     }
