@@ -39,9 +39,9 @@ final class HzMap[K, V](protected val imap: IMap[K, V])
     * subset of the data is needed, thus limiting
     * unnecessary network traffic.
     */
-  def getAs[R](key: K)(map: V => R): Option[R] = async.getAs(key)(map).await(DefaultFutureTimeout)
+  def getAs[R](key: K)(map: V => R): Option[R] = async.getAs(key)(map).await
 
-  def getAs[C, R](getCtx: HazelcastInstance => C, key: K)(mf: (C, V) => R): Option[R] = async.getAs(getCtx, key)(mf).await(DefaultFutureTimeout)
+  def getAs[C, R](getCtx: HazelcastInstance => C, key: K)(mf: (C, V) => R): Option[R] = async.getAs(getCtx, key)(mf).await
 
   def getAll(keys: cSet[K]): mMap[K, V] =
     if (keys.isEmpty) mMap.empty
