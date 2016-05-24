@@ -50,6 +50,19 @@ final class AsyncMap[K, V] private[Scala] (protected val imap: IMap[K, V])
     callback.future
   }
 
+  def set(key: K, value: V, ttl: Duration = Duration.Inf): Future[Unit] = {
+    // TODO: Use `setAsync` once available
+    val ep =
+      if (ttl.isFinite && ttl.length > 0) {
+        new AsyncMap.TTLSetAsyncEP(imap.getName, value, ttl.length, ttl.unit)
+      } else {
+        new AsyncMap.SetAsyncEP(value)
+      }
+    val callback = ep.newCallback()
+    imap.submitToKey(key, ep, callback)
+    callback.future
+  }
+
   def remove(key: K): Future[Option[V]] =
     imap.removeAsync(key).asScalaOpt
 
@@ -93,15 +106,14 @@ private[Scala] object AsyncMap {
     }
   }
   final class TTLPutIfAbsentEP[V](val mapName: String, val putIfAbsent: V, val ttl: Long, val unit: TimeUnit)
-      extends SingleEntryCallbackUpdater[Any, V, V]
+      extends SingleEntryCallbackReader[Any, V, V]
       with HazelcastInstanceAware {
     @BeanProperty @transient
     var hazelcastInstance: HazelcastInstance = _
-    def onEntry(entry: Entry[Any, V]): V = {
-      val existing = entry.value
+    def onEntry(key: Any, existing: V): V = {
       if (existing == null) {
         val imap = hazelcastInstance.getMap[Any, V](mapName)
-        imap.set(entry.key, putIfAbsent, ttl, unit)
+        imap.set(key, putIfAbsent, ttl, unit)
       }
       existing
     }
@@ -115,5 +127,20 @@ private[Scala] object AsyncMap {
       }
       existing
     }
+  }
+  final class TTLSetAsyncEP[V](val mapName: String, val value: V, val ttl: Long, val unit: TimeUnit)
+      extends SingleEntryCallbackReader[Any, V, Unit]
+      with HazelcastInstanceAware {
+    @BeanProperty @transient
+    var hazelcastInstance: HazelcastInstance = _
+    def onEntry(key: Any, existing: V): Unit = {
+      val imap = hazelcastInstance.getMap[Any, V](mapName)
+      imap.set(key, value, ttl, unit)
+    }
+  }
+  final class SetAsyncEP[V](val value: V)
+      extends SingleEntryCallbackUpdater[Any, V, Unit] {
+    def onEntry(entry: Entry[Any, V]): Unit =
+      entry.value = value
   }
 }

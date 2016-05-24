@@ -246,6 +246,26 @@ object Defaults extends SerializerEnum(-987654321) {
       new AsyncMap.TTLPutIfAbsentEP(inp.readUTF, inp.readObject[Any], inp.readLong, inp.readObject[TimeUnit])
     }
   }
+  val SetAsyncEPSer = new StreamSerializer[AsyncMap.SetAsyncEP[Any]] {
+    def write(out: ObjectDataOutput, ep: AsyncMap.SetAsyncEP[Any]): Unit = {
+      out.writeObject(ep.value)
+    }
+    def read(inp: ObjectDataInput) = {
+      val value = inp.readObject[Any]
+      new AsyncMap.SetAsyncEP(value)
+    }
+  }
+  val TTLSetAsyncEPSer = new StreamSerializer[AsyncMap.TTLSetAsyncEP[Any]] {
+    def write(out: ObjectDataOutput, ep: AsyncMap.TTLSetAsyncEP[Any]): Unit = {
+      out.writeUTF(ep.mapName)
+      out.writeObject(ep.value)
+      out.writeLong(ep.ttl)
+      out.writeObject(ep.unit)
+    }
+    def read(inp: ObjectDataInput) = {
+      new AsyncMap.TTLSetAsyncEP(inp.readUTF, inp.readObject[Any], inp.readLong, inp.readObject[TimeUnit])
+    }
+  }
   val UpsertEPSer = new StreamSerializer[KeyedDeltaUpdates.UpsertEP[Any]] {
     type EP = KeyedDeltaUpdates.UpsertEP[Any]
     def write(out: ObjectDataOutput, ep: EP): Unit = {
@@ -292,6 +312,18 @@ object Defaults extends SerializerEnum(-987654321) {
       new EP(update)
     }
   }
+  val UpdateIfEPSer = new StreamSerializer[KeyedDeltaUpdates.UpdateIfEP[Any]] {
+    type EP = KeyedDeltaUpdates.UpdateIfEP[Any]
+    def write(out: ObjectDataOutput, ep: EP): Unit = {
+      out.writeObject(ep.cond)
+      out.writeObject(ep.updateIfPresent)
+    }
+    def read(inp: ObjectDataInput): EP = {
+      val cond = inp.readObject[Any => Boolean]
+      val update = inp.readObject[Any => Any]
+      new EP(cond, update)
+    }
+  }
   val UpdateAndGetEPSer = new StreamSerializer[KeyedDeltaUpdates.UpdateAndGetEP[Any]] {
     type EP = KeyedDeltaUpdates.UpdateAndGetEP[Any]
     def write(out: ObjectDataOutput, ep: EP): Unit = {
@@ -302,6 +334,18 @@ object Defaults extends SerializerEnum(-987654321) {
       new EP(update)
     }
   }
+  val UpdateAndGetIfEPSer = new StreamSerializer[KeyedDeltaUpdates.UpdateAndGetIfEP[Any]] {
+    type EP = KeyedDeltaUpdates.UpdateAndGetIfEP[Any]
+    def write(out: ObjectDataOutput, ep: EP): Unit = {
+      out.writeObject(ep.cond)
+      out.writeObject(ep.updateIfPresent)
+    }
+    def read(inp: ObjectDataInput): EP = {
+      val cond = inp.readObject[Any => Boolean]
+      val update = inp.readObject[Any => Any]
+      new EP(cond, update)
+    }
+  }
   val GetAndUpdateEPSer = new StreamSerializer[KeyedDeltaUpdates.GetAndUpdateEP[Any]] {
     type EP = KeyedDeltaUpdates.GetAndUpdateEP[Any]
     def write(out: ObjectDataOutput, ep: EP): Unit = {
@@ -310,6 +354,18 @@ object Defaults extends SerializerEnum(-987654321) {
     def read(inp: ObjectDataInput): EP = {
       val update = inp.readObject[Any => Any]
       new EP(update)
+    }
+  }
+  val GetAndUpdateIfEPSer = new StreamSerializer[KeyedDeltaUpdates.GetAndUpdateIfEP[Any]] {
+    type EP = KeyedDeltaUpdates.GetAndUpdateIfEP[Any]
+    def write(out: ObjectDataOutput, ep: EP): Unit = {
+      out.writeObject(ep.cond)
+      out.writeObject(ep.updateIfPresent)
+    }
+    def read(inp: ObjectDataInput): EP = {
+      val cond = inp.readObject[Any => Boolean]
+      val update = inp.readObject[Any => Any]
+      new EP(cond, update)
     }
   }
   val AggrMapDDSTaskSer = new StreamSerializer[dds.AggrMapDDSTask[_, _, _]] {

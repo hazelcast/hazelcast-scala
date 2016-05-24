@@ -28,7 +28,7 @@ private[Scala] abstract class SingleEntryCallbackReader[K, V, R] extends SingleE
   def onEntry(key: K, value: V): R
 }
 private[Scala] abstract class SingleEntryCallbackUpdater[K, V, R] extends SingleEntryCallbackProcessor[K, V, R] {
-  def getBackupProcessor = new EntryBackupProcessor[K, V] {
+  @transient lazy val getBackupProcessor = new EntryBackupProcessor[K, V] {
     def processBackup(entry: Entry[K, V]): Unit = onEntry(entry)
   }
 }
