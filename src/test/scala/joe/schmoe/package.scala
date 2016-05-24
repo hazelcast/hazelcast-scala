@@ -16,7 +16,7 @@ package object schmoe {
   }
 
   implicit class TestFuture[T](private val f: Future[T]) extends AnyVal {
-    def await(): T = Await.result(f, 10.seconds)
+    def await(): T = Await.result(f, 30.seconds)
   }
 
 }
