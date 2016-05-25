@@ -157,7 +157,7 @@ final class HzMap[K, V](protected val imap: IMap[K, V])
   def filter(pred: Predicate[_, _]): DDS[Entry[K, V]] = new MapDDS(imap, pred)
 
   // TODO: Perhaps a macro could turn this into an IndexAwarePredicate?
-  def filter(f: Entry[K, V] => Boolean): DDS[Entry[K, V]] = new MapDDS(imap, new EntryPredicate(f))
+  def filter(f: (K, V) => Boolean): DDS[Entry[K, V]] = new MapDDS(imap, new EntryPredicate(f))
 
   def values[O: Ordering](range: Range, pred: Predicate[_, _] = null)(sortBy: Entry[K, V] => O, reverse: Boolean = false): Iterable[V] = {
     val pageSize = range.length

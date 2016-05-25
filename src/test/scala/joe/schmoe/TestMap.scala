@@ -228,7 +228,7 @@ class TestMap extends CleanUp {
     val result2c = map.map(_.value).filter(isFactor37).collect {
       case value => value * 2
     }.values().await.sorted
-    val result2d = map.filter(e => isFactor37(e.value)).map(_.value * 8).map(_ / 4).values().await.sorted
+    val result2d = map.filter((k, v) => isFactor37(v)).map(_.value * 8).map(_ / 4).values().await.sorted
     assertEquals(result1a, result2a)
     assertEquals(result1a.values.toSeq.sorted, result2b)
     assertEquals(result2b, result2c)
