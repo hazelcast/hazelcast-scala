@@ -369,7 +369,7 @@ class TestMap extends CleanUp {
   @Test
   def `large map test` {
     val OneThousand = 1000
-    val Thousands = 250
+    val Thousands = 125
     val clientMap = getClientMap[UUID, Employee]("employees")
     var allSalaries = 0L
     var empCount = 0
@@ -863,7 +863,7 @@ class TestMap extends CleanUp {
   }
   @Test
   def stringLengthMinMax2() {
-    val localMap = (1 to 250000).foldLeft(new java.util.HashMap[Int, String]) {
+    val localMap = (1 to 125000).foldLeft(new java.util.HashMap[Int, String]) {
       case (map, key) =>
         map.put(key, randomString(500))
         map
