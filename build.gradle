@@ -2,9 +2,6 @@ buildscript {
     repositories {
         mavenCentral()
     }
-    dependencies {
-        classpath "org.scoverage:gradle-scoverage:1.1.0"
-    }
 }
 
 plugins {
@@ -16,20 +13,19 @@ ext {
     vScala = '2.11'
     vScalaFull = "$vScala.8"
     vHazelcast = '3.6.2'
-    vScoverage = '1.1.0'
     vKryo = '3.0.3'
     vObjenesis = '2.2'
+    vLz4 = '1.3.0'
 }
 
 apply plugin: "scala"
 apply plugin: "maven-publish"
-apply plugin: 'scoverage'
 
 sourceCompatibility = 1.7
 targetCompatibility = 1.7
 
 task wrapper(type: Wrapper) {
-    gradleVersion = '2.12'
+    gradleVersion = '2.13'
 }
 if (version == '') {
     version = 'SNAPSHOT'
@@ -51,12 +47,12 @@ repositories {
 dependencies {
     testCompile "junit:junit:$vJUnit"
     testCompile "org.scala-lang:scala-compiler:$vScalaFull"
-    scoverage "org.scoverage:scalac-scoverage-plugin_$vScala:$vScoverage", "org.scoverage:scalac-scoverage-runtime_$vScala:$vScoverage"
-    //testCompile fileTree(dir: 'lib', include: '*.jar')
-    //testCompile "com.hazelcast:hazelcast:$vHazelcast:tests"
+
     compile "org.scala-lang:scala-reflect:$vScalaFull"
+
     compile "com.hazelcast:hazelcast:$vHazelcast"
     compile "com.hazelcast:hazelcast-client:$vHazelcast"
+
     compile "javax.cache:cache-api:1.0.0"
     compile "javax.transaction:transaction-api:1.1"
     
