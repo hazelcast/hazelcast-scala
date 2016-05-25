@@ -22,8 +22,8 @@ trait ClusterSetup {
 
   implicit def ec = ExecutionContext.global
 
-  private[this] var _hz: Vector[HazelcastInstance] = _
-  def hz = _hz
+  private[this] var _hzs: Vector[HazelcastInstance] = _
+  implicit def hzs = _hzs
   private[this] var _client: HazelcastInstance = _
   def client = _client
 
@@ -50,11 +50,11 @@ trait ClusterSetup {
     memberConfig.setGracefulShutdownMaxWait(1.second)
     memberConfig.setPhoneHomeEnabled(false)
     memberConfig.getMapConfig("default")
-//      .setBackupCount(0)
+      //      .setBackupCount(0)
       .setStatisticsEnabled(false)
       .setMaxSizeConfig(UsedHeapSize(60.gigabytes))
     memberConfig.setShutdownHookEnabled(false)
-    _hz = (1 to clusterSize).par.map(_ => memberConfig.newInstance).seq.toVector
+    _hzs = (1 to clusterSize).par.map(_ => memberConfig.newInstance).seq.toVector
     clientConfig.getGroupConfig.setName(group)
     clientConfig.getNetworkConfig.addAddress(s"localhost:$port")
     _client = clientConfig.newClient()
@@ -78,10 +78,10 @@ trait ClusterSetup {
     client.getCache[K, V](name)
   }
 
-  def getMemberMap[K, V](name: String = contextName): IMap[K, V] = hz(0).getMap[K, V](name)
+  def getMemberMap[K, V](name: String = contextName): IMap[K, V] = hzs(0).getMap[K, V](name)
   def getMemberCache[K: ClassTag, V: ClassTag](name: String = contextName): ICache[K, V] = {
     import jcache._
-    hz(0).getCache[K, V](name)
+    hzs(0).getCache[K, V](name)
   }
 
   def timed[T](warmups: Int = 0, unit: TimeUnit = MILLISECONDS)(thunk: => T): (T, Long) = {
@@ -89,5 +89,4 @@ trait ClusterSetup {
     val start = System.nanoTime
     thunk -> unit.convert(System.nanoTime - start, NANOSECONDS)
   }
-
 }

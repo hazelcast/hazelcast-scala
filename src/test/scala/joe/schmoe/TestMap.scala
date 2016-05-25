@@ -47,9 +47,11 @@ object TestMap extends ClusterSetup {
 
 }
 
-class TestMap {
+class TestMap extends CleanUp {
 
   import TestMap._
+
+  def hzs = TestMap.hzs
 
   @Test
   def upsert {
@@ -444,8 +446,6 @@ class TestMap {
       assertEquals(idx -> javaSal(idx), idx -> scalaSal(idx))
     }
 
-    clientMap.clear()
-    clientMap.destroy()
   }
 
   @Test
@@ -876,8 +876,6 @@ class TestMap {
       assertEquals(byMax.key, bySort.key)
       if (i >= 3) println(s"Longest string: max(): $byMaxTime ms, sortBy(): $bySortTime ms")
     }
-    strMap.clear()
-    strMap.destroy()
   }
 
   @Test
@@ -928,13 +926,11 @@ class TestMap {
     assertEquals(localSum, ageSum)
     assertEquals(localCount, ageCount)
 
-    employees.clear()
-    employees.destroy()
   }
 
   @Test
   def `for each` {
-    hz.foreach { hz =>
+    hzs.foreach { hz =>
       hz.userCtx(Entries) = new collection.concurrent.TrieMap[Int, String]
     }
     val imap = getClientMap[Int, String]()
@@ -945,7 +941,7 @@ class TestMap {
       (map, key, value) =>
         assertEquals(None, map.putIfAbsent(key, value))
     }
-    val entries = hz.map { hz =>
+    val entries = hzs.map { hz =>
       hz.userCtx(Entries)
     }.reduce(_ ++ _)
     assertEquals(10, entries.size)
@@ -1013,7 +1009,7 @@ class TestMap {
     assertEquals("hello", stringMap.get("hello"))
     val updated = stringMap.updateAndGet("hello")(_ => "world")
     assertEquals(Some("world"), updated)
-    val foo = hz(0).getByteArrayMap[String, String](mapName)
+    val foo = hzs(0).getByteArrayMap[String, String](mapName)
     assertEquals("world", foo.get("hello"))
   }
 
@@ -1029,7 +1025,7 @@ class TestMap {
       def storeAll(kv: java.util.Map[String, String]) = throw new UnsupportedOperationException with NoStackTrace
     }
     val name = UUID.randomUUID.toString
-    hz.foreach { hz =>
+    hzs.foreach { hz =>
       hz.getConfig.getMapConfig(name).getMapStoreConfig.setImplementation(mapStore).setEnabled(true)
     }
     val map = getMemberMap[String, String](name)

@@ -20,10 +20,10 @@ class TestExecutorService {
 
   @Test
   def `user context` {
-    hz.foreach { hz =>
+    hzs.foreach { hz =>
       hz.userCtx(MemberId) = UUID fromString hz.getLocalEndpoint.getUuid
     }
-    val es = hz(0).getExecutorService("default")
+    val es = hzs(0).getExecutorService("default")
     val result = es.submit(ToAll) { hz =>
       hz.getLocalEndpoint.getUuid -> hz.userCtx(MemberId)
     }

@@ -28,9 +28,9 @@ class TestDistributedObjectEvents {
   @Test
   def any {
     any(client)
-    any(hz(0))
+    any(hzs(0))
     any(client, ExecutionContext.global)
-    any(hz(0), ExecutionContext.global)
+    any(hzs(0), ExecutionContext.global)
   }
   private def any(hz: HazelcastInstance, ec: ExecutionContext = null) {
     val expected = 2 // 1 created, 1 destroyed
@@ -55,9 +55,9 @@ class TestDistributedObjectEvents {
   @Test
   def typed {
     typed(client)
-    typed(hz(0))
+    typed(hzs(0))
     typed(client, ExecutionContext.global)
-    typed(hz(0), ExecutionContext.global)
+    typed(hzs(0), ExecutionContext.global)
   }
   private def typed(hz: HazelcastInstance, ec: ExecutionContext = null) {
     val expected = 4 // 2 IMap created, 2 IMap destroyed
@@ -91,9 +91,9 @@ class TestDistributedObjectEvents {
   @Test
   def named {
     named(client)
-    named(hz(0))
+    named(hzs(0))
     named(client, ExecutionContext.global)
-    named(hz(0), ExecutionContext.global)
+    named(hzs(0), ExecutionContext.global)
   }
   private def named(hz: HazelcastInstance, ec: ExecutionContext = null) {
     val expected = 4 // 2 "foo" created, 2 "foo" destroyed
