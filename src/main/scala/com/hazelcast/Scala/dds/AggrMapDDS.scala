@@ -48,7 +48,7 @@ private[Scala] class AggrGroupMapDDS[G, E](dds: MapDDS[_, _, (G, E)]) extends Ag
     aggr: Aggregator.Grouped[G, E, AR, GR],
     es: IExecutorService,
     ts: UserContext.Key[collection.parallel.TaskSupport])(implicit ec: ExecutionContext): Future[cMap[G, GR]] =
-      dds.submit(aggr, es, ts)
+    dds.submit(aggr, es, ts)
 }
 
 private[Scala] class OrderingMapDDS[K, O: Ordering](
@@ -112,11 +112,13 @@ private[Scala] final class AggrMapDDSTask[K, E, AW](
         } else acc
       }
       val partSvc = hz.getPartitionService
-      val keysByPartId = localKeys.groupBy(partSvc.getPartition(_).getPartitionId).values.par
+      val keysByPartition = localKeys.groupBy(partSvc.getPartition(_).getPartitionId).toIterable.par
       taskSupport.foreach { taskSupport =>
-        keysByPartId.tasksupport = hz.userCtx(taskSupport)
+        keysByPartition.tasksupport = hz.userCtx(taskSupport)
       }
-      val entries = keysByPartId.map(parKeys => blocking(imap.getAll(parKeys.asJava))).flatMap(_.entrySet.asScala)
+      val entries = imap.getLocalObjectsFast(keysByPartition).getOrElse {
+        keysByPartition.map(parKeys => blocking(imap.getAll(parKeys._2.asJava))).flatMap(_.entrySet.asScala)
+      }
       entries.aggregate(aggr.remoteInit)(seqop, aggr.remoteCombine)
     }
   }
