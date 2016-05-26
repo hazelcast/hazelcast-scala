@@ -20,6 +20,11 @@ import com.hazelcast.query.PagingPredicate
 import com.hazelcast.query.Predicate
 import com.hazelcast.query.PredicateBuilder
 import com.hazelcast.spi.AbstractDistributedObject
+import com.hazelcast.map.impl.recordstore.RecordStore
+import com.hazelcast.map.impl.record.Record
+import com.hazelcast.nio.serialization.Data
+import scala.util.Try
+import scala.collection.parallel.ParIterable
 
 final class HzMap[K, V](protected val imap: IMap[K, V])
     extends KeyedIMapDeltaUpdates[K, V]
@@ -28,6 +33,25 @@ final class HzMap[K, V](protected val imap: IMap[K, V])
   private[Scala] def getHZ: HazelcastInstance = imap match {
     case ado: AbstractDistributedObject[_] => ado.getNodeEngine.getHazelcastInstance
     case _ => getClientHzProxy(imap) getOrElse sys.error(s"Cannot get HazelcastInstance from ${imap.getClass}")
+  }
+
+  private[Scala] def getLocalObjectsFast(keysByPartition: ParIterable[(Int, cSet[K])]): Option[ParIterable[Entry[K, V]]] = {
+    HzMap.mapServiceContext(imap).toOption.map { ctx =>
+      keysByPartition.flatMap {
+        case (partitionId, keys) =>
+          ctx.getExistingRecordStore(partitionId, imap.getName) match {
+            case partitionStore: RecordStore[Record[V]] =>
+              keys.iterator.map { key =>
+                val value = partitionStore.get(ctx.toData(key), false) match {
+                  case data: Data => ctx.toObject(data)
+                  case obj => obj
+                }
+                if (value == null) null else new ImmutableEntry(key, value.asInstanceOf[V])
+              }.filter(_ != null)
+            case _ => None
+          }
+      }
+    }
   }
 
   def async: AsyncMap[K, V] = new AsyncMap(imap)
@@ -215,6 +239,17 @@ final class HzMap[K, V](protected val imap: IMap[K, V])
 }
 
 private[Scala] object HzMap {
+
+  import com.hazelcast.map.impl.proxy.MapProxyImpl
+  import com.hazelcast.map.impl.MapServiceContext
+
+  private[this] val MapServiceCtxField = Try {
+    val field = classOf[MapProxyImpl[_, _]].getSuperclass.getDeclaredField("mapServiceContext")
+    field.setAccessible(true)
+    field
+  }
+  def mapServiceContext(imap: IMap[_, _]): Try[MapServiceContext] = MapServiceCtxField.flatMap(field => Try(field.get(imap).asInstanceOf[MapServiceContext]))
+
   final class GetAllAsEP[K, V, T](_mf: V => T) extends AbstractEntryProcessor[K, V](false) {
     def mf = _mf
     def process(entry: Entry[K, V]): Object = {

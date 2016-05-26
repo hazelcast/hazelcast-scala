@@ -28,6 +28,7 @@ import java.util.concurrent.atomic.AtomicReference
 import com.hazelcast.config.MapStoreConfig
 import com.hazelcast.core.MapStore
 import scala.util.control.NoStackTrace
+import com.hazelcast.config.MapConfig
 
 object TestMap extends ClusterSetup {
   override val clusterSize = 3
@@ -35,9 +36,9 @@ object TestMap extends ClusterSetup {
     TestKryoSerializers.register(memberConfig.getSerializationConfig)
     TestKryoSerializers.register(clientConfig.getSerializationConfig)
 
-    memberConfig.getMapConfig("employees").
-      addMapIndexConfig(new MapIndexConfig("salary", true)).
-      setInMemoryFormat(InMemoryFormat.OBJECT)
+    memberConfig.getMapConfig("employees")
+      .addMapIndexConfig(new MapIndexConfig("salary", true))
+      .setInMemoryFormat(InMemoryFormat.OBJECT)
     memberConfig.getSerializationConfig.setAllowUnsafe(true)
     clientConfig.getSerializationConfig.setAllowUnsafe(true)
   }
