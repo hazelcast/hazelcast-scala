@@ -17,6 +17,6 @@ package object jcache {
   private[Scala] def createClientCachingProvider(hz: HazelcastInstance): Try[CachingProvider] =
     HazelcastClientCachingProvider_createCachingProvider.map(_.invoke(null, hz).asInstanceOf[CachingProvider])
 
-  implicit def inst2jcache(hz: HazelcastInstance): JCacheHazelcastInstance = new JCacheHazelcastInstance(hz)
-  implicit def icache2scala[K, V](icache: ICache[K, V]) = new HzCache[K, V](icache)
+  implicit def asScala(hz: HazelcastInstance): JCacheHazelcastInstance = new JCacheHazelcastInstance(hz)
+  implicit def asScala[K, V](icache: ICache[K, V]) = new HzCache[K, V](icache)
 }

@@ -50,7 +50,6 @@ trait ClusterSetup {
     memberConfig.setGracefulShutdownMaxWait(1.second)
     memberConfig.setPhoneHomeEnabled(false)
     memberConfig.getMapConfig("default")
-      //      .setBackupCount(0)
       .setStatisticsEnabled(false)
       .setMaxSizeConfig(UsedHeapSize(60.gigabytes))
     memberConfig.setShutdownHookEnabled(false)

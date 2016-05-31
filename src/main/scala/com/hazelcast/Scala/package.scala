@@ -119,14 +119,15 @@ package object Scala extends HighPriorityImplicits {
   @inline implicit def fu2pfu[A](f: A => Unit): PartialFunction[A, Unit] = PartialFunction(f)
   @inline implicit def imap2scala[K, V](imap: IMap[K, V]) = new HzMap[K, V](imap)
   @inline implicit def icoll2scala[T](coll: ICollection[T]) = new HzCollection[T](coll)
+  @inline implicit def rb2scala[E](rb: Ringbuffer[E]) = new HzRingbuffer(rb)
 
   implicit class HzMessage[T](private val msg: Message[T]) extends AnyVal {
     @inline def get(): T = msg.getMessageObject
   }
 
-  @inline implicit def mbrConf2props(conf: config.Config) = new HzMemberProperties(conf)
-  @inline implicit def mbrConf2scala(conf: config.Config) = new HzConfig(conf)
-  @inline implicit def rb2scala[E](rb: Ringbuffer[E]) = new HzRingbuffer(rb)
+  implicit def toConfig(ms: MaxSize) = ms.toConfig
+  implicit def mbrConf2props(conf: config.Config) = new HzMemberProperties(conf)
+  implicit def mbrConf2scala(conf: config.Config) = new HzConfig(conf)
 
   implicit class HzInt(private val i: Int) extends AnyVal {
     def kilobytes = new MemorySize(i, MemoryUnit.KILOBYTES)
