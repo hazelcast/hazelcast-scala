@@ -48,7 +48,7 @@ final class HzMap[K, V](protected val imap: IMap[K, V])
                 }
                 if (value == null) null else new ImmutableEntry(key, value.asInstanceOf[V])
               }.filter(_ != null)
-            case _ => None
+            case _ => Nil
           }
       }
     }
