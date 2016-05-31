@@ -14,7 +14,7 @@ import java.lang.ref.SoftReference
 
 private object KryoSerializers {
   private val defaultStrategy = new StdInstantiatorStrategy
-  def defaultIO = new Input(4096) -> new Output(4096)
+  def defaultIO = new Input(4096) -> new Output(4096, Int.MaxValue)
   def defaultKryo = {
     val kryo = new Kryo
     kryo.setInstantiatorStrategy(defaultStrategy)
