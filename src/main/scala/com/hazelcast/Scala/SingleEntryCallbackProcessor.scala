@@ -17,18 +17,19 @@ private[Scala] sealed abstract class SingleEntryCallbackProcessor[K, V, R] exten
     }
   def onEntry(entry: Entry[K, V]): R
 
-  def newCallback(nullReplacement: R = null.asInstanceOf[R]) = new FutureCallback[R, R](nullReplacement)
-  def newCallbackOpt = new FutureCallback[R, Option[R]](None)(Some(_))
+  final def newCallback(nullReplacement: R = null.asInstanceOf[R]) = new FutureCallback[R, R](nullReplacement)
+  final def newCallbackOpt = new FutureCallback[R, Option[R]](None)(Some(_))
 
 }
 
 private[Scala] abstract class SingleEntryCallbackReader[K, V, R] extends SingleEntryCallbackProcessor[K, V, R] {
-  def getBackupProcessor = null
+  final def getBackupProcessor = null
   final def onEntry(entry: Entry[K, V]): R = onEntry(entry.key, entry.value)
   def onEntry(key: K, value: V): R
 }
-private[Scala] abstract class SingleEntryCallbackUpdater[K, V, R] extends SingleEntryCallbackProcessor[K, V, R] {
-  @transient lazy val getBackupProcessor = new EntryBackupProcessor[K, V] {
-    def processBackup(entry: Entry[K, V]): Unit = onEntry(entry)
-  }
+private[Scala] abstract class SingleEntryCallbackUpdater[K, V, R]
+    extends SingleEntryCallbackProcessor[K, V, R]
+    with EntryBackupProcessor[K, V] {
+  final def getBackupProcessor = this
+  final def processBackup(entry: Entry[K, V]): Unit = onEntry(entry)
 }

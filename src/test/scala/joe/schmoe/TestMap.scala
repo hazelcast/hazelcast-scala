@@ -29,23 +29,18 @@ import com.hazelcast.config.MapStoreConfig
 import com.hazelcast.core.MapStore
 import scala.util.control.NoStackTrace
 import com.hazelcast.config.MapConfig
+import com.hazelcast.core.IExecutorService
 
 object TestMap extends ClusterSetup {
   override val clusterSize = 3
   def init {
     TestKryoSerializers.register(memberConfig.getSerializationConfig)
     TestKryoSerializers.register(clientConfig.getSerializationConfig)
-
-    memberConfig.getMapConfig("employees")
-      .addMapIndexConfig(new MapIndexConfig("salary", true))
-      .setInMemoryFormat(InMemoryFormat.OBJECT)
     memberConfig.getSerializationConfig.setAllowUnsafe(true)
     clientConfig.getSerializationConfig.setAllowUnsafe(true)
   }
   def destroy = ()
-
   case class MyNumber(num: Int)
-
 }
 
 class TestMap extends CleanUp {
@@ -55,9 +50,17 @@ class TestMap extends CleanUp {
   def hzs = TestMap.hzs
 
   @Test
+  def fastAccess {
+    assertTrue(HackIntegrityTesting.verifyFastAccess(getMemberMap()))
+  }
+
+  @Test
   def upsert {
     val map = getClientMap[UUID, Int]()
     DeltaUpdateTesting.testUpsert(map, key => Option(map.get(key)), key => map.remove(key))
+    map.clear()
+    val exec = client.getExecutorService("default")
+    DeltaUpdateTesting.testUpsert(map, key => Option(map.get(key)), key => map.remove(key), exec)
   }
 
   @Test
@@ -108,22 +111,29 @@ class TestMap extends CleanUp {
   @Test
   def update {
     val map = getClientMap[UUID, Int]()
+      def moreTests(runOn: IExecutorService = null) {
+        (1 to 10) foreach { _ =>
+          map.set(UUID.randomUUID, 5)
+        }
+        map.updateAll()(_ + 6)
+        val values = map.values
+        assertEquals(10, values.size)
+        values.asScala.foreach { value =>
+          assertEquals(11, value)
+        }
+        val updated = map.updateAndGetAll(where.value = 11)(_ - 12)
+        assertEquals(10, updated.size)
+        updated.values.foreach { value =>
+          assertEquals(-1, value)
+        }
+      }
     DeltaUpdateTesting.testUpdate(map, key => Option(map.get(key)), map.put(_, _), key => map.remove(key))
     map.clear()
-    (1 to 10) foreach { _ =>
-      map.set(UUID.randomUUID, 5)
-    }
-    map.update()(_ + 6)
-    val values = map.values
-    assertEquals(10, values.size)
-    values.asScala.foreach { value =>
-      assertEquals(11, value)
-    }
-    val updated = map.updateAndGet(where.value = 11)(_ - 12)
-    assertEquals(10, updated.size)
-    updated.values.foreach { value =>
-      assertEquals(-1, value)
-    }
+    moreTests()
+    val exec = client.getExecutorService("default")
+    DeltaUpdateTesting.testUpdate(map, key => Option(map.get(key)), map.put(_, _), key => map.remove(key), exec)
+    map.clear()
+    moreTests(exec)
   }
   @Test
   def asyncUpdateWithDefault {
@@ -170,18 +180,17 @@ class TestMap extends CleanUp {
         assertEquals(1, evt.oldValue)
         assertEquals(2, evt.newValue)
         latch.countDown()
-
       }
     }
     val cbReg = map.filterKeys("foo").onEntryEvents(callback)
 
-    val updated1 = map.upsertAndGet("foo", 1)(_ + 1)
-    assertEquals(1, updated1)
-    map.upsertAndGet("bar", 1)(_ + 1)
-    val updated2 = map.upsertAndGet("foo", 1)(_ + 1)
-    assertEquals(2, updated2)
-    map.upsertAndGet("bar", 1)(_ + 1)
-    assertTrue(latch.await(5, TimeUnit.SECONDS))
+    assertEquals(1, map.upsertAndGet("foo", 1)(_ + 1))
+    assertEquals(1, map.upsertAndGet("bar", 1)(_ + 1))
+    assertEquals(2, map.upsertAndGet("foo", 1)(_ + 1))
+    assertEquals(2, map.upsertAndGet("bar", 1)(_ + 1))
+    val latchCompleted = latch.await(50000, TimeUnit.SECONDS)
+    assertEquals(0, latch.getCount)
+    assertTrue(latchCompleted)
     reg.cancel()
     cbReg.cancel()
   }
@@ -346,11 +355,21 @@ class TestMap extends CleanUp {
     val whereResult = map.values((where("active") = true) && (where("age") > 20 || where("salary") < 60000))
     assertEquals(sqlResult.asScala, whereResult.asScala)
     val sqlPredFirst = sqlResult.asScala.head
-    val firstByKey = map.values(where.key() = sqlPredFirst.id) // Generally, you wouldn't do this, since there's `get`
-    assertEquals(sqlPredFirst, firstByKey.asScala.head)
+    val firstByKey = map.get(sqlPredFirst.id)
+    assertEquals(sqlPredFirst, firstByKey)
     val sqlSalaries = sqlResult.asScala.map(e => e.id -> e.salary).toMap
     val querySalaryResult = map.query(sqlPred)(_.salary)
     assertEquals(sqlSalaries, querySalaryResult)
+    val ages = Seq[Comparable[Integer]](30, 40, 50)
+    val anniversary1 = map.values(where("age") in ages).asScala
+    assertTrue(anniversary1.nonEmpty)
+    anniversary1.foreach { emp =>
+      assertTrue(ages.contains(emp.age))
+    }
+    val anniversary2 = map.values(where("age") in (30, 40, 50)).asScala
+    assertEquals(anniversary1, anniversary2)
+    val anniversary3 = map.values(where("age") in (ages: _*)).asScala
+    assertEquals(anniversary1, anniversary3)
   }
 
   @Test
@@ -371,7 +390,13 @@ class TestMap extends CleanUp {
   def `large map test` {
     val OneThousand = 1000
     val Thousands = 125
-    val clientMap = getClientMap[UUID, Employee]("employees")
+
+    val mapName = UUID.randomUUID.toString
+    memberConfig.getMapConfig(mapName)
+      .addMapIndexConfig(new MapIndexConfig("salary", true))
+      .setInMemoryFormat(InMemoryFormat.OBJECT)
+    val clientMap = getClientMap[UUID, Employee](mapName)
+
     var allSalaries = 0L
     var empCount = 0
     var minSal = Int.MaxValue
@@ -864,18 +889,26 @@ class TestMap extends CleanUp {
   }
   @Test
   def stringLengthMinMax2() {
-    val localMap = (1 to 125000).foldLeft(new java.util.HashMap[Int, String]) {
+    type SomeKey = Long
+    val localMap = (1 to 125000).foldLeft(new java.util.HashMap[SomeKey, String]) {
       case (map, key) =>
         map.put(key, randomString(500))
         map
     }
-    val strMap = getClientMap[Int, String]()
+    val byLength = localMap.asScala.toSeq.groupBy(_._2.length)
+    val (maxLength, withMaxLength) = byLength.toSeq.sortBy(_._1).reverse.head
+    val strMap = getClientMap[SomeKey, String]()
     strMap.putAll(localMap)
-    for (i <- 1 to 5) {
+    for (i <- -5 to 5) {
       val (bySort, bySortTime) = timed()(strMap.sortBy(_.value.length).reverse.take(1).values.await.head)
       val (byMax, byMaxTime) = timed()(strMap.maxBy(_.value.length).await.get)
-      assertEquals(byMax.key, bySort.key)
-      if (i >= 3) println(s"Longest string: max(): $byMaxTime ms, sortBy(): $bySortTime ms")
+      assertEquals(maxLength, bySort.value.length)
+      assertEquals(maxLength, byMax.value.length)
+      assertTrue(withMaxLength.map(_._1).contains(bySort.key))
+      assertTrue(withMaxLength.map(_._1).contains(byMax.key))
+      assertTrue(withMaxLength.map(_._2).contains(bySort.value))
+      assertTrue(withMaxLength.map(_._2).contains(byMax.value))
+      if (i >= 3) println(s"Longest string: maxBy(): $byMaxTime ms, sortBy(): $bySortTime ms")
     }
   }
 

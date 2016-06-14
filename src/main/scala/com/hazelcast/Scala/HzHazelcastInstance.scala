@@ -31,9 +31,9 @@ final class HzHazelcastInstance(hz: HazelcastInstance) extends MemberEventSubscr
 
   type ESR = ListenerRegistration
 
-  private[Scala] def groupByPartition[K](keys: collection.Set[K]): Map[Partition, collection.Set[K]] = {
+  private[Scala] def groupByPartitionId[K](keys: collection.Set[K]): Map[Int, collection.Set[K]] = {
     val ps = hz.getPartitionService
-    keys.groupBy(ps.getPartition)
+    keys.groupBy(ps.getPartition(_).getPartitionId)
   }
   private[Scala] def groupByMember[K](keys: collection.Set[K]): Map[Member, collection.Set[K]] = {
     val ps = hz.getPartitionService
@@ -125,4 +125,6 @@ final class HzHazelcastInstance(hz: HazelcastInstance) extends MemberEventSubscr
     imap.addInterceptor(new ByteArrayInterceptor[V])
     imap.asInstanceOf[IMap[K, V]]
   }
+
+  def getExecutorService(): IExecutorService = hz.getExecutorService("default")
 }

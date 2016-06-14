@@ -79,7 +79,7 @@ class EntryMapDDS[K, V](dds: MapDDS[K, V, Entry[K, V]]) extends MapEntryEventSub
       case None => dds.imap.addEntryListener(listener, predicate, includeValue)
     }
     new ListenerRegistration {
-      def cancel(): Unit = dds.imap.removeEntryListener(regId)
+      def cancel(): Boolean = dds.imap.removeEntryListener(regId)
     }
   }
 

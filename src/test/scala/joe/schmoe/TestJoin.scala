@@ -97,7 +97,7 @@ class TestJoin {
     val err = 0.00005f
     val avgOrderQty = orderMap.flatMap(_.value.products.map(_._2.toFloat)).mean().await.get
     assertEquals(products.map(_._2.toFloat).sum / products.size, avgOrderQty, err)
-    val joinQueriedCustomer = orderMap.query(_.getMap[CustId, Customer]("customers"), where.key() = orderId) {
+    val joinQueriedCustomer = orderMap.query(_.getMap[CustId, Customer]("customers"), where.key in orderId) {
       case (customers, _, order) => customers.get(order.customer)
     }
     assertEquals(customerMap.get(bobId), joinQueriedCustomer(orderId))

@@ -50,6 +50,18 @@ final class AsyncMap[K, V] private[Scala] (protected val imap: IMap[K, V])
     callback.future
   }
 
+  def setIfAbsent(key: K, value: V, ttl: Duration = Duration.Inf): Future[Boolean] = {
+    val ep =
+      if (ttl.isFinite && ttl.length > 0) {
+        new AsyncMap.TTLSetIfAbsentEP(imap.getName, value, ttl.length, ttl.unit)
+      } else {
+        new AsyncMap.SetIfAbsentEP(value)
+      }
+    val callback = ep.newCallback()
+    imap.submitToKey(key, ep, callback)
+    callback.future
+  }
+
   def set(key: K, value: V, ttl: Duration = Duration.Inf): Future[Unit] = {
     // TODO: Use `setAsync` once available
     val ep =
@@ -126,6 +138,30 @@ private[Scala] object AsyncMap {
         entry.value = putIfAbsent
       }
       existing
+    }
+  }
+  final class TTLSetIfAbsentEP[V](val mapName: String, val putIfAbsent: V, val ttl: Long, val unit: TimeUnit)
+      extends SingleEntryCallbackReader[Any, V, Boolean]
+      with HazelcastInstanceAware {
+    @BeanProperty @transient
+    var hazelcastInstance: HazelcastInstance = _
+    def onEntry(key: Any, existing: V): Boolean = {
+      val set = existing == null
+      if (set) {
+        val imap = hazelcastInstance.getMap[Any, V](mapName)
+        imap.set(key, putIfAbsent, ttl, unit)
+      }
+      set
+    }
+  }
+  final class SetIfAbsentEP[V](val putIfAbsent: V)
+      extends SingleEntryCallbackUpdater[Any, V, Boolean] {
+    def onEntry(entry: Entry[Any, V]): Boolean = {
+      val set = entry.value == null
+      if (set) {
+        entry.value = putIfAbsent
+      }
+      set
     }
   }
   final class TTLSetAsyncEP[V](val mapName: String, val value: V, val ttl: Long, val unit: TimeUnit)

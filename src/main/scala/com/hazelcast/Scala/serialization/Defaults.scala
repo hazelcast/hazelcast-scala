@@ -19,6 +19,11 @@ import Duration.Infinite
 
 object Defaults extends SerializerEnum(-987654321) {
 
+  val TrueFunctionSer = new StreamSerializer[TrueFunction.type] {
+    def write(out: ObjectDataOutput, f: TrueFunction.type) = ()
+    def read(inp: ObjectDataInput) = TrueFunction
+  }
+
   val SomeSer = new StreamSerializer[Some[Any]] {
     def write(out: ObjectDataOutput, some: Some[Any]) = out.writeObject(some.x)
     def read(inp: ObjectDataInput) = new Some(inp.readObject[Any])
@@ -52,8 +57,8 @@ object Defaults extends SerializerEnum(-987654321) {
   }
   val NEListSer = new ListSerializer[::[_]]
 
-  val UpdateUpsertResultSer = new UpsertResultSerializer(Update)
-  val InsertUpsertResultSer = new UpsertResultSerializer(Insert)
+  val UpdatedUpsertResultSer = new UpsertResultSerializer(WasUpdated)
+  val InsertedUpsertResultSer = new UpsertResultSerializer(WasInserted)
 
   val FiniteDurationSer = new StreamSerializer[FiniteDuration] {
     def write(out: ObjectDataOutput, dur: FiniteDuration): Unit = {
@@ -246,6 +251,26 @@ object Defaults extends SerializerEnum(-987654321) {
       new AsyncMap.TTLPutIfAbsentEP(inp.readUTF, inp.readObject[Any], inp.readLong, inp.readObject[TimeUnit])
     }
   }
+  val SetIfAbsentEPSer = new StreamSerializer[AsyncMap.SetIfAbsentEP[Any]] {
+    def write(out: ObjectDataOutput, ep: AsyncMap.SetIfAbsentEP[Any]): Unit = {
+      out.writeObject(ep.putIfAbsent)
+    }
+    def read(inp: ObjectDataInput) = {
+      val value = inp.readObject[Any]
+      new AsyncMap.SetIfAbsentEP(value)
+    }
+  }
+  val TTLSetIfAbsentEPSer = new StreamSerializer[AsyncMap.TTLSetIfAbsentEP[Any]] {
+    def write(out: ObjectDataOutput, ep: AsyncMap.TTLSetIfAbsentEP[Any]): Unit = {
+      out.writeUTF(ep.mapName)
+      out.writeObject(ep.putIfAbsent)
+      out.writeLong(ep.ttl)
+      out.writeObject(ep.unit)
+    }
+    def read(inp: ObjectDataInput) = {
+      new AsyncMap.TTLSetIfAbsentEP(inp.readUTF, inp.readObject[Any], inp.readLong, inp.readObject[TimeUnit])
+    }
+  }
   val SetAsyncEPSer = new StreamSerializer[AsyncMap.SetAsyncEP[Any]] {
     def write(out: ObjectDataOutput, ep: AsyncMap.SetAsyncEP[Any]): Unit = {
       out.writeObject(ep.value)
@@ -305,16 +330,6 @@ object Defaults extends SerializerEnum(-987654321) {
   val UpdateEPSer = new StreamSerializer[KeyedDeltaUpdates.UpdateEP[Any]] {
     type EP = KeyedDeltaUpdates.UpdateEP[Any]
     def write(out: ObjectDataOutput, ep: EP): Unit = {
-      out.writeObject(ep.updateIfPresent)
-    }
-    def read(inp: ObjectDataInput): EP = {
-      val update = inp.readObject[Any => Any]
-      new EP(update)
-    }
-  }
-  val UpdateIfEPSer = new StreamSerializer[KeyedDeltaUpdates.UpdateIfEP[Any]] {
-    type EP = KeyedDeltaUpdates.UpdateIfEP[Any]
-    def write(out: ObjectDataOutput, ep: EP): Unit = {
       out.writeObject(ep.cond)
       out.writeObject(ep.updateIfPresent)
     }
@@ -327,16 +342,6 @@ object Defaults extends SerializerEnum(-987654321) {
   val UpdateAndGetEPSer = new StreamSerializer[KeyedDeltaUpdates.UpdateAndGetEP[Any]] {
     type EP = KeyedDeltaUpdates.UpdateAndGetEP[Any]
     def write(out: ObjectDataOutput, ep: EP): Unit = {
-      out.writeObject(ep.updateIfPresent)
-    }
-    def read(inp: ObjectDataInput): EP = {
-      val update = inp.readObject[Any => Any]
-      new EP(update)
-    }
-  }
-  val UpdateAndGetIfEPSer = new StreamSerializer[KeyedDeltaUpdates.UpdateAndGetIfEP[Any]] {
-    type EP = KeyedDeltaUpdates.UpdateAndGetIfEP[Any]
-    def write(out: ObjectDataOutput, ep: EP): Unit = {
       out.writeObject(ep.cond)
       out.writeObject(ep.updateIfPresent)
     }
@@ -348,16 +353,6 @@ object Defaults extends SerializerEnum(-987654321) {
   }
   val GetAndUpdateEPSer = new StreamSerializer[KeyedDeltaUpdates.GetAndUpdateEP[Any]] {
     type EP = KeyedDeltaUpdates.GetAndUpdateEP[Any]
-    def write(out: ObjectDataOutput, ep: EP): Unit = {
-      out.writeObject(ep.updateIfPresent)
-    }
-    def read(inp: ObjectDataInput): EP = {
-      val update = inp.readObject[Any => Any]
-      new EP(update)
-    }
-  }
-  val GetAndUpdateIfEPSer = new StreamSerializer[KeyedDeltaUpdates.GetAndUpdateIfEP[Any]] {
-    type EP = KeyedDeltaUpdates.GetAndUpdateIfEP[Any]
     def write(out: ObjectDataOutput, ep: EP): Unit = {
       out.writeObject(ep.cond)
       out.writeObject(ep.updateIfPresent)
@@ -407,6 +402,31 @@ object Defaults extends SerializerEnum(-987654321) {
       }
       arr
     }
+  }
+
+  val GetAndUpdateTaskSer = new DeltaUpdateTaskSer[KeyedDeltaUpdates.GetAndUpdateTask[Any, Any]] {
+    def newInstance(mapName: String, key: Any, partitionId: Int, updateIfPresent: Any => Any, cond: Any => Boolean) =
+      new KeyedDeltaUpdates.GetAndUpdateTask(mapName, key, partitionId, updateIfPresent, cond)
+  }
+  val UpdateTaskSer = new DeltaUpdateTaskSer[KeyedDeltaUpdates.UpdateTask[Any, Any]] {
+    def newInstance(mapName: String, key: Any, partitionId: Int, updateIfPresent: Any => Any, cond: Any => Boolean) =
+      new KeyedDeltaUpdates.UpdateTask(mapName, key, partitionId, updateIfPresent, cond)
+  }
+  val UpdateAndGetTaskSer = new DeltaUpdateTaskSer[KeyedDeltaUpdates.UpdateAndGetTask[Any, Any]] {
+    def newInstance(mapName: String, key: Any, partitionId: Int, updateIfPresent: Any => Any, cond: Any => Boolean) =
+      new KeyedDeltaUpdates.UpdateAndGetTask(mapName, key, partitionId, updateIfPresent, cond)
+  }
+  val GetAndUpsertTaskSer = new DeltaUpsertTaskSer[KeyedDeltaUpdates.GetAndUpsertTask[Any, Any]] {
+    def newInstance(mapName: String, key: Any, partitionId: Int, insertIfMissing: Some[Any], updateIfPresent: Any => Any) =
+      new KeyedDeltaUpdates.GetAndUpsertTask(mapName, key, partitionId, insertIfMissing, updateIfPresent)
+  }
+  val UpsertAndGetTaskSer = new DeltaUpsertTaskSer[KeyedDeltaUpdates.UpsertAndGetTask[Any, Any]] {
+    def newInstance(mapName: String, key: Any, partitionId: Int, insertIfMissing: Some[Any], updateIfPresent: Any => Any) =
+      new KeyedDeltaUpdates.UpsertAndGetTask(mapName, key, partitionId, insertIfMissing, updateIfPresent)
+  }
+  val UpsertTaskSer = new DeltaUpsertTaskSer[KeyedDeltaUpdates.UpsertTask[Any, Any]] {
+    def newInstance(mapName: String, key: Any, partitionId: Int, insertIfMissing: Some[Any], updateIfPresent: Any => Any) =
+      new KeyedDeltaUpdates.UpsertTask(mapName, key, partitionId, insertIfMissing, updateIfPresent)
   }
 
   val IntRefSer = new StreamSerializer[IntRef] {
@@ -726,12 +746,51 @@ object Defaults extends SerializerEnum(-987654321) {
     def read(inp: ObjectDataInput): BigInt = new BigInt(inp.readObject[java.math.BigInteger])
   }
 
-  final class UpsertResultSerializer[UR <: UpsertResult: ClassTag](ur: UR) extends StreamSerializer[UR] {
+  private[serialization] abstract class DeltaUpsertTaskSer[Task <: KeyedDeltaUpdates.DeltaTask[Any, Any, Any]: ClassTag]
+      extends StreamSerializer[Task] {
+    def newInstance(mapName: String, key: Any, partitionId: Int, insertIfMissing: Some[Any], updateIfPresent: Any => Any): Task
+    final def write(out: ObjectDataOutput, task: Task) {
+      out.writeUTF(task.mapName)
+      out.writeObject(task.key)
+      out.writeInt(task.partitionId)
+      out.writeObject(task.insertIfMissing.get)
+      out.writeObject(task.updateIfPresent)
+    }
+    final def read(inp: ObjectDataInput) = {
+      val mapName = inp.readUTF()
+      val key = inp.readObject[Any]
+      val parId = inp.readInt
+      val insertIfMissing = Some(inp.readObject[Any])
+      val updateIfPresent = inp.readObject[Any => Any]
+      newInstance(mapName, key, parId, insertIfMissing, updateIfPresent)
+    }
+  }
+  private[serialization] abstract class DeltaUpdateTaskSer[Task <: KeyedDeltaUpdates.DeltaTask[Any, Any, Any]: ClassTag]
+      extends StreamSerializer[Task] {
+    def newInstance(mapName: String, key: Any, partitionId: Int, updateIfPresent: Any => Any, cond: Any => Boolean): Task
+    def write(out: ObjectDataOutput, task: Task) {
+      out.writeUTF(task.mapName)
+      out.writeObject(task.key)
+      out.writeInt(task.partitionId)
+      out.writeObject(task.updateIfPresent)
+      out.writeObject(task.cond)
+    }
+    def read(inp: ObjectDataInput) = {
+      val mapName = inp.readUTF()
+      val key = inp.readObject[Any]
+      val parId = inp.readInt
+      val updateIfPresent = inp.readObject[Any => Any]
+      val cond = inp.readObject[Any => Boolean]
+      newInstance(mapName, key, parId, updateIfPresent, cond)
+    }
+  }
+
+  private[serialization] final class UpsertResultSerializer[UR <: UpsertResult: ClassTag](ur: UR) extends StreamSerializer[UR] {
     def write(out: ObjectDataOutput, ur: UR): Unit = ()
     def read(inp: ObjectDataInput): UR = ur
   }
 
-  final class ListSerializer[L <: List[_]: ClassTag] extends StreamSerializer[L] {
+  private[serialization] final class ListSerializer[L <: List[_]: ClassTag] extends StreamSerializer[L] {
     def write(out: ObjectDataOutput, l: L): Unit = {
       var len = 0
       val reverse = l.foldLeft(List.empty[Any]) {

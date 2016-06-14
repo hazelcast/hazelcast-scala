@@ -11,7 +11,7 @@ class HzCluster(private val cluster: Cluster) extends AnyVal {
     val (future, mbrListener) = EventSubscription.asMembershipListener(listener, Option(runOn))
     val regId = cluster addMembershipListener mbrListener
     new ListenerRegistration {
-      def cancel(): Unit = cluster removeMembershipListener regId
+      def cancel(): Boolean = cluster removeMembershipListener regId
     } -> future
   }
 

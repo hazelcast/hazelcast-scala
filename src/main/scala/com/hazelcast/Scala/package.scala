@@ -29,8 +29,8 @@ import ringbuffer.Ringbuffer
 package Scala {
 
   sealed trait UpsertResult
-  final case object Insert extends UpsertResult
-  final case object Update extends UpsertResult
+  final case object WasInserted extends UpsertResult
+  final case object WasUpdated extends UpsertResult
 
   object Macros {
     import reflect.macros.whitebox.Context
@@ -135,6 +135,9 @@ package object Scala extends HighPriorityImplicits {
     def megabytes = new MemorySize(i, MemoryUnit.MEGABYTES)
     def bytes = new MemorySize(i, MemoryUnit.BYTES)
   }
+  implicit class HzCDL(private val cdl: ICountDownLatch) extends AnyVal {
+    def await(dur: FiniteDuration): Boolean = cdl.await(dur.length, dur.unit)
+  }
 
   implicit class ScalaEntry[K, V](private val entry: Entry[K, V]) extends AnyVal {
     @inline def key: K = entry.getKey
@@ -175,8 +178,8 @@ package object Scala extends HighPriorityImplicits {
     def <(value: Comparable[_]): PredicateBuilder = eo.lessThan(value)
     def >=(value: Comparable[_]): PredicateBuilder = eo.greaterEqual(value)
     def <=(value: Comparable[_]): PredicateBuilder = eo.lessEqual(value)
+    def in(values: TraversableOnce[_ <: Comparable[_]]): PredicateBuilder = eo.in(values.toSeq: _*)
     def update(name: String, value: Comparable[_]): PredicateBuilder = apply(name).equal(value)
-    def update(value: Comparable[_]): PredicateBuilder = eo.equal(value)
     def <>(value: Comparable[_]): PredicateBuilder = eo.notEqual(value)
   }
 
