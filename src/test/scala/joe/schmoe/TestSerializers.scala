@@ -2,23 +2,23 @@ package joe.schmoe
 
 import java.util.UUID
 
-import scala.reflect.{ ClassTag, classTag }
-
-import com.hazelcast.Scala.serialization.SerializerEnum
-import com.hazelcast.nio.{ ObjectDataInput, ObjectDataOutput }
 import com.hazelcast.Scala.serialization.kryo.KryoSerializers
+import com.hazelcast.Scala.serialization.lz4.CompressedSerializers
+import com.hazelcast.Scala.serialization.lz4.FastStreamCompression
+import com.hazelcast.nio.ObjectDataInput
+import com.hazelcast.nio.ObjectDataOutput
 
-object TestSerializers extends SerializerEnum {
+object TestSerializers extends CompressedSerializers {
 
-  val Employee = new StreamSerializer[Employee] {
-    def write(out: ObjectDataOutput, emp: Employee): Unit = {
+  val Employee = new StreamCompressor[Employee](High) {
+    def compress(out: ObjectDataOutput, emp: Employee): Unit = {
       out.writeObject(emp.id)
       out.writeUTF(emp.name)
       out.writeInt(emp.salary)
       out.writeInt(emp.age)
       out.writeBoolean(emp.active)
     }
-    def read(inp: ObjectDataInput): Employee = {
+    def inflate(inp: ObjectDataInput): Employee = {
       new Employee(inp.readObject.asInstanceOf[UUID], inp.readUTF, inp.readInt, inp.readInt, inp.readBoolean)
     }
   }
@@ -33,18 +33,8 @@ object TestSerializers extends SerializerEnum {
     }
   }
 
-//  val Stats = new StreamSerializer[Stats] {
-//    def write(out: ObjectDataOutput, st: Stats): Unit = {
-//      out.writeLong(st.sum)
-//      out.writeInt(st.count)
-//      out.writeInt(st.min)
-//      out.writeInt(st.max)
-//    }
-//    def read(inp: ObjectDataInput): Stats =
-//      new Stats(inp.readLong, inp.readInt, inp.readInt, inp.readInt)
-//  }
 }
 
 object TestKryoSerializers extends KryoSerializers(TestSerializers) {
-  val StatsSer = new KryoSerializer[Stats]
+  val StatsSer = new KryoStreamSerializer[Stats] with FastStreamCompression[Stats]
 }
