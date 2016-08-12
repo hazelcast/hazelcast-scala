@@ -12,19 +12,19 @@ Add this to your `build.gradle` file:
 
     repositories {
       maven {
-        url "http://dl.bintray.com/nilskp/maven" 
+        url "http://jcenter.bintray.com" 
       }
     }
     dependencies {
       compile "org.scala-lang:scala-reflect:2.11.+"
-      compile "com.hazelcast:hazelcast-all:<version>" // Or enterprise
-      compile "com.hazelcast:hazelcast-scala_2.11:<version>"
+      compile "com.hazelcast:hazelcast:3.6.+" // Or :hazelcast-enterprise:
+      compile "com.hazelcast:hazelcast-scala_2.11:3.6.+"
     }
 
 ## SBT
 Add this to your project's `build.sbt`:
 
-    resolvers += "nilskp/maven on bintray" at "http://dl.bintray.com/nilskp/maven"
+    resolvers += Resolver.jcenterRepo
 
     libraryDependencies += "com.hazelcast" %% "hazelcast-scala" % "latest-integration" withSources()
 
