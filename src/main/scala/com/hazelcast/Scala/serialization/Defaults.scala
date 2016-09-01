@@ -200,6 +200,15 @@ object Defaults extends SerializerEnum(-987654321) {
       new HzMap.ExecuteEP(thunk)
     }
   }
+  val ExecuteOptEPSer = new StreamSerializer[HzMap.ExecuteOptEP[_, _, Any]] {
+    def write(out: ObjectDataOutput, ep: HzMap.ExecuteOptEP[_, _, Any]): Unit = {
+      out.writeObject(ep.thunk)
+    }
+    def read(inp: ObjectDataInput): HzMap.ExecuteOptEP[_, _, Any] = {
+      val thunk = inp.readObject[Entry[_, _] => Any]
+      new HzMap.ExecuteOptEP(thunk)
+    }
+  }
   val ValueUpdaterEPSer = new StreamSerializer[HzMap.ValueUpdaterEP[Any]] {
     def write(out: ObjectDataOutput, ep: HzMap.ValueUpdaterEP[Any]): Unit = {
       out.writeObject(ep.update)

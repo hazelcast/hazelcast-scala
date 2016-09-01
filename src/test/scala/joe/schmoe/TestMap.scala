@@ -1003,7 +1003,7 @@ class TestMap extends CleanUp {
     }
 
     myMap.execute(OnKey("45")) { entry =>
-      entry.value = entry.value * 2
+      entry.value = entry.value.map(_ * 2)
     }
     assertEquals(45 * 271 * 2, myMap.get("45"))
     assertEquals("45" -> (45 * 271 * 2), changes.get.head)
@@ -1028,7 +1028,7 @@ class TestMap extends CleanUp {
     assertEquals(-1, myMap.get("3"))
 
     myMap.execute(OnKey("1")) { entry =>
-      entry.value = -5
+      entry.value = Some(-5)
     }
     assertEquals(-5, myMap.get("1"))
 
@@ -1038,12 +1038,12 @@ class TestMap extends CleanUp {
   def `shape shifter` {
       implicit def utf8 = UTF8Serializer
     val mapName = UUID.randomUUID.toString
-    val stringMap = client.getByteArrayMap[String, String](mapName)
+    val stringMap = client.getBinaryMap[String, String](mapName)
     stringMap.put("hello", "hello")
     assertEquals("hello", stringMap.get("hello"))
     val updated = stringMap.updateAndGet("hello")(_ => "world")
     assertEquals(Some("world"), updated)
-    val foo = hzs(0).getByteArrayMap[String, String](mapName)
+    val foo = hzs(0).getBinaryMap[String, String](mapName)
     assertEquals("world", foo.get("hello"))
   }
 
@@ -1102,6 +1102,49 @@ class TestMap extends CleanUp {
     top3 foreach { emp =>
       assertEquals(emp.salary, top3salaries(emp.id))
     }
+  }
+
+  @Test
+  def `update and return` {
+    val employees = getClientMap[UUID, Employee]()
+    val randEmp = Employee.random
+    val key = randEmp.id
+    employees.set(key, randEmp)
+    val updatedEmp = employees.updateAndGet(key)(emp => emp.copy(salary = emp.salary * 2)).get
+    assertEquals(randEmp.salary * 2, updatedEmp.salary)
+    val updatedSalary = employees.execute(OnKey(key)) { entry =>
+      val updated = entry.value.map { emp =>
+        emp.copy(salary = emp.salary * 2)
+      }
+      entry.value = updated
+      updated.map(_.salary)
+    }
+    assertEquals(Some(randEmp.salary * 4), updatedSalary)
+  }
+  @Test
+  def `add and remove by EP` {
+    val employees = getClientMap[UUID, Employee]()
+    val randEmp1 = Employee.random
+    val key1 = randEmp1.id
+    employees.set(key1, randEmp1)
+    val key2 = UUID.randomUUID
+    assertTrue(employees.containsKey(key1))
+    assertFalse(employees.containsKey(key2))
+    val existed1 = employees.execute(OnKey(key1)) { entry =>
+      val existed = entry.value.isDefined
+      entry.value = None
+      existed
+    }
+    assertTrue(existed1)
+    employees.execute(OnKey(key2)) { entry =>
+      val existed = entry.value.isDefined
+      entry.value = Some {
+        Employee.random.copy(id = key2)
+      }
+      existed
+    }
+    assertFalse(employees.containsKey(key1))
+    assertTrue(employees.containsKey(key2))
   }
 }
 case object UTF8Serializer extends com.hazelcast.nio.serialization.ByteArraySerializer[String] {

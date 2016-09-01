@@ -180,23 +180,27 @@ final class HzMap[K, V](protected val imap: IMap[K, V])
   def setIfAbsent(key: K, value: V, ttl: Duration = Duration.Inf): Boolean =
     async.setIfAbsent(key, value, ttl).await
 
-  def execute[R](filter: EntryFilter[K, V])(thunk: Entry[K, V] => R): mMap[K, R] = {
+  def execute[R](filter: EntryFilter[K, V])(thunk: Entry[K, filter.EV] => R): filter.M[R] = {
       def ep = new HzMap.ExecuteEP(thunk)
-    val jMap: java.util.Map[K, Object] = filter match {
+    filter match {
+      case ok @ OnKey(key) =>
+        val okThunk = thunk.asInstanceOf[Entry[K, ok.EV] => R]
+        imap.executeOnKey(key, new HzMap.ExecuteOptEP(okThunk))
+          .asInstanceOf[filter.M[R]]
       case OnEntries(null) =>
         imap.executeOnEntries(ep)
+          .asScala.asInstanceOf[filter.M[R]]
       case OnEntries(predicate) =>
         imap.executeOnEntries(ep, predicate)
-      case OnKey(key) =>
-        val value = imap.executeOnKey(key, ep)
-        Collections.singletonMap(key, value)
-      case OnKeys(keys) =>
+          .asScala.asInstanceOf[filter.M[R]]
+      case OnKeys(keys) => {
         if (keys.isEmpty) java.util.Collections.emptyMap()
         else imap.executeOnKeys(keys.asJava, ep)
+      }.asScala.asInstanceOf[filter.M[R]]
       case OnValues(include) =>
         imap.executeOnEntries(ep, new ValuePredicate(include))
+          .asScala.asInstanceOf[filter.M[R]]
     }
-    jMap.asInstanceOf[java.util.Map[K, R]].asScala
   }
 
   type MSR = ListenerRegistration
@@ -334,6 +338,18 @@ private[Scala] object HzMap {
   final class ExecuteEP[K, V, R](_thunk: Entry[K, V] => R) extends AbstractEntryProcessor[K, V](true) {
     def thunk = _thunk
     def process(entry: Entry[K, V]): Object = _thunk(entry) match {
+      case null | _: Unit => null
+      case value => value.asInstanceOf[Object]
+    }
+  }
+  final class ExecuteOptEP[K, V, R](_thunk: Entry[K, Option[V]] => R) extends AbstractEntryProcessor[K, V](true) {
+    private class OptEntry(org: Entry[K, V]) extends Entry[K, Option[V]] {
+      def getKey() = org.getKey
+      def getValue() = Option(org.getValue)
+      def setValue(opt: Option[V]): Option[V] = Option(org.setValue(opt getOrElse null.asInstanceOf[V]))
+    }
+    def thunk = _thunk
+    def process(entry: Entry[K, V]): Object = _thunk(new OptEntry(entry)) match {
       case null | _: Unit => null
       case value => value.asInstanceOf[Object]
     }
