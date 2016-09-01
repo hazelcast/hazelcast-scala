@@ -119,8 +119,7 @@ final class HzHazelcastInstance(hz: HazelcastInstance) extends MemberEventSubscr
     *  NOTICE: This is marked as deprecated to indicate that
     *  it may be removed in a future version, pending feedback.
     */
-  @deprecated
-  def getByteArrayMap[K, V <: AnyRef: ByteArraySerializer: ClassTag](name: String): IMap[K, V] = {
+  def getBinaryMap[K, V <: AnyRef: ByteArraySerializer: ClassTag](name: String): IMap[K, V] = {
     val imap = hz.getMap[K, Array[Byte]](name)
     imap.addInterceptor(new ByteArrayInterceptor[V])
     imap.asInstanceOf[IMap[K, V]]
