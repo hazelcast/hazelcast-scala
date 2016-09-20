@@ -1,24 +1,19 @@
 package com.hazelcast.Scala.jcache
 
-import scala.collection.concurrent.TrieMap
 import scala.collection.JavaConverters._
+import scala.collection.concurrent.TrieMap
+import scala.concurrent.{ ExecutionContext, Future }
 import scala.reflect.{ ClassTag, classTag }
 import scala.util.Try
 
 import com.hazelcast.Scala._
 import com.hazelcast.cache.ICache
 import com.hazelcast.cache.impl.HazelcastServerCachingProvider
-import com.hazelcast.core._
+import com.hazelcast.core.{ HazelcastInstance, IExecutorService }
 import com.hazelcast.core.LifecycleEvent.LifecycleState
-import com.hazelcast.instance.GroupProperty
-import com.hazelcast.instance.HazelcastProperty
+import com.hazelcast.spi.properties.{ GroupProperty, HazelcastProperty }
 
 import javax.cache.CacheManager
-import javax.cache.spi.CachingProvider
-import com.hazelcast.cache.impl.ICacheService
-import com.hazelcast.cache.impl.CacheDistributedObject
-import com.hazelcast.client.cache.impl.ClientCacheDistributedObject
-import scala.concurrent.Future
 
 private object JCacheHazelcastInstance {
   val CacheManagers = new TrieMap[HazelcastInstance, CacheManager]
