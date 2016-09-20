@@ -5,7 +5,9 @@ buildscript {
 }
 
 plugins {
-    id "com.jfrog.bintray" version "1.7"
+    id 'com.jfrog.bintray' version "1.7"
+    id 'scala'
+    id 'maven-publish'
 }
 
 ext {
@@ -18,9 +20,6 @@ ext {
     vObjenesis = '2.4'
     vLz4 = '1.3.0'
 }
-
-apply plugin: "scala"
-apply plugin: "maven-publish"
 
 sourceCompatibility = 1.7
 targetCompatibility = 1.7
