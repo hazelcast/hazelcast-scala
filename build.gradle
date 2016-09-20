@@ -15,7 +15,7 @@ ext {
     vScalaTest = '3.0.0-RC4' //'2.2.6'
     vScala = '2.11'
     vScalaFull = "$vScala.8"
-    vHazelcast = '3.6.4'
+    vHazelcast = '3.7.+'
     vKryo = '3.0.3'
     vObjenesis = '2.4'
     vLz4 = '1.3.0'
