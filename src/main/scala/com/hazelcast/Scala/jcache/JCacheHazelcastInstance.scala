@@ -48,15 +48,14 @@ class JCacheHazelcastInstance(private val hz: HazelcastInstance) extends AnyVal 
 
   def getLocalCacheNames(): Iterable[String] = getCacheManager().getCacheNames.asScala
 
-  def getClusterCacheNames(exec: IExecutorService, executeOn: Member = null): Future[Iterable[String]] = {
-    val member =
-      if (executeOn != null) ToMember(executeOn)
-      else if (hz.isClient) ToOne
-      else ToLocal
-    exec.submit(member) { hz =>
-      val cacheRef = hz.getDistributedObject[CacheDistributedObject](ICacheService.SERVICE_NAME, "setupRef")
-      cacheRef.getService.getCacheConfigs.asScala.map(_.getName)
+  def getClusterCacheNames(exec: IExecutorService)(
+      implicit ec: ExecutionContext): Future[Iterable[String]] = {
+    val byMember = exec.submit(ToAll) { hz =>
+      hz.getDistributedObjects.iterator.asScala
+        .filter(_.isInstanceOf[javax.cache.Cache[_, _]])
+        .map(_.getName).toVector
     }
+    Future.sequence(byMember.values).map(_.flatten.toSet)
   }
 
   private def getCacheManager[K, V](): CacheManager =
