@@ -2,7 +2,7 @@ package com.hazelcast.Scala.serialization
 
 import java.io.OutputStream
 import com.hazelcast.internal.serialization.impl.ObjectDataInputStream
-import com.hazelcast.internal.serialization.SerializationService
+import com.hazelcast.internal.serialization.{InternalSerializationService => SerializationService}
 import java.util.Arrays
 import java.io.InputStream
 import java.lang.reflect.Field
