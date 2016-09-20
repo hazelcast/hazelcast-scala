@@ -844,13 +844,13 @@ class TestMap extends CleanUp {
     type E = Entry[UUID, Employee]
     val asc = new Comparator[E] with Serializable {
       def compare(a: E, b: E): Int = a.value.salary.compareTo(b.value.salary)
-    }.asInstanceOf[Comparator[Entry[_, _]]]
+    }.asInstanceOf[Comparator[Entry[Any, Any]]]
     val desc = java.util.Collections.reverseOrder(asc)
-    val ppAsc = new PagingPredicate(wellPaid, asc, 10)
+    val ppAsc = new PagingPredicate(wellPaid.asInstanceOf[Predicate[Any, Any]], asc, 10)
     ppAsc.setPage(4)
     val fromJavaAsc = employees.values(ppAsc).asScala.map(_.salary)
     assertEquals(10, fromJavaAsc.size)
-    val ppDesc = new PagingPredicate(wellPaid, desc, 10)
+    val ppDesc = new PagingPredicate(wellPaid.asInstanceOf[Predicate[Any, Any]], desc, 10)
     ppDesc.setPage(3)
     val fromJavaDesc = employees.values(ppDesc).asScala.map(_.salary)
     val entriesFromJavaDesc = employees.entrySet(ppDesc).iterator.asScala.toSeq.map(_.value.salary)

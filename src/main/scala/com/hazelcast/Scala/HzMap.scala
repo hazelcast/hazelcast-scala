@@ -236,8 +236,8 @@ final class HzMap[K, V](protected val imap: IMap[K, V])
         case comp => comp
       }
       def compare(a: Entry[K, V], b: Entry[K, V]): Int = ordering.compare(sortBy(a), sortBy(b))
-    }.asInstanceOf[Comparator[Entry[_, _]]]
-    val pp = new PagingPredicate(pred, comparator, pageSize)
+    }
+    val pp = new PagingPredicate(pred.asInstanceOf[Predicate[K, V]], comparator, pageSize)
     pp.setPage(pageIdx)
     val result = imap.values(pp).asScala
     if (dropValues == 0) result
@@ -254,8 +254,8 @@ final class HzMap[K, V](protected val imap: IMap[K, V])
       }
       def compare(a: Entry[K, V], b: Entry[K, V]): Int =
         ordering.compare(sortBy(a), sortBy(b))
-    }.asInstanceOf[Comparator[Entry[_, _]]]
-    val pp = new PagingPredicate(pred, comparator, pageSize)
+    }
+    val pp = new PagingPredicate(pred.asInstanceOf[Predicate[K, V]], comparator, pageSize)
     pp.setPage(pageIdx)
     val result = imap.entrySet(pp).iterator.asScala.toIterable
     if (dropEntries == 0) result
@@ -272,8 +272,8 @@ final class HzMap[K, V](protected val imap: IMap[K, V])
       }
       def compare(a: Entry[K, V], b: Entry[K, V]): Int =
         ordering.compare(sortBy(a), sortBy(b))
-    }.asInstanceOf[Comparator[Entry[_, _]]]
-    val pp = new PagingPredicate(pred, comparator, pageSize)
+    }
+    val pp = new PagingPredicate(pred.asInstanceOf[Predicate[K, V]], comparator, pageSize)
     pp.setPage(pageIdx)
     val result = (if (localOnly) imap.localKeySet(pp) else imap.keySet(pp)).iterator.asScala.toIterable
     if (dropEntries == 0) result
