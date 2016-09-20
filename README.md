@@ -11,14 +11,12 @@ The hazelcast-scala API is based on Scala 2.11 and Hazelcast 3.6, but does not d
 Add this to your `build.gradle` file:
 
     repositories {
-      maven {
-        url "http://jcenter.bintray.com" 
-      }
+      jcenter()
     }
     dependencies {
       compile "org.scala-lang:scala-reflect:2.11.+"
-      compile "com.hazelcast:hazelcast:3.6.+" // Or :hazelcast-enterprise:
-      compile "com.hazelcast:hazelcast-scala_2.11:3.6.+"
+      compile "com.hazelcast:hazelcast:3.7.+" // Or :hazelcast-enterprise:
+      compile "com.hazelcast:hazelcast-scala_2.11:3.7.+"
     }
 
 ## SBT
