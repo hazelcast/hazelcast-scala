@@ -1,17 +1,15 @@
 package com.hazelcast.Scala.serialization
 
-import java.util.Arrays
+import java.util.{ Arrays, Comparator }
 import java.util.concurrent.Callable
+
 import scala.reflect.ClassTag
-import com.hazelcast.Scala.Aggregator
-import com.hazelcast.Scala.Pipe
-import com.hazelcast.map.EntryBackupProcessor
-import com.hazelcast.map.EntryProcessor
-import com.hazelcast.nio.ObjectDataInput
-import com.hazelcast.nio.ObjectDataOutput
+
+import com.hazelcast.Scala.{ Aggregator, Pipe }
 import com.hazelcast.core.IFunction
+import com.hazelcast.map.{ EntryBackupProcessor, EntryProcessor }
+import com.hazelcast.nio.{ ObjectDataInput, ObjectDataOutput }
 import com.hazelcast.query.Predicate
-import java.util.Comparator
 
 /**
   * Serializers for dynamic execution.
