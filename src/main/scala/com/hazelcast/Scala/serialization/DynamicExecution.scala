@@ -9,6 +9,7 @@ import com.hazelcast.map.EntryBackupProcessor
 import com.hazelcast.map.EntryProcessor
 import com.hazelcast.nio.ObjectDataInput
 import com.hazelcast.nio.ObjectDataOutput
+import com.hazelcast.core.IFunction
 import com.hazelcast.query.Predicate
 import java.util.Comparator
 
@@ -86,5 +87,6 @@ abstract class DynamicExecution extends SerializerEnum(Defaults) {
   val PipeSer: S[Pipe[_]] = new ClassBytesSerializer
   val AggregatorSer: S[Aggregator[_, _]] = new ClassBytesSerializer
   val ComparatorSer: S[Comparator[_]] = new ClassBytesSerializer
+  val IFunctionSer: S[IFunction[_, _]] = new ClassBytesSerializer
 
 }
