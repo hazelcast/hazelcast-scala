@@ -280,26 +280,6 @@ object Defaults extends SerializerEnum(-987654321) {
       new AsyncMap.TTLSetIfAbsentEP(inp.readUTF, inp.readObject[Any], inp.readLong, inp.readObject[TimeUnit])
     }
   }
-  val SetAsyncEPSer = new StreamSerializer[AsyncMap.SetAsyncEP[Any]] {
-    def write(out: ObjectDataOutput, ep: AsyncMap.SetAsyncEP[Any]): Unit = {
-      out.writeObject(ep.value)
-    }
-    def read(inp: ObjectDataInput) = {
-      val value = inp.readObject[Any]
-      new AsyncMap.SetAsyncEP(value)
-    }
-  }
-  val TTLSetAsyncEPSer = new StreamSerializer[AsyncMap.TTLSetAsyncEP[Any]] {
-    def write(out: ObjectDataOutput, ep: AsyncMap.TTLSetAsyncEP[Any]): Unit = {
-      out.writeUTF(ep.mapName)
-      out.writeObject(ep.value)
-      out.writeLong(ep.ttl)
-      out.writeObject(ep.unit)
-    }
-    def read(inp: ObjectDataInput) = {
-      new AsyncMap.TTLSetAsyncEP(inp.readUTF, inp.readObject[Any], inp.readLong, inp.readObject[TimeUnit])
-    }
-  }
   val UpsertEPSer = new StreamSerializer[KeyedDeltaUpdates.UpsertEP[Any]] {
     type EP = KeyedDeltaUpdates.UpsertEP[Any]
     def write(out: ObjectDataOutput, ep: EP): Unit = {

@@ -63,16 +63,12 @@ final class AsyncMap[K, V] private[Scala] (protected val imap: IMap[K, V])
   }
 
   def set(key: K, value: V, ttl: Duration = Duration.Inf): Future[Unit] = {
-    // TODO: Use `setAsync` once available
-    val ep =
-      if (ttl.isFinite && ttl.length > 0) {
-        new AsyncMap.TTLSetAsyncEP(imap.getName, value, ttl.length, ttl.unit)
-      } else {
-        new AsyncMap.SetAsyncEP(value)
-      }
-    val callback = ep.newCallback()
-    imap.submitToKey(key, ep, callback)
-    callback.future
+      implicit def void2unit(v: Void): Unit = ()
+    if (ttl.isFinite && ttl.length > 0) {
+      imap.setAsync(key, value, ttl.length, ttl.unit).asScala
+    } else {
+      imap.setAsync(key, value).asScala
+    }
   }
 
   def remove(key: K): Future[Option[V]] =
@@ -163,20 +159,5 @@ private[Scala] object AsyncMap {
       }
       set
     }
-  }
-  final class TTLSetAsyncEP[V](val mapName: String, val value: V, val ttl: Long, val unit: TimeUnit)
-      extends SingleEntryCallbackReader[Any, V, Unit]
-      with HazelcastInstanceAware {
-    @BeanProperty @transient
-    var hazelcastInstance: HazelcastInstance = _
-    def onEntry(key: Any, existing: V): Unit = {
-      val imap = hazelcastInstance.getMap[Any, V](mapName)
-      imap.set(key, value, ttl, unit)
-    }
-  }
-  final class SetAsyncEP[V](val value: V)
-      extends SingleEntryCallbackUpdater[Any, V, Unit] {
-    def onEntry(entry: Entry[Any, V]): Unit =
-      entry.value = value
   }
 }
