@@ -83,16 +83,19 @@ class TestMap extends CleanUp {
 
   @Test
   def asyncSet {
-    val map = getClientMap[Int, String]()
-    map.async.set(5, "Hello").await
-    assertEquals("Hello", map.get(5))
-    map.async.set(5, "World").await
-    assertEquals("World", map.get(5))
-    map.async.set(5, "Doh!", 10.seconds).await
-    assertEquals("Doh!", map.get(5))
-    map.async.set(5, "TTL", 1.second).await
-    Thread sleep 1000
-    assertNull(map.get(5))
+      def asyncSet(map: IMap[Int, String]) {
+        map.async.set(5, "Hello").await
+        assertEquals("Hello", map.get(5))
+        map.async.set(5, "World").await
+        assertEquals("World", map.get(5))
+        map.async.set(5, "Doh!", 10.seconds).await
+        assertEquals("Doh!", map.get(5))
+        map.async.set(5, "TTL", 1.second).await
+        Thread sleep 1000
+        assertNull(map.get(5))
+      }
+    asyncSet(getClientMap[Int, String]())
+    asyncSet(getMemberMap[Int, String]())
   }
 
   @Test

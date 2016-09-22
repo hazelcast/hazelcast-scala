@@ -61,13 +61,12 @@ final class AsyncMap[K, V] private[Scala] (protected val imap: IMap[K, V])
     imap.submitToKey(key, ep, callback)
     callback.future
   }
-
+  private[this] val any2unit = (any: Any) => ()
   def set(key: K, value: V, ttl: Duration = Duration.Inf): Future[Unit] = {
-      implicit def void2unit(v: Void): Unit = ()
     if (ttl.isFinite && ttl.length > 0) {
-      imap.setAsync(key, value, ttl.length, ttl.unit).asScala
+      imap.setAsync(key, value, ttl.length, ttl.unit).asScala(any2unit)
     } else {
-      imap.setAsync(key, value).asScala
+      imap.setAsync(key, value).asScala(any2unit)
     }
   }
 
