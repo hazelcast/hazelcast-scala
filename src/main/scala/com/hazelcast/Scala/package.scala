@@ -25,6 +25,7 @@ import query.PredicateBuilder
 import query.Predicates
 import query.SqlPredicate
 import ringbuffer.Ringbuffer
+import durableexecutor.DurableExecutorService
 
 package Scala {
 
@@ -92,6 +93,7 @@ package Scala {
     @inline implicit def partsvc2scala(ps: PartitionService) = new HzPartitionService(ps)
     @inline implicit def topic2scala[T](topic: ITopic[T]) = new HzTopic(topic)
     @inline implicit def exec2scala(exec: IExecutorService) = new HzExecutorService(exec)
+    @inline implicit def durexec2scala(exec: DurableExecutorService) = new HzDurableExecutorService(exec)
     @inline implicit def dds2numDds[N: Numeric](dds: DDS[N]): NumericDDS[N] = dds match {
       case dds: MapDDS[_, _, N] => new NumericMapDDS(dds)
     }
