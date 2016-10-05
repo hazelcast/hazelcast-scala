@@ -31,5 +31,5 @@ private[Scala] abstract class SingleEntryCallbackUpdater[K, V, R]
     extends SingleEntryCallbackProcessor[K, V, R]
     with EntryBackupProcessor[K, V] {
   final def getBackupProcessor = this
-  final def processBackup(entry: Entry[K, V]): Unit = onEntry(entry)
+  def processBackup(entry: Entry[K, V]): Unit = onEntry(entry)
 }
