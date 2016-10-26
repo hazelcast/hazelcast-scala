@@ -103,6 +103,10 @@ class HzMemberProperties(conf: Config) extends HzProperties(conf) {
   def setHealthMonitoringInterval(interval: FiniteDuration): Config = set(HEALTH_MONITORING_DELAY_SECONDS, interval.toSeconds)
   /** @see com.hazelcast.instance.GroupProperty.HEALTH_MONITORING_LEVEL */
   def setHealthMonitoringLevel(level: HealthMonitorLevel): Config = set(HEALTH_MONITORING_LEVEL, level.name)
+  /** @see com.hazelcast.instance.GroupProperty.HEALTH_MONITORING_THRESHOLD_MEMORY_PERCENTAGE */
+  def setHealthMonitoringMemoryThreshold(percentage: Byte): Config = set(HEALTH_MONITORING_THRESHOLD_MEMORY_PERCENTAGE, percentage)
+  /** @see com.hazelcast.instance.GroupProperty.HEALTH_MONITORING_THRESHOLD_CPU_PERCENTAGE */
+  def setHealthMonitoringCpuThreshold(percentage: Byte): Config = set(HEALTH_MONITORING_THRESHOLD_CPU_PERCENTAGE, percentage)
   /** @see com.hazelcast.instance.GroupProperty.HEARTBEAT_INTERVAL_SECONDS */
   def setHeartbeatInterval(interval: FiniteDuration): Config = set(HEARTBEAT_INTERVAL_SECONDS, interval.toSeconds)
   /** @see com.hazelcast.instance.GroupProperty.ICMP_ENABLED */
