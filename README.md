@@ -1,7 +1,7 @@
 [![Build Status](https://drone.io/github.com/hazelcast/hazelcast-scala/status.png)](https://drone.io/github.com/hazelcast/hazelcast-scala)
 [![Scala version](https://img.shields.io/badge/scala-2.11-orange.svg)](http://www.scala-lang.org/api/2.11.8/)
 [![Join Chat at https://gitter.im/hazelcast/hazelcast-scala](https://badges.gitter.im/Join%20Chat.svg)](https://gitter.im/hazelcast/hazelcast-scala)
-[![Download](https://api.bintray.com/packages/nilskp/maven/hazelcast-scala/images/download.svg)](https://bintray.com/nilskp/maven/hazelcast-scala/_latestVersion#files)
+[![Download](https://api.bintray.com/packages/hazelcast/maven/hazelcast-scala/images/download.svg)](https://bintray.com/hazelcast/maven/hazelcast-scala/_latestVersion#files)
 
 # Installation
 
