@@ -1,5 +1,12 @@
 /bin/
 *.iml
 *.idea
-/.*
+.project
+.classpath
+.cache-main
 /build/
+.gradle
+.settings
+.worksheet
+/out/
+
