@@ -11,17 +11,26 @@ plugins {
 }
 
 ext {
+    latestScalaFull = [
+        '2.11': '2.11.12',
+        '2.12': '2.12.4'
+    ]
+
     vJUnit = '4.12'
-    vScala = '2.11'
-    vScalaFull = "$vScala.8"
-    vHazelcast = '3.7.+'
-    vKryo = '3.0.+'
-    vObjenesis = '2.+'
+    vScala = System.properties.scalaVersion ?: '2.11'
+    vScalaFull = latestScalaFull[vScala]
+    vHazelcast = '3.9'
+    vKryo = '4.0.1'
+    vObjenesis = '2.6'
     vLz4 = '1.4.0'
 }
 
 sourceCompatibility = 1.7
-targetCompatibility = 1.7
+if (vScala == '2.11') {
+    targetCompatibility = 1.7
+} else {
+    targetCompatibility = 1.8
+}
 
 task wrapper(type: Wrapper) {
     gradleVersion = '4.3.1'
