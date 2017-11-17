@@ -19,6 +19,11 @@ sealed abstract class HzProperties[C <: { def setProperty(k: String, v: String):
     case null => conf.setProperty(key.getName, null)
     case _ => conf.setProperty(key.getName, value.toString)
   }
+  @deprecated("deprecate caller", since="3.9")
+  protected final def set(key: String, value: Any): C = value match {
+    case null => conf.setProperty(key, null)
+    case _ => conf.setProperty(key, value.toString)
+  }
   /** @see com.hazelcast.instance.GroupProperty.LOGGING_TYPE */
   def setLoggingType(lt: String): C = set(LOGGING_TYPE, lt)
 }
@@ -45,16 +50,16 @@ class HzClientProperties(conf: ClientConfig) extends HzProperties(conf) {
 class HzMemberProperties(conf: Config) extends HzProperties(conf) {
   import com.hazelcast.spi.properties.GroupProperty._
 
-  /** @see com.hazelcast.instance.GroupProperty.SYSTEM_LOG_ENABLED */
-  def setSystemLogEnabled(enabled: Boolean): Config = set(SYSTEM_LOG_ENABLED, enabled)
+  @deprecated("Removed in 3.9", since="3.9.0")
+  def setSystemLogEnabled(enabled: Boolean): Config = set("hazelcast.system.log.enabled", enabled)
   /** @see com.hazelcast.instance.GroupProperty.SERIALIZATION_VERSION */
   def setSerializationVersion(version: Byte): Config = set(SERIALIZATION_VERSION, version)
   /** @see com.hazelcast.instance.GroupProperty.QUERY_PREDICATE_PARALLEL_EVALUATION */
   def setQueryPredicateParallelEvaluation(enabled: Boolean): Config = set(QUERY_PREDICATE_PARALLEL_EVALUATION, enabled)
   /** @see com.hazelcast.instance.GroupProperty.QUERY_OPTIMIZER_TYPE */
   def setQueryOptimizerType(typ: QueryOptimizerFactory.Type): Config = set(QUERY_OPTIMIZER_TYPE, typ.name)
-  /** @see com.hazelcast.instance.GroupProperty.PARTITION_MIGRATION_ZIP_ENABLED */
-  def setPartitionMigrationZipEnabled(enabled: Boolean): Config = set(PARTITION_MIGRATION_ZIP_ENABLED, enabled)
+  @deprecated("Removed in 3.9", since="3.9.0")
+  def setPartitionMigrationZipEnabled(enabled: Boolean): Config = set("hazelcast.partition.migration.zip.enabled", enabled)
   /** @see com.hazelcast.instance.GroupProperty.LOCK_MAX_LEASE_TIME_SECONDS */
   def setLockMaxLeaseTime(maxLease: FiniteDuration): Config = set(LOCK_MAX_LEASE_TIME_SECONDS, maxLease.toSeconds)
   /** @see com.hazelcast.instance.GroupProperty.DISCOVERY_SPI_ENABLED */
@@ -83,6 +88,10 @@ class HzMemberProperties(conf: Config) extends HzProperties(conf) {
   def setBackpressureSyncWindow(window: Int): Config = set(BACKPRESSURE_SYNCWINDOW, window)
   /** @see com.hazelcast.instance.GroupProperty.CLIENT_ENGINE_THREAD_COUNT */
   def setClientEngineThreadCount(size: Int): Config = set(CLIENT_ENGINE_THREAD_COUNT, size)
+  /** @see com.hazelcast.instance.GroupProperty.CLIENT_ENGINE_QUERY_THREAD_COUNT */
+  def setClientEngineQueryThreadCount(size: Int): Config = set(CLIENT_ENGINE_QUERY_THREAD_COUNT, size)
+  /** @see com.hazelcast.instance.GroupProperty.CLIENT_ENDPOINT_REMOVE_DELAY_SECONDS */
+  def setClientEndpointRemoveDelay(delay: FiniteDuration): Config = set(CLIENT_ENDPOINT_REMOVE_DELAY_SECONDS, delay.toSeconds)
   /** @see com.hazelcast.instance.GroupProperty.CONNECT_ALL_WAIT_SECONDS */
   def setConnectAllWait(wait: FiniteDuration): Config = set(CONNECT_ALL_WAIT_SECONDS, wait.toSeconds)
   /** @see com.hazelcast.instance.GroupProperty.CONNECTION_MONITOR_INTERVAL */
@@ -94,6 +103,8 @@ class HzMemberProperties(conf: Config) extends HzProperties(conf) {
   def setEventQueueCapacity(capacity: Int): Config = set(EVENT_QUEUE_CAPACITY, capacity)
   /** @see com.hazelcast.instance.GroupProperty.EVENT_QUEUE_TIMEOUT_MILLIS */
   def setEventQueueTimeout(timeout: FiniteDuration): Config = set(EVENT_QUEUE_TIMEOUT_MILLIS, timeout.toMillis)
+  /** @see @see com.hazelcast.instance.GroupProperty.EVENT_SYNC_TIMEOUT_MILLIS */
+  def setEventSyncTimeout(timeout: FiniteDuration): Config = set(EVENT_SYNC_TIMEOUT_MILLIS, timeout.toMillis)
   /** @see com.hazelcast.instance.GroupProperty.EVENT_THREAD_COUNT */
   def setEventThreadCount(threads: Int): Config = set(EVENT_THREAD_COUNT, threads)
   /** @see com.hazelcast.instance.GroupProperty.GRACEFUL_SHUTDOWN_MAX_WAIT */
@@ -126,8 +137,9 @@ class HzMemberProperties(conf: Config) extends HzProperties(conf) {
   def setJCacheProviderType(providerType: String): Config = set(JCACHE_PROVIDER_TYPE, providerType)
   /** @see com.hazelcast.instance.GroupProperty.ENABLE_JMX */
   def setJmxEnabled(enabled: Boolean): Config = set(ENABLE_JMX, enabled)
-  /** @see com.hazelcast.instance.GroupProperty.ENABLE_JMX_DETAILED */
-  def setJmxDetailed(detailed: Boolean): Config = set(ENABLE_JMX_DETAILED, detailed)
+  /** @deprecated */
+  @deprecated("Removed in 3.9", since="3.9.0")
+  def setJmxDetailed(detailed: Boolean): Config = set("hazelcast.jmx.detailed", detailed)
   /** @see com.hazelcast.instance.GroupProperty.JMX_UPDATE_INTERVAL_SECONDS */
   def setJmxUpdateInterval(interval: FiniteDuration): Config = set(JMX_UPDATE_INTERVAL_SECONDS, interval.toSeconds)
   /** @see com.hazelcast.instance.GroupProperty.MAP_EXPIRY_DELAY_SECONDS */
@@ -170,6 +182,8 @@ class HzMemberProperties(conf: Config) extends HzProperties(conf) {
   def setOperationCallTimeout(timeout: FiniteDuration): Config = set(OPERATION_CALL_TIMEOUT_MILLIS, timeout.toMillis)
   /** @see com.hazelcast.instance.GroupProperty.GENERIC_OPERATION_THREAD_COUNT */
   def setGenericOperationThreadCount(threads: Int): Config = set(GENERIC_OPERATION_THREAD_COUNT, threads)
+  /** @see com.hazelcast.instance.GroupProperty.PRIORITY_GENERIC_OPERATION_THREAD_COUNT */
+  def setGenericPriorityOperationThreadCount(threads: Int): Config = set(PRIORITY_GENERIC_OPERATION_THREAD_COUNT, threads)
   /** @see com.hazelcast.instance.GroupProperty.PARTITION_OPERATION_THREAD_COUNT */
   def setPartitionOperationThreadCount(threads: Int): Config = set(PARTITION_OPERATION_THREAD_COUNT, threads)
   /** @see com.hazelcast.instance.GroupProperty.PARTITION_BACKUP_SYNC_INTERVAL */
@@ -193,7 +207,10 @@ class HzMemberProperties(conf: Config) extends HzProperties(conf) {
   /** @see com.hazelcast.instance.GroupProperty.QUERY_RESULT_SIZE_LIMIT */
   def setQueryResultSizeLimit(limit: Int): Config = set(QUERY_RESULT_SIZE_LIMIT, limit)
   /** @see com.hazelcast.instance.GroupProperty.REST_ENABLED */
+  @deprecated("Use setHttpEnabled instead", since="3.9.0")
   def setRESTEnabled(enabled: Boolean): Config = set(REST_ENABLED, enabled)
+  /** @see com.hazelcast.instance.GroupProperty.REST_ENABLED */
+  def setHttpEnabled(enabled: Boolean): Config = set(REST_ENABLED, enabled)
   /** @see com.hazelcast.instance.GroupProperty.SHUTDOWNHOOK_ENABLED */
   def setShutdownHookEnabled(enabled: Boolean): Config = set(SHUTDOWNHOOK_ENABLED, enabled)
   /** @see com.hazelcast.instance.GroupProperty.SLOW_OPERATION_DETECTOR_ENABLED */
@@ -236,6 +253,8 @@ class HzMemberProperties(conf: Config) extends HzProperties(conf) {
   def setWaitBeforeJoin(wait: FiniteDuration): Config = set(WAIT_SECONDS_BEFORE_JOIN, wait.toSeconds)
   /** @see com.hazelcast.instance.GroupProperty.PHONE_HOME_ENABLED */
   def setPhoneHomeEnabled(enabled: Boolean): Config = set(PHONE_HOME_ENABLED, enabled)
+  /** @see com.hazelcast.instance.GroupProperty.HTTP_HEALTHCHECK_ENABLED */
+  def setHttpHealthcheckEnabled(enabled: Boolean): Config = set(HTTP_HEALTHCHECK_ENABLED, enabled)
 
   /** @see com.hazelcast.instance.GroupProperty.MAP_INVALIDATION_MESSAGE_BATCH_ENABLED */
   def setIMapNearCacheInvalidationBatchEnabled(enabled: Boolean): Config = set(MAP_INVALIDATION_MESSAGE_BATCH_ENABLED, enabled)
