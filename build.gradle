@@ -1,6 +1,6 @@
 buildscript {
     repositories {
-        mavenCentral()
+        jcenter()
     }
 }
 
@@ -40,7 +40,7 @@ def tsVersion(version) {
 }
 
 repositories {
-    mavenCentral()
+    jcenter()
 }
 
 dependencies {
