@@ -51,12 +51,12 @@ class TestMap extends CleanUp {
 
   @Test
   def fastAccess {
-    assertTrue(HackIntegrityTesting.verifyFastAccess(getMemberMap()))
+    assertTrue(HackIntegrityTesting.verifyFastAccess(member.getMap(randName)))
   }
 
   @Test
   def upsert {
-    val map = getClientMap[UUID, Int]()
+    val map = client.getMap[UUID, Int](randName)
     DeltaUpdateTesting.testUpsert(map, key => Option(map.get(key)), key => map.remove(key))
     map.clear()
     val exec = client.getExecutorService("default")
@@ -65,7 +65,7 @@ class TestMap extends CleanUp {
 
   @Test
   def asyncPutIfAbsent {
-    val map = getClientMap[Int, String]()
+    val map = client.getMap[Int, String](randName)
     val firstPut = map.async.putIfAbsent(5, "Hello").await
     assertEquals(None, firstPut)
     val secondPut = map.async.putIfAbsent(5, "World").await
@@ -94,13 +94,13 @@ class TestMap extends CleanUp {
         Thread sleep 1000
         assertNull(map.get(5))
       }
-    asyncSet(getClientMap[Int, String]())
-    asyncSet(getMemberMap[Int, String]())
+    asyncSet(client.getMap[Int, String](randName))
+    asyncSet(member.getMap[Int, String](randName))
   }
 
   @Test
   def asyncUpdateIfPresent {
-    val map = getClientMap[String, Int]()
+    val map = client.getMap[String, Int](randName)
     val fi = map.async.update("foo")(_ + 1)
     val latch = new CountDownLatch(1)
     fi.onComplete {
@@ -113,7 +113,7 @@ class TestMap extends CleanUp {
   }
   @Test
   def update {
-    val map = getClientMap[UUID, Int]()
+    val map = client.getMap[UUID, Int](randName)
       def moreTests(runOn: IExecutorService = null) {
         (1 to 10) foreach { _ =>
           map.set(UUID.randomUUID, 5)
@@ -140,7 +140,7 @@ class TestMap extends CleanUp {
   }
   @Test
   def asyncUpdateWithDefault {
-    val map = getClientMap[String, Int]()
+    val map = client.getMap[String, Int](randName)
     val fi = map.async.upsertAndGet("foo", 1)(_ + 1)
     val latch = new CountDownLatch(2)
     fi.onComplete {
@@ -159,7 +159,7 @@ class TestMap extends CleanUp {
   }
   @Test
   def syncUpdateWithDefault {
-    val map = getClientMap[String, Int]()
+    val map = client.getMap[String, Int](randName)
     val latch = new CountDownLatch(4)
     val reg = map.filterKeys("foo").onEntryEvents() {
       case EntryAdded(key, value) =>
@@ -200,10 +200,10 @@ class TestMap extends CleanUp {
 
   @Test
   def entryTest {
-    val clientMap = getClientMap[String, Int]()
+    val clientMap = client.getMap[String, Int](randName)
     entryTest(clientMap)
     clientMap.clear()
-    entryTest(getMemberMap[String, Int](clientMap.getName))
+    entryTest(member.getMap[String, Int](clientMap.getName))
   }
   private def entryTest(map: IMap[String, Int]) {
     val isFactor37 = (c: Int) => c % 37 == 0
@@ -257,7 +257,7 @@ class TestMap extends CleanUp {
 
   @Test(expected = classOf[ArithmeticException])
   def divByZero {
-    val map = getClientMap[String, Int]()
+    val map = client.getMap[String, Int](randName)
     map.put("foo", 42)
     assertTrue(map.update("foo")(_ - 2))
     assertEquals(map.get("foo"), 40)
@@ -266,7 +266,7 @@ class TestMap extends CleanUp {
 
   @Test
   def summation {
-    val map = getClientMap[String, MyNumber]()
+    val map = client.getMap[String, MyNumber](randName)
     for (i <- 1 to 200) {
       val n = MyNumber(i)
       map.set(n.toString, n)
@@ -279,7 +279,7 @@ class TestMap extends CleanUp {
 
   @Test
   def `min & max` {
-    val map = getClientMap[String, Long]()
+    val map = client.getMap[String, Long](randName)
     assertEquals(None, map.map(_.value).minMax.await)
     for (n <- 1L to 500L) {
       map.set(n.toString, n)
@@ -298,7 +298,7 @@ class TestMap extends CleanUp {
   }
   @Test
   def mean {
-    val map = getClientMap[String, Int]()
+    val map = client.getMap[String, Int](randName)
     assertTrue(map.map(_.value).mean().await.isEmpty)
     for (n <- 1 to 4) map.set(n.toString, n)
     val intAvg = map.map(_.value).mean.await.get
@@ -310,8 +310,8 @@ class TestMap extends CleanUp {
   @Test
   def distribution {
     val iterations = 100
-    val memberMap = getMemberMap[Int, String]()
-    val clientMap = getClientMap[Int, String]()
+    val memberMap = member.getMap[Int, String](randName)
+    val clientMap = client.getMap[Int, String](randName)
     for (i <- 1 to iterations) {
       distribution(clientMap, i == iterations)
       distribution(memberMap, i == iterations)
@@ -348,7 +348,7 @@ class TestMap extends CleanUp {
 
   @Test
   def `sql pred` {
-    val map = getClientMap[UUID, Employee]()
+    val map = client.getMap[UUID, Employee](randName)
     (1 to 1000) foreach { i =>
       val emp = Employee.random
       map.set(emp.id, emp)
@@ -377,7 +377,7 @@ class TestMap extends CleanUp {
 
   @Test
   def `getAs` {
-    val map = getClientMap[UUID, Employee]()
+    val map = client.getMap[UUID, Employee](randName)
     val emp = Employee.random
     map.set(emp.id, emp)
     val age = map.getAs(emp.id)(_.age).get
@@ -398,7 +398,7 @@ class TestMap extends CleanUp {
     memberConfig.getMapConfig(mapName)
       .addMapIndexConfig(new MapIndexConfig("salary", true))
       .setInMemoryFormat(InMemoryFormat.OBJECT)
-    val clientMap = getClientMap[UUID, Employee](mapName)
+    val clientMap = client.getMap[UUID, Employee](mapName)
 
     var allSalaries = 0L
     var empCount = 0
@@ -479,7 +479,7 @@ class TestMap extends CleanUp {
 
   @Test
   def median {
-    val strMap = getClientMap[String, String]()
+    val strMap = client.getMap[String, String](randName)
     val strValues = strMap.map(_.value)
     assertEquals(None, strValues.medianValues.await)
     strMap.set("a", "a") // 1:[0:"a"]
@@ -511,7 +511,7 @@ class TestMap extends CleanUp {
     strMap.set("c4", "c") // 10:[0:"b", 1:"c", 2:"c", 3:"c", 4:"c", 5:"d", 6:"d", 7:"e", 8:"e", 9:"e"]
     assertEquals(Some(("c", "d")), strValues.medianValues.await)
 
-    val intMap = getClientMap[String, Int]()
+    val intMap = client.getMap[String, Int](randName)
     val intValues = intMap.map(_.value)
     assertEquals(None, intValues.median().await)
     intMap.set("1", 1)
@@ -547,7 +547,7 @@ class TestMap extends CleanUp {
       val y = Random.nextInt(10)
       localMap.put(x, y)
     }
-    val map = getClientMap[X, Y]()
+    val map = client.getMap[X, Y](randName)
     map.putAll(localMap)
     val values = map.map(_.value)
     val dist = values.distribution.await
@@ -581,7 +581,7 @@ class TestMap extends CleanUp {
   @Test
   def `wordcount: alice in wonderland` {
     val WordFinder = """(\w|(?:'s)|(?:'t))+""".r
-    val aliceChapters = getClientMap[String, String]("alice")
+    val aliceChapters = client.getMap[String, String]("alice")
     val aliceSrc = Source.fromInputStream(getClass.getResourceAsStream("/alice.txt"), "UTF-8")
     val sb = new java.lang.StringBuilder
     var currChapter: Option[String] = None
@@ -623,7 +623,7 @@ class TestMap extends CleanUp {
 
   @Test
   def `wordcount: flatland` {
-    val flatlandChapters = getClientMap[String, String]("flatland")
+    val flatlandChapters = client.getMap[String, String]("flatland")
     val flatlandSrc = Source.fromInputStream(getClass.getResourceAsStream("/flatland.txt"), "UTF-8")
     val sb = new java.lang.StringBuilder
     var currChapter: String = "PREFACE"
@@ -692,7 +692,7 @@ class TestMap extends CleanUp {
       val max = fields(2).toFloat
       localWeather.put(date, Weather(min, max))
     }
-    val milanWeather = getClientMap[Date, Weather]()
+    val milanWeather = client.getMap[Date, Weather](randName)
     milanWeather.putAll(localWeather)
     val monthYearMax = milanWeather.map { entry =>
       val yearMonthFmt = new java.text.SimpleDateFormat("MMyyyy")
@@ -739,7 +739,7 @@ class TestMap extends CleanUp {
   @Test
   def `key events` {
     val q = new LinkedBlockingQueue[String]
-    val map = getClientMap[Int, String]()
+    val map = client.getMap[Int, String](randName)
     // Value mapping doesn't work, and probably would be weird?
     val reg = map.filterKeys(42, 43, 44).mapValues(_.toUpperCase).onEntryEvents() {
       case EntryAdded(key, value) => q offer value
@@ -754,7 +754,7 @@ class TestMap extends CleanUp {
 
   @Test
   def variance {
-    val bdMap = getClientMap[Int, BigDecimal]()
+    val bdMap = client.getMap[Int, BigDecimal](randName)
     1 to 120 foreach { n =>
       bdMap.set(n, n)
     }
@@ -773,7 +773,7 @@ class TestMap extends CleanUp {
       assertEquals(BigDecimal(77.5d), variance.setScale(1, HALF_EVEN))
     }
 
-    val dMap = getClientMap[String, Double]()
+    val dMap = client.getMap[String, Double](randName)
     val marks = Seq(2, 4, 4, 4, 5, 5, 7, 9).map(_.toDouble)
     val keys = marks.zipWithIndex.foldLeft(Set.empty[String]) {
       case (keys, (m, idx)) =>
@@ -803,7 +803,7 @@ class TestMap extends CleanUp {
     val localValues = (1 to 10000).map(_ => Random.nextInt(90) + (Random.nextDouble + 10d)).map(BigDecimal(_))
     val m = localValues.sum / localValues.size
     val localVariance = localValues.map(n => (n - m) * (n - m)).sum / localValues.size
-    val numMap = localValues.foldLeft(getClientMap[UUID, BigDecimal]()) {
+    val numMap = localValues.foldLeft(client.getMap[UUID, BigDecimal](randName)) {
       case (map, bd) => map.set(UUID.randomUUID, bd); map
     }
     val hzVarianceDbl = numMap.map(_.value.toDouble).variance().await.get
@@ -814,7 +814,7 @@ class TestMap extends CleanUp {
 
   @Test
   def `sorted dds` {
-    val mymap = getClientMap[String, Int]()
+    val mymap = client.getMap[String, Int](randName)
     ('a' to 'z') foreach { c =>
       mymap.set(c.toString, c - 'a')
     }
@@ -837,7 +837,7 @@ class TestMap extends CleanUp {
     import java.util.Comparator
     import com.hazelcast.query.PagingPredicate
 
-    val employees = (1 to 1000).foldLeft(getClientMap[UUID, Employee]()) {
+    val employees = (1 to 1000).foldLeft(client.getMap[UUID, Employee](randName)) {
       case (employees, _) =>
         val emp = Employee.random
         employees.set(emp.id, emp)
@@ -871,7 +871,7 @@ class TestMap extends CleanUp {
 
   @Test
   def stringLengthMinMax1() {
-    val strMap = getClientMap[Int, String]()
+    val strMap = client.getMap[Int, String](randName)
     strMap.set(1, "abc")
     strMap.set(2, "abc")
     strMap.set(3, "abcdefghijklmnop")
@@ -901,7 +901,7 @@ class TestMap extends CleanUp {
     }
     val byLength = localMap.asScala.toSeq.groupBy(_._2.length)
     val (maxLength, withMaxLength) = byLength.toSeq.sortBy(_._1).reverse.head
-    val strMap = getClientMap[SomeKey, String]()
+    val strMap = client.getMap[SomeKey, String](randName)
     strMap.putAll(localMap)
     for (i <- -5 to 5) {
       val (bySort, bySortTime) = timed()(strMap.sortBy(_.value.length).reverse.take(1).values.await.head)
@@ -920,7 +920,7 @@ class TestMap extends CleanUp {
   def aggregateToMap() {
     var localSum = 0L
     var localCount = 0
-    val employees = (1 to 50000).foldLeft(getClientMap[UUID, Employee]()) {
+    val employees = (1 to 50000).foldLeft(client.getMap[UUID, Employee](randName)) {
       case (employees, _) =>
         val emp = Employee.random
         localSum += emp.salary
@@ -936,7 +936,7 @@ class TestMap extends CleanUp {
     assertEquals(localSum, remoteSum)
     assertEquals(localCount, remoteCount)
 
-    val resultMap = getClientMap[String, (Long, Int)]()
+    val resultMap = client.getMap[String, (Long, Int)](randName)
     val resultKey = "salarySumCount"
     resultMap.delete(resultKey)
     employees.map(_.value).aggregateInto(resultMap, resultKey)(0L -> 0)({
@@ -948,7 +948,7 @@ class TestMap extends CleanUp {
     assertEquals(localSum, sum)
     assertEquals(localCount, count)
 
-    val resultsByAge = getClientMap[Int, (Long, Int)]()
+    val resultsByAge = client.getMap[Int, (Long, Int)](randName)
     val ages = employees.map(_.value).groupBy(_.age).aggregateInto(resultsByAge)(0L -> 0)({
       case ((sum, count), emp) => (sum + emp.salary) -> (count + 1)
     }, {
@@ -971,7 +971,7 @@ class TestMap extends CleanUp {
     hzs.foreach { hz =>
       hz.userCtx(Entries) = new collection.concurrent.TrieMap[Int, String]
     }
-    val imap = getClientMap[Int, String]()
+    val imap = client.getMap[Int, String](randName)
     (0 to 5000) foreach { i =>
       imap.set(i, (i * 37).toString)
     }
@@ -991,7 +991,7 @@ class TestMap extends CleanUp {
 
   @Test
   def `on key(s)` {
-    val myMap = getClientMap[String, Int]()
+    val myMap = client.getMap[String, Int](randName)
     (1 to 2500) foreach { i =>
       myMap.set(i.toString, i * 271)
     }
@@ -1066,7 +1066,7 @@ class TestMap extends CleanUp {
     hzs.foreach { hz =>
       hz.getConfig.getMapConfig(name).getMapStoreConfig.setImplementation(mapStore).setEnabled(true)
     }
-    val map = getMemberMap[String, String](name)
+    val map = member.getMap[String, String](name)
     try {
       map.set("Hello", "world")
       fail("Should throw exception")
@@ -1083,7 +1083,7 @@ class TestMap extends CleanUp {
 
   @Test
   def `more async` {
-    val employees = getClientMap[UUID, Employee]()
+    val employees = client.getMap[UUID, Employee](randName)
     1 to 1000 foreach { _ =>
       val emp = Employee.random
       val dur = if (emp.age % 2 == 0) Duration.Inf else 90.seconds
@@ -1110,7 +1110,7 @@ class TestMap extends CleanUp {
 
   @Test
   def `update and return` {
-    val employees = getClientMap[UUID, Employee]()
+    val employees = client.getMap[UUID, Employee](randName)
     val randEmp = Employee.random
     val key = randEmp.id
     employees.set(key, randEmp)
@@ -1127,7 +1127,7 @@ class TestMap extends CleanUp {
   }
   @Test
   def `add and remove by EP` {
-    val employees = getClientMap[UUID, Employee]()
+    val employees = client.getMap[UUID, Employee](randName)
     val randEmp1 = Employee.random
     val key1 = randEmp1.id
     employees.set(key1, randEmp1)

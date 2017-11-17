@@ -2,22 +2,19 @@ package joe.schmoe
 
 import java.util.UUID
 
-import scala.concurrent.ExecutionContext
-import scala.concurrent.duration._
-import scala.reflect.ClassTag
-
-import org.junit._
-
 import com.hazelcast.Scala._
 import com.hazelcast.Scala.client._
-import com.hazelcast.cache.ICache
 import com.hazelcast.client.config.ClientConfig
 import com.hazelcast.config.Config
 import com.hazelcast.core.HazelcastInstance
-import com.hazelcast.core.IMap
 import com.hazelcast.instance.HazelcastInstanceFactory
+import org.junit._
+
+import scala.concurrent.ExecutionContext
+import scala.concurrent.duration._
 
 trait ClusterSetup {
+  def randName: String = randomString(50)
 
   implicit def ec = ExecutionContext.global
 
@@ -25,6 +22,7 @@ trait ClusterSetup {
   implicit def hzs = _hzs
   private[this] var _client: HazelcastInstance = _
   def client = _client
+  def member = hzs(0)
 
   def clusterSize = 3
 
@@ -66,23 +64,6 @@ trait ClusterSetup {
     destroy()
     _client.shutdown
     HazelcastInstanceFactory.terminateAll()
-  }
-
-  private def contextName: String = {
-    val st = Thread.currentThread().getStackTrace.drop(1)
-    st.dropWhile(_.getClassName.contains("$")).head.getMethodName + "-" + UUID.randomUUID.toString.replace("-", "")
-  }
-
-  def getClientMap[K, V](name: String = contextName): IMap[K, V] = client.getMap[K, V](name)
-  def getClientCache[K: ClassTag, V: ClassTag](name: String = contextName): ICache[K, V] = {
-    import jcache._
-    client.getCache[K, V](name)
-  }
-
-  def getMemberMap[K, V](name: String = contextName): IMap[K, V] = hzs(0).getMap[K, V](name)
-  def getMemberCache[K: ClassTag, V: ClassTag](name: String = contextName): ICache[K, V] = {
-    import jcache._
-    hzs(0).getCache[K, V](name)
   }
 
   def timed[T](warmups: Int = 0, unit: TimeUnit = MILLISECONDS)(thunk: => T): (T, Long) = {

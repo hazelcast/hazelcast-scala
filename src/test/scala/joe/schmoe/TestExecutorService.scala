@@ -4,15 +4,15 @@ import org.junit._
 import org.junit.Assert._
 import com.hazelcast.Scala._
 import java.util.UUID
-import scala.concurrent.Await
-import scala.concurrent.duration._
 
 object TestExecutorService extends ClusterSetup {
 
   object MemberId extends UserContext.Key[UUID]
 
   def init = ()
+
   def destroy = ()
+
 }
 
 class TestExecutorService {
@@ -23,9 +23,9 @@ class TestExecutorService {
     hzs.foreach { hz =>
       hz.userCtx(MemberId) = UUID fromString hz.getLocalEndpoint.getUuid
     }
-    val es = hzs(0).getExecutorService("default")
+    val es = member.getExecutorService("default")
     val result = es.submit(ToAll) { hz =>
-      hz.getLocalEndpoint.getUuid -> hz.userCtx(MemberId)
+      (hz.getLocalEndpoint.getUuid, hz.userCtx(MemberId).toString)
     }
     val resolved = result.mapValues(_.await)
     resolved.foreach {
@@ -38,7 +38,7 @@ class TestExecutorService {
   @Test
   def `tasks` {
     val clusterSize = client.getCluster.getMembers.size
-    val myMap = getClientMap[Int, String]()
+    val myMap = client.getMap[Int, String](randName)
     1 to 10000 foreach { i =>
       myMap.set(i, i.toString)
     }

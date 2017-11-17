@@ -38,7 +38,7 @@ class TestJoin {
   @Test
   def `let's join maps` {
     val customerMap = {
-      val map = getClientMap[CustId, Customer]("customers")
+      val map = client.getMap[CustId, Customer]("customers")
       List("Alice", "Bob", "Carl").foreach { name =>
         val c = new Customer(new CustId(), name)
         map.set(c.id, c)
@@ -46,7 +46,7 @@ class TestJoin {
       map
     }
     val productMap = {
-      val map = getClientMap[ProdId, Product]("products")
+      val map = client.getMap[ProdId, Product]("products")
       List("Aged Cheese, 1 kg" -> 35d, "Dark Chocolate, 250 grams" -> 4.5, "Red Wine, 1 liter" -> 9.75).foreach {
         case (name, price) =>
           val p = new Product(new ProdId(), name, BigDecimal(price))
@@ -57,7 +57,7 @@ class TestJoin {
     val bobId = customerMap.filter(where("name") = "Bob").map(_.key).values().await.head
     val orderId = new OrdId()(bobId)
     val orderMap = {
-      val map = getClientMap[OrdId, Order]("orders")
+      val map = client.getMap[OrdId, Order]("orders")
       val productQtys = productMap.keySet().asScala.zipWithIndex.map {
         case (productId, idx) => productId -> (idx + 1) * 3
       }.toMap
