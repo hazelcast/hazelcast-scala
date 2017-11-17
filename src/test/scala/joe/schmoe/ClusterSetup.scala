@@ -60,9 +60,9 @@ trait ClusterSetup {
   }
 
   @AfterClass
-  def afterClass {
+  def afterClass() {
     destroy()
-    _client.shutdown
+    _client.shutdown()
     HazelcastInstanceFactory.terminateAll()
   }
 
