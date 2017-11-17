@@ -12,7 +12,6 @@ plugins {
 
 ext {
     vJUnit = '4.12'
-    vScalaTest = '3.0.0-RC4' //'2.2.6'
     vScala = '2.11'
     vScalaFull = "$vScala.8"
     vHazelcast = '3.7.+'
