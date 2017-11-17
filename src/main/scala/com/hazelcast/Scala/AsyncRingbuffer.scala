@@ -3,10 +3,8 @@ package com.hazelcast.Scala
 import com.hazelcast.ringbuffer._
 import collection.JavaConverters._
 import scala.concurrent._
-import com.hazelcast.core.IFunction
-import com.hazelcast.core.ExecutionCallback
+import com.hazelcast.core._
 import com.hazelcast.ringbuffer.impl.RingbufferProxy
-import java.util.concurrent.Executor
 
 private object AsyncRingbuffer {
   implicit val jl2osl = (jl: java.lang.Long) => if (jl == -1L) None else Some(jl: Long)

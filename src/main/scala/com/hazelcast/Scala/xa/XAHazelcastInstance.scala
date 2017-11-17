@@ -2,7 +2,6 @@ package com.hazelcast.Scala.xa
 
 import scala.util.control.NonFatal
 
-import com.hazelcast.Scala._
 import com.hazelcast.core._
 import com.hazelcast.transaction.TransactionalTaskContext
 

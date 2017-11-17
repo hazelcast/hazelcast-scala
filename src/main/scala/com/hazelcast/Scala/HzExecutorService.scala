@@ -1,25 +1,11 @@
 package com.hazelcast.Scala
 
-import com.hazelcast.core.IExecutorService
-import scala.concurrent.Future
-import scala.concurrent.Promise
-import com.hazelcast.core.ExecutionCallback
 import java.util.concurrent.Callable
-import com.hazelcast.core.Member
-import scala.reflect.{ ClassTag, classTag }
-import com.hazelcast.core.MemberSelector
-import com.hazelcast.core.HazelcastInstance
-import com.hazelcast.core.HazelcastInstanceAware
-import scala.beans.BeanProperty
-import com.hazelcast.core.ICompletableFuture
-import java.util.concurrent.ArrayBlockingQueue
-import java.util.concurrent.TimeUnit
-import java.util.concurrent.ExecutionException
-import java.util.concurrent.TimeoutException
-import com.hazelcast.instance.Node
-import com.hazelcast.spi.NodeAware
-import collection.JavaConversions._
-import com.hazelcast.core.PartitionAware
+
+import scala.collection.JavaConverters._
+import scala.concurrent.Future
+
+import com.hazelcast.core.{ HazelcastInstance, IExecutorService, Member, MemberSelector }
 import com.hazelcast.durableexecutor.DurableExecutorService
 
 final class HzExecutorService(private val exec: IExecutorService) extends AnyVal {
@@ -51,7 +37,7 @@ final class HzExecutorService(private val exec: IExecutorService) extends AnyVal
     toMembers match {
       case ToAll =>
         val jResult = exec.submitToAllMembers(task)
-        jResult.mapValues(_.asScala).toMap
+        jResult.asScala.mapValues(_.asScala).toMap
       case ToMembers(members) =>
         members.foldLeft(Map.empty[Member, Future[T]]) {
           case (map, member) =>
@@ -61,7 +47,7 @@ final class HzExecutorService(private val exec: IExecutorService) extends AnyVal
         }
       case selector: ToMembersWhere =>
         val fMap = exec.submitToMembers(task, selector)
-        fMap.entrySet().foldLeft(Map.empty[Member, Future[T]]) {
+        fMap.entrySet.iterator.asScala.foldLeft(Map.empty[Member, Future[T]]) {
           case (map, entry) =>
             val future = entry.value.asScala
             map.updated(entry.key, future)

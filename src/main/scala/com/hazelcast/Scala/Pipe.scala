@@ -2,7 +2,6 @@ package com.hazelcast.Scala
 
 import java.util.Map.Entry
 import com.hazelcast.core.HazelcastInstance
-import scala.concurrent.Await
 
 private[Scala] sealed trait EntryFold[A, +V] extends Serializable {
   def foldEntry(acc: A, entry: Entry[_, _])(fold: (A, V) => A): A

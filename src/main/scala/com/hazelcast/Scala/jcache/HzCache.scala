@@ -91,7 +91,7 @@ final class HzCache[K, V](icache: cache.ICache[K, V]) {
 
   def upsert(key: K, insertIfMissing: V)(updateIfPresent: V => V): UpsertResult = {
     val ep = new CacheEntryProcessor[K, V, UpsertResult] {
-      def process(entry: MutableEntry[K, V], args: Object*): Object = {
+      def process(entry: MutableEntry[K, V], args: Object*): UpsertResult = {
         entry.getValue match {
           case null =>
             entry setValue insertIfMissing
@@ -110,10 +110,10 @@ final class HzCache[K, V](icache: cache.ICache[K, V]) {
       def process(entry: MutableEntry[K, V], args: Object*): Object = {
         entry.getValue match {
           case null =>
-            Boolean box false
+            java.lang.Boolean.FALSE
           case value =>
-            entry setValue updateIfPresent(entry.getValue)
-            Boolean box true
+            entry setValue updateIfPresent(value)
+            java.lang.Boolean.TRUE
         }
       }
     }
@@ -124,12 +124,12 @@ final class HzCache[K, V](icache: cache.ICache[K, V]) {
       def process(entry: MutableEntry[K, V], args: Object*): Object = {
         entry.getValue match {
           case null =>
-            Boolean box false
+            java.lang.Boolean.FALSE
           case value if cond(value) =>
             entry setValue updateIfPresent(entry.getValue)
-            Boolean box true
+            java.lang.Boolean.TRUE
           case _ =>
-            Boolean box false
+            java.lang.Boolean.FALSE
         }
       }
     }

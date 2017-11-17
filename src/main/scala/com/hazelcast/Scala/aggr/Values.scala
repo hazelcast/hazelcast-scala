@@ -3,7 +3,7 @@ package com.hazelcast.Scala.aggr
 import com.hazelcast.Scala.Aggregator
 import scala.collection.mutable.ArrayBuffer
 import scala.reflect.ClassTag
-import language.existentials
+
 import com.hazelcast.Scala.dds.Sorted
 import scala.collection.mutable.WrappedArray
 

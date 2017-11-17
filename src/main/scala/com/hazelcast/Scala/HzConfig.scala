@@ -1,18 +1,14 @@
 package com.hazelcast.Scala
 
-import com.hazelcast.core.HazelcastInstance
-import com.hazelcast.core.Hazelcast
-import com.hazelcast.config.Config
-import com.hazelcast.core.LifecycleEvent.LifecycleState
-import com.hazelcast.core.DistributedObjectEvent
-import com.hazelcast.partition.PartitionLostEvent
-import com.hazelcast.core.MigrationEvent
-import com.hazelcast.config.ListenerConfig
-import scala.concurrent.Future
-import com.hazelcast.core.InitialMembershipEvent
-import com.hazelcast.core.MembershipEvent
-import scala.concurrent.ExecutionContext
 import java.util.EventListener
+
+import scala.concurrent.{ ExecutionContext, Future }
+
+import com.hazelcast.config.{ Config, ListenerConfig }
+import com.hazelcast.core._
+import com.hazelcast.core.LifecycleEvent.LifecycleState
+import com.hazelcast.core.MigrationEvent
+import com.hazelcast.partition.PartitionLostEvent
 
 class HzConfig(conf: Config) extends MemberEventSubscription {
   type ESR = Config

@@ -2,10 +2,7 @@ package joe.schmoe
 
 import org.junit._
 import org.junit.Assert._
-import com.hazelcast.Scala._
-import java.util.UUID
-import scala.concurrent.Await
-import scala.concurrent.duration._
+
 import com.hazelcast.Scala.actress._
 import com.hazelcast.Scala.serialization.SerializerEnum
 import com.hazelcast.nio.ObjectDataOutput
@@ -46,7 +43,7 @@ class TestActress {
     val stage: Stage = new Stage("Foo", client)
     val janeFonda = stage.actressOf("fonda/jane", new JaneFonda)
     janeFonda {
-      case (hz, janeFonda) =>
+      case (_, janeFonda) =>
         janeFonda.incrementBy(3)
         janeFonda.incrementBy(3)
     }.await

@@ -5,9 +5,8 @@ import com.hazelcast.Scala._
 import com.hazelcast.Scala.aggr._
 import scala.reflect.ClassTag
 import collection.{ Map => aMap, Set => aSet }
-import collection.JavaConverters._
 import collection.immutable._
-import collection.{ Seq, IndexedSeq }
+import collection.IndexedSeq
 import com.hazelcast.core._
 
 private object AggrDDS {

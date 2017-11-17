@@ -1,12 +1,11 @@
 package com.hazelcast.Scala.serialization
 
-import java.lang.reflect.Field
-import java.lang.reflect.Modifier
-import scala.util._
-import com.hazelcast.nio.ObjectDataInput
-import com.hazelcast.nio.ObjectDataOutput
-import com.hazelcast.nio.UnsafeHelper
-import com.hazelcast.nio.serialization.HazelcastSerializationException
+import java.lang.reflect.{ Field, Modifier }
+
+import scala.util.{ Failure, Success, Try }
+
+import com.hazelcast.nio.{ ObjectDataInput, ObjectDataOutput, UnsafeHelper }
+
 import sun.misc.Unsafe
 
 private[serialization] object UnsafeSerializer {

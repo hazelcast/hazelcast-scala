@@ -1,8 +1,5 @@
 package com.hazelcast.Scala
 
-import scala.concurrent.Promise
-import com.hazelcast.core.ExecutionCallback
-import java.util.concurrent.ExecutionException
 import com.hazelcast.map.EntryProcessor
 import java.util.Map.Entry
 import scala.util.control.NonFatal

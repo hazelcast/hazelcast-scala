@@ -7,9 +7,7 @@ import scala.reflect.ClassTag
 import collection.{ Map => cMap, Set => cSet }
 import com.hazelcast.core._
 import com.hazelcast.query._
-import collection.JavaConverters._
 import java.util.concurrent.{ Future => jFuture }
-import language.existentials
 import java.util.Map.Entry
 
 private[Scala] class AggrMapDDS[K, E](val dds: MapDDS[K, _, E], sorted: Option[Sorted[E]] = None) extends AggrDDS[E] {
@@ -143,7 +141,7 @@ private object AggrMapDDS {
         keysByMemberId -> ToMembers(keysByMember.keys)
     }
     val values = submitFold(es, submitTo, mapName, keysByMemberId, predicate, pipe getOrElse PassThroughPipe[E], aggr, taskSupport)
-    val reduced = Future.reduce(values)(aggr.localCombine)
+    val reduced = Future.reduce(values)(aggr.localCombine _)
     reduced.map(aggr.localFinalize(_))(SameThread)
   }
   private def submitFold[K, E](

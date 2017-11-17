@@ -1,14 +1,14 @@
 package com.hazelcast.Scala
 
-import java.util.Collections
 import java.util.Comparator
 import java.util.Map.Entry
 
 import scala.collection.JavaConverters._
 import scala.collection.mutable.{ Map => mMap }
 import scala.collection.{ Set => cSet }
-import scala.concurrent.ExecutionContext
+import scala.concurrent._
 import scala.concurrent.duration._
+import scala.util.Try
 
 import com.hazelcast.Scala.dds.DDS
 import com.hazelcast.Scala.dds.MapDDS
@@ -21,14 +21,9 @@ import com.hazelcast.query.Predicate
 import com.hazelcast.query.PredicateBuilder
 import com.hazelcast.spi.AbstractDistributedObject
 import com.hazelcast.map.impl.recordstore.RecordStore
-import com.hazelcast.map.impl.record.Record
 import com.hazelcast.nio.serialization.Data
-import scala.util.{ Try, Success, Failure }
 import scala.collection.parallel.ParIterable
 import com.hazelcast.map.impl.MapServiceContext
-import scala.concurrent.blocking
-import language.higherKinds
-import scala.collection.IterableLike
 
 final class HzMap[K, V](protected val imap: IMap[K, V])
     extends KeyedIMapDeltaUpdates[K, V]

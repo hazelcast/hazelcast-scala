@@ -2,16 +2,8 @@ package com.hazelcast.Scala
 
 import java.util.Map.Entry
 import concurrent.Future
+import com.hazelcast.core._
 import language.higherKinds
-import com.hazelcast.core.IExecutorService
-import com.hazelcast.core.HazelcastException
-import com.hazelcast.core.HazelcastInstance
-import scala.beans.BeanProperty
-import java.util.concurrent.Callable
-import com.hazelcast.core.HazelcastInstanceAware
-import scala.util.Success
-import scala.util.Failure
-import com.hazelcast.core.IMap
 
 private[Scala] trait KeyedDeltaUpdates[K, V] {
   type UpdateR[T]
@@ -74,7 +66,7 @@ private[Scala] object KeyedDeltaUpdates {
         case value if cond(value) =>
           entry.value = updateIfPresent(value)
           entry.value
-        case value => null.asInstanceOf[V]
+        case _ => null.asInstanceOf[V]
       }
   }
   final class GetAndUpsertEP[V](val insertIfMissing: V, val updateIfPresent: V => V)
@@ -275,8 +267,6 @@ private[Scala] trait KeyedIMapDeltaUpdates[K, V]
     extends KeyedDeltaUpdates[K, V] {
   self: HzMap[K, V] =>
 
-  import java.util.Map.Entry
-
   type UpdateR[T] = T
 
   def upsertAndGet(key: K, insertIfMissing: V, runOn: IExecutorService)(updateIfPresent: V => V): UpdateR[V] =
@@ -315,7 +305,6 @@ private[Scala] trait KeyedIMapAsyncDeltaUpdates[K, V] extends KeyedDeltaUpdates[
       imap.submitToKey(key, ep, callback)
       callback.future
     } else {
-      import DeltaTask._
       val partition = imap.getHZ.getPartitionService.getPartition(key)
       val task = new UpsertTask(imap.getName, key, partition.getPartitionId, Some(insertIfMissing), updateIfPresent)
       runOn.submit(ToMember(partition.getOwner))(task)
@@ -329,7 +318,6 @@ private[Scala] trait KeyedIMapAsyncDeltaUpdates[K, V] extends KeyedDeltaUpdates[
       imap.submitToKey(key, ep, callback)
       callback.future
     } else {
-      import DeltaTask._
       val partition = imap.getHZ.getPartitionService.getPartition(key)
       val task = new UpsertAndGetTask(imap.getName, key, partition.getPartitionId, Some(insertIfMissing), updateIfPresent)
       runOn.submit(ToMember(partition.getOwner))(task).map {
@@ -352,7 +340,6 @@ private[Scala] trait KeyedIMapAsyncDeltaUpdates[K, V] extends KeyedDeltaUpdates[
       imap.submitToKey(key, ep, callback)
       callback.future
     } else {
-      import DeltaTask._
       val partition = imap.getHZ.getPartitionService.getPartition(key)
       val task = new GetAndUpsertTask(imap.getName, key, partition.getPartitionId, Some(insertIfMissing), updateIfPresent)
       runOn.submit(ToMember(partition.getOwner))(task)
@@ -369,7 +356,6 @@ private[Scala] trait KeyedIMapAsyncDeltaUpdates[K, V] extends KeyedDeltaUpdates[
       imap.submitToKey(key, ep, callback)
       callback.future
     } else {
-      import DeltaTask._
       val partition = imap.getHZ.getPartitionService.getPartition(key)
       val task = new UpdateAndGetTask(imap.getName, key, partition.getPartitionId, updateIfPresent, cond)
       runOn.submit(ToMember(partition.getOwner))(task)
@@ -382,7 +368,6 @@ private[Scala] trait KeyedIMapAsyncDeltaUpdates[K, V] extends KeyedDeltaUpdates[
       imap.submitToKey(key, ep, callback)
       callback.future
     } else {
-      import DeltaTask._
       val partition = imap.getHZ.getPartitionService.getPartition(key)
       val task = new UpdateTask(imap.getName, key, partition.getPartitionId, updateIfPresent, cond)
       runOn.submit(ToMember(partition.getOwner))(task)
@@ -395,7 +380,6 @@ private[Scala] trait KeyedIMapAsyncDeltaUpdates[K, V] extends KeyedDeltaUpdates[
       imap.submitToKey(key, ep, callback)
       callback.future
     } else {
-      import DeltaTask._
       val partition = imap.getHZ.getPartitionService.getPartition(key)
       val task = new GetAndUpdateTask(imap.getName, key, partition.getPartitionId, updateIfPresent, cond)
       runOn.submit(ToMember(partition.getOwner))(task)

@@ -1,17 +1,13 @@
 package com.hazelcast.Scala
 
 import java.util.Map.Entry
+import java.util.concurrent.TimeUnit
 
-import scala.collection.JavaConverters._
-import scala.concurrent._
-import scala.concurrent.Future
+import scala.beans.BeanProperty
+import scala.concurrent.{ ExecutionContext, Future }
 import scala.concurrent.duration.Duration
 
-import com.hazelcast.core.IMap
-import com.hazelcast.core.HazelcastInstanceAware
-import scala.beans.BeanProperty
-import com.hazelcast.core.HazelcastInstance
-import java.util.concurrent.TimeUnit
+import com.hazelcast.core._
 
 final class AsyncMap[K, V] private[Scala] (protected val imap: IMap[K, V])
     extends KeyedIMapAsyncDeltaUpdates[K, V] {
