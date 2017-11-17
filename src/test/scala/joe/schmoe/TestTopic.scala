@@ -50,9 +50,9 @@ class TestTopic {
     val cdl = new CountDownLatch(messages.length)
     val rTopic = client.getReliableTopic[String]("rTopic")
     val reg = rTopic.onSeqMessage() {
-      case (seq, msg) =>
+      case SeqMessage(seq, value) =>
         assertEquals(messages.length - cdl.getCount: Long, seq)
-        assertEquals(messages(seq.toInt), msg.get)
+        assertEquals(messages(seq.toInt), value)
         cdl.countDown()
     }
     messages.foreach(rTopic.publish)
@@ -66,9 +66,9 @@ class TestTopic {
     val rTopic = client.getReliableTopic[String](smallRB)
     messages.foreach(rTopic.publish)
     val reg = rTopic.onSeqMessage(startFrom = 0, gapTolerant = true) {
-      case (seq, msg) =>
+      case SeqMessage(seq, value) =>
         assertEquals(messages.length - cdl.getCount: Long, seq)
-        assertEquals(messages(seq.toInt), msg.get)
+        assertEquals(messages(seq.toInt), value)
         cdl.countDown()
     }
     assertTrue(cdl.await(5, SECONDS))
