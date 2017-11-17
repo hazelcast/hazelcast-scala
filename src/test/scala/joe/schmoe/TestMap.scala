@@ -843,7 +843,8 @@ class TestMap extends CleanUp {
         employees.set(emp.id, emp)
         employees
     }
-    val wellPaid = where("salary") >= 400000
+//    val wellPaid = where("salary") >= 400000
+    val wellPaid = where"salary >= 400000"
     type E = Entry[UUID, Employee]
     val asc = new Comparator[E] with Serializable {
       def compare(a: E, b: E): Int = a.value.salary.compareTo(b.value.salary)
