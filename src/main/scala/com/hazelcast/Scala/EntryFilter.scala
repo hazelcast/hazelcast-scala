@@ -2,7 +2,7 @@ package com.hazelcast.Scala
 
 import com.hazelcast.query.Predicate
 import collection.mutable.Map
-import language.higherKinds
+import language.{higherKinds, existentials}
 
 sealed trait EntryFilter[K, V] {
   type EV
