@@ -91,7 +91,7 @@ final class HzCache[K, V](icache: cache.ICache[K, V]) {
 
   def upsert(key: K, insertIfMissing: V)(updateIfPresent: V => V): UpsertResult = {
     val ep = new CacheEntryProcessor[K, V, UpsertResult] {
-      def process(entry: MutableEntry[K, V], args: Object*): Object = {
+      override def process(entry: MutableEntry[K, V], arguments: AnyRef*): UpsertResult = {
         entry.getValue match {
           case null =>
             entry setValue insertIfMissing
