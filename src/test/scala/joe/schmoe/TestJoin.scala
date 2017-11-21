@@ -1,36 +1,19 @@
 package joe.schmoe
 
-import java.util.Date
-import java.util.Map.Entry
 import java.util.UUID
-import java.util.concurrent.CountDownLatch
-import java.util.concurrent.LinkedBlockingQueue
-import java.util.concurrent.TimeUnit
+
 import scala.BigDecimal.RoundingMode._
 import scala.collection.JavaConverters._
 import scala.concurrent.duration._
-import scala.io.Source
-import scala.util.Failure
-import scala.util.Random
-import scala.util.Success
+
 import org.junit.Assert._
 import org.junit.Test
+
 import com.hazelcast.Scala._
-import com.hazelcast.config.InMemoryFormat
-import com.hazelcast.config.MapIndexConfig
-import com.hazelcast.core.IMap
-import com.hazelcast.map.AbstractEntryProcessor
-import com.hazelcast.query.Predicate
-import java.util.StringTokenizer
 
 object TestJoin extends ClusterSetup {
   override val clusterSize = 3
-  def init {
-    TestSerializers.register(clientConfig.getSerializationConfig)
-    TestSerializers.register(memberConfig.getSerializationConfig)
-    memberConfig.getSerializationConfig.setAllowUnsafe(true)
-    clientConfig.getSerializationConfig.setAllowUnsafe(true)
-  }
+  def init = ()
   def destroy = ()
 
   case class Id[T](uuid: UUID = UUID.randomUUID)
@@ -97,7 +80,7 @@ class TestJoin {
     val err = 0.00005f
     val avgOrderQty = orderMap.flatMap(_.value.products.map(_._2.toFloat)).mean().await.get
     assertEquals(products.map(_._2.toFloat).sum / products.size, avgOrderQty, err)
-    val joinQueriedCustomer = orderMap.query(_.getMap[CustId, Customer]("customers"), where.key() = orderId) {
+    val joinQueriedCustomer = orderMap.query(_.getMap[CustId, Customer]("customers"), where.key in orderId) {
       case (customers, _, order) => customers.get(order.customer)
     }
     assertEquals(customerMap.get(bobId), joinQueriedCustomer(orderId))

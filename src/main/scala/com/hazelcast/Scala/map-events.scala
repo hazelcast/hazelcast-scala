@@ -129,7 +129,7 @@ trait OnEntryAdded[K, V] extends OnEntryEvent[K, V] with map.listener.EntryAdded
   def apply(evt: EntryAdded[K, V])
 }
 trait OnEntryEvicted[K, V] extends OnEntryEvent[K, V] with map.listener.EntryEvictedListener[K, V] {
-  final def entryEvicted(evt: core.EntryEvent[K, V]): Unit = apply(new EntryEvicted(evt.getKey, evt.getValue)(evt))
+  final def entryEvicted(evt: core.EntryEvent[K, V]): Unit = apply(new EntryEvicted(evt.getKey, evt.getOldValue)(evt))
   def apply(evt: EntryEvicted[K, V])
 }
 trait OnEntryMerged[K, V] extends OnEntryEvent[K, V] with map.listener.EntryMergedListener[K, V] {
@@ -145,6 +145,6 @@ trait OnEntryUpdated[K, V] extends OnEntryEvent[K, V] with map.listener.EntryUpd
   def apply(evt: EntryUpdated[K, V])
 }
 trait OnEntryExpired[K, V] extends OnEntryEvent[K, V] with map.listener.EntryExpiredListener[K, V] {
-  final def entryExpired(evt: core.EntryEvent[K, V]): Unit = apply(new EntryExpired(evt.getKey, evt.getValue)(evt))
+  final def entryExpired(evt: core.EntryEvent[K, V]): Unit = apply(new EntryExpired(evt.getKey, evt.getOldValue)(evt))
   def apply(evt: EntryExpired[K, V])
 }

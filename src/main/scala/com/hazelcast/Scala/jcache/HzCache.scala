@@ -8,8 +8,9 @@ import com.hazelcast.Scala._
 import com.hazelcast.cache
 import com.hazelcast.cache.impl.event.CachePartitionLostEvent
 import com.hazelcast.cache.impl.event.CachePartitionLostListener
+import com.hazelcast.core.IExecutorService
 
-final class HzCache[K, V](icache: cache.ICache[K, V]) extends KeyedDeltaUpdates[K, V] {
+final class HzCache[K, V](icache: cache.ICache[K, V]) {
   import javax.cache._
   import processor._
 
@@ -94,17 +95,17 @@ final class HzCache[K, V](icache: cache.ICache[K, V]) extends KeyedDeltaUpdates[
         entry.getValue match {
           case null =>
             entry setValue insertIfMissing
-            Insert
+            WasInserted
           case oldValue =>
             entry setValue updateIfPresent(oldValue)
-            Update
+            WasUpdated
         }
       }
     }
     icache.invoke(key, ep)
   }
 
-  def update(key: K)(updateIfPresent: V => V): Boolean = {
+  def update(key: K, runOn: IExecutorService)(updateIfPresent: V => V): Boolean = {
     val ep = new CacheEntryProcessor[K, V, Object] {
       def process(entry: MutableEntry[K, V], args: Object*): Object = {
         entry.getValue match {
@@ -118,7 +119,7 @@ final class HzCache[K, V](icache: cache.ICache[K, V]) extends KeyedDeltaUpdates[
     }
     icache.invoke(key, ep).asInstanceOf[Boolean]
   }
-  def updateIf(cond: V => Boolean, key: K)(updateIfPresent: V => V): Boolean = {
+  def updateIf(cond: V => Boolean, key: K, runOn: IExecutorService)(updateIfPresent: V => V): Boolean = {
     val ep = new CacheEntryProcessor[K, V, Object] {
       def process(entry: MutableEntry[K, V], args: Object*): Object = {
         entry.getValue match {

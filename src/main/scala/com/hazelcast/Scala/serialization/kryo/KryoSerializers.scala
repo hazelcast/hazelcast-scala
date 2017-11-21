@@ -11,14 +11,31 @@ import com.hazelcast.nio.ObjectDataOutput
 import com.hazelcast.nio.ObjectDataInput
 import com.esotericsoftware.kryo.io.Input
 import java.lang.ref.SoftReference
+import java.util.Arrays
+import com.hazelcast.Scala.serialization.SoftThreadLocal
 
 private object KryoSerializers {
   private val defaultStrategy = new StdInstantiatorStrategy
-  def defaultIO = new Input(4096) -> new Output(4096)
+  def defaultIO = new Input(512) -> new Output(512, Int.MaxValue)
   def defaultKryo = {
     val kryo = new Kryo
     kryo.setInstantiatorStrategy(defaultStrategy)
     kryo
+  }
+  final class KryoThreadLocal(newKryoIO: => (Kryo, Input, Output))
+      extends SoftThreadLocal(newKryoIO) {
+
+    def read[T](thunk: (Kryo, Input) => T): T = use {
+      case v @ (kryo, inp, _) =>
+        inp.rewind()
+        v -> thunk(kryo, inp)
+    }
+
+    def write[T](thunk: (Kryo, Output) => T): T = use {
+      case v @ (kryo, _, out) =>
+        out.clear()
+        v -> thunk(kryo, out)
+    }
   }
 }
 
@@ -38,37 +55,12 @@ class KryoSerializers(
     }
   }
 
-  private[this] object threadLocal extends ThreadLocal[SoftReference[(Kryo, Input, Output)]] {
-    def newRef = {
-      val (inp, out) = newIO
-      new SoftReference((factory.create, inp, out))
-    }
-    override def initialValue = newRef
+  private[this] val threadLocal = new KryoThreadLocal({
+    val (inp, out) = newIO
+    (factory.create, inp, out)
+  })
 
-    def read[T](thunk: (Kryo, Input) => T): T = {
-      this.get().get() match {
-        case null =>
-          this.set(newRef)
-          read(thunk)
-        case (kryo, inp, _) =>
-          inp.rewind()
-          thunk(kryo, inp)
-      }
-    }
-
-    def write[T](thunk: (Kryo, Output) => T): T = {
-      this.get().get() match {
-        case null =>
-          this.set(newRef)
-          write(thunk)
-        case (kryo, _, out) =>
-          out.clear()
-          thunk(kryo, out)
-      }
-    }
-  }
-
-  class KryoSerializer[T: ClassTag] extends StreamSerializer[T] {
+  class KryoStreamSerializer[T: ClassTag] extends StreamSerializer[T] {
     def write(out: ObjectDataOutput, obj: T) {
       threadLocal.write {
         case (kryo, kOut) =>
@@ -87,6 +79,28 @@ class KryoSerializers(
           kInp.setLimit(size)
           inp.readFully(kInp.getBuffer, 0, size)
           kryo.readObject(kInp, theClass)
+      }
+    }
+  }
+
+  class KryoByteArraySerializer[T: ClassTag] extends ByteArraySerializer[T] {
+    def write(obj: T): Array[Byte] = {
+      threadLocal.write {
+        case (kryo, kOut) =>
+          kryo.writeObject(kOut, obj)
+          Arrays.copyOf(kOut.getBuffer, kOut.position)
+      }
+    }
+    def read(arr: Array[Byte]): T = {
+      threadLocal.read {
+        case (kryo, kInp) =>
+          val temp = kInp.getBuffer
+          try {
+            kInp.setBuffer(arr)
+            kryo.readObject(kInp, theClass)
+          } finally {
+            kInp.setBuffer(temp)
+          }
       }
     }
   }

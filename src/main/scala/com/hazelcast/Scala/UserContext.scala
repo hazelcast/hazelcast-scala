@@ -23,4 +23,17 @@ final class UserContext private[Scala] (private val ctx: ConcurrentMap[String, O
     case null => get(key)
     case _ => Option(ctx.putIfAbsent(key.name, value.asInstanceOf[Object]).asInstanceOf[T])
   }
+  def getOrElseUpdate[T](key: UserContext.Key[T], create: => T): T = {
+      def getOrUpdate(locked: Boolean): T = {
+        get(key) match {
+          case Some(value) => value
+          case None if locked =>
+            val value: T = create
+            putIfAbsent(key, value) getOrElse value
+          case None =>
+            key.name.intern.synchronized(getOrUpdate(locked = true))
+        }
+      }
+    getOrUpdate(locked = false)
+  }
 }

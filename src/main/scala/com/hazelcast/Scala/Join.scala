@@ -1,7 +1,7 @@
 package com.hazelcast.Scala
 
 import scala.collection.JavaConverters._
-import scala.collection.{Map, Set}
+import scala.collection.{ Map, Set }
 import scala.concurrent._
 
 import com.hazelcast.core.HazelcastInstance
@@ -70,7 +70,7 @@ private class CachingMap[K, V](imap: IMap[K, V]) {
   def get(key: K): Option[V] = {
     cmap.get(key) match {
       case null =>
-        val option = Option(blocking(imap get key))
+        val option = Option(imap.getFastIfLocal(key))
         cmap.putIfAbsent(key, option) match {
           case null => option
           case option => option
@@ -84,7 +84,14 @@ private class CachingMap[K, V](imap: IMap[K, V]) {
       if (notCached.isEmpty) cached
       else {
         val keysNotCached = notCached.map(_._1).toSet
-        val found = blocking(imap.getAll(keysNotCached.asJava)).asScala
+        val keysNotCachedByPartition = imap.getHZ.groupByPartitionId(keysNotCached)
+        val found =
+          imap.getFastIfLocal(keysNotCachedByPartition.toIterable.par)
+            .seq.iterator.foldLeft(new collection.mutable.HashMap[K, V]) {
+              case (found, entry) =>
+                found.update(entry.key, entry.value)
+                found
+            }
         val keysNotFound = found.keySet.diff(keysNotCached)
         keysNotFound.foreach { key =>
           cmap.putIfAbsent(key, None) match {

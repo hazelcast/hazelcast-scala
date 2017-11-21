@@ -1,22 +1,21 @@
 package joe.schmoe
 
+import java.util.UUID
+
+import scala.concurrent.ExecutionContext
+import scala.concurrent.duration._
+import scala.reflect.ClassTag
+
+import org.junit._
+
 import com.hazelcast.Scala._
 import com.hazelcast.Scala.client._
-import org.junit.BeforeClass
-import com.hazelcast.core.HazelcastInstance
-import org.junit.AfterClass
-import java.util.UUID
-import com.hazelcast.core.Hazelcast
-import com.hazelcast.client.config.ClientConfig
-import com.hazelcast.client.HazelcastClient
-import com.hazelcast.config.Config
-import com.hazelcast.core.IMap
 import com.hazelcast.cache.ICache
-import scala.reflect.ClassTag
-import scala.util.Random
-import scala.concurrent.duration._
+import com.hazelcast.client.config.ClientConfig
+import com.hazelcast.config.Config
+import com.hazelcast.core.HazelcastInstance
+import com.hazelcast.core.IMap
 import com.hazelcast.instance.HazelcastInstanceFactory
-import scala.concurrent.ExecutionContext
 
 trait ClusterSetup {
 
@@ -41,16 +40,18 @@ trait ClusterSetup {
   def beforeClass {
     init()
     val group = UUID.randomUUID.toString
-    List(serialization.Defaults, TestSerializers).foreach { serializers =>
-      serializers.register(memberConfig.getSerializationConfig)
-      serializers.register(clientConfig.getSerializationConfig)
-    }
+    List(
+      serialization.Defaults,
+      TestSerializers,
+      TestKryoSerializers).foreach { serializers =>
+        serializers.register(memberConfig.getSerializationConfig)
+        serializers.register(clientConfig.getSerializationConfig)
+      }
     memberConfig.getGroupConfig.setName(group)
     memberConfig.getNetworkConfig.setPort(port)
     memberConfig.setGracefulShutdownMaxWait(1.second)
     memberConfig.setPhoneHomeEnabled(false)
     memberConfig.getMapConfig("default")
-      //      .setBackupCount(0)
       .setStatisticsEnabled(false)
       .setMaxSizeConfig(UsedHeapSize(60.gigabytes))
     memberConfig.setShutdownHookEnabled(false)

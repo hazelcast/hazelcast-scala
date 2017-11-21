@@ -8,25 +8,24 @@ import com.hazelcast.client.config.ClientConfig
 import com.hazelcast.config.Config
 import com.hazelcast.core.PartitioningStrategy
 import com.hazelcast.internal.metrics.ProbeLevel
-import com.hazelcast.internal.monitors.HealthMonitorLevel
+import com.hazelcast.internal.diagnostics.HealthMonitorLevel
 import com.hazelcast.memory.MemorySize
 import com.hazelcast.query.impl.predicates.QueryOptimizerFactory
-import com.hazelcast.instance.HazelcastProperty
+import com.hazelcast.spi.properties.HazelcastProperty
 
-sealed abstract class HzProperties[C <: { def setProperty(k: HazelcastProperty, v: String): C }](conf: C) {
+sealed abstract class HzProperties[C <: { def setProperty(k: String, v: String): C }](conf: C) {
   import language.reflectiveCalls
-  import com.hazelcast.instance.GroupProperty
-  import GroupProperty._
+  import com.hazelcast.spi.properties.GroupProperty._
   protected final def set(key: HazelcastProperty, value: Any): C = value match {
-    case null => conf.setProperty(key, null)
-    case _ => conf.setProperty(key, value.toString)
+    case null => conf.setProperty(key.getName, null)
+    case _ => conf.setProperty(key.getName, value.toString)
   }
   /** @see com.hazelcast.instance.GroupProperty.LOGGING_TYPE */
   def setLoggingType(lt: String): C = set(LOGGING_TYPE, lt)
 }
 
 class HzClientProperties(conf: ClientConfig) extends HzProperties(conf) {
-  import com.hazelcast.client.config.ClientProperty._
+  import com.hazelcast.client.spi.properties.ClientProperty._
 
   /** @see com.hazelcast.client.config.ClientProperties.EVENT_QUEUE_CAPACITY */
   def setEventQueueCapacity(cap: Int): ClientConfig = set(EVENT_QUEUE_CAPACITY, cap)
@@ -45,30 +44,16 @@ class HzClientProperties(conf: ClientConfig) extends HzProperties(conf) {
 }
 
 class HzMemberProperties(conf: Config) extends HzProperties(conf) {
-  import com.hazelcast.instance.GroupProperty._
+  import com.hazelcast.spi.properties.GroupProperty._
 
   /** @see com.hazelcast.instance.GroupProperty.SYSTEM_LOG_ENABLED */
   def setSystemLogEnabled(enabled: Boolean): Config = set(SYSTEM_LOG_ENABLED, enabled)
-  /** @see com.hazelcast.instance.GroupProperty.SLOW_INVOCATION_DETECTOR_THRESHOLD_MILLIS */
-  def setSlowInvocationDetectorThreshold(threshold: FiniteDuration): Config = set(SLOW_INVOCATION_DETECTOR_THRESHOLD_MILLIS, threshold.toMillis)
   /** @see com.hazelcast.instance.GroupProperty.SERIALIZATION_VERSION */
   def setSerializationVersion(version: Byte): Config = set(SERIALIZATION_VERSION, version)
   /** @see com.hazelcast.instance.GroupProperty.QUERY_PREDICATE_PARALLEL_EVALUATION */
   def setQueryPredicateParallelEvaluation(enabled: Boolean): Config = set(QUERY_PREDICATE_PARALLEL_EVALUATION, enabled)
   /** @see com.hazelcast.instance.GroupProperty.QUERY_OPTIMIZER_TYPE */
   def setQueryOptimizerType(typ: QueryOptimizerFactory.Type): Config = set(QUERY_OPTIMIZER_TYPE, typ.name)
-  /** @see com.hazelcast.instance.GroupProperty.PERFORMANCE_MONITOR_DELAY_SECONDS */
-  def setPerfMonDelay(delay: FiniteDuration): Config = set(PERFORMANCE_MONITOR_DELAY_SECONDS, delay.toSeconds)
-  /** @see com.hazelcast.instance.GroupProperty.PERFORMANCE_MONITOR_ENABLED */
-  def setPerfMonEnabled(enabled: Boolean): Config = set(PERFORMANCE_MONITOR_ENABLED, enabled)
-  /** @see com.hazelcast.instance.GroupProperty.PERFORMANCE_MONITOR_HUMAN_FRIENDLY_FORMAT */
-  def setPerfMonHumanFormatEnabled(enabled: Boolean): Config = set(PERFORMANCE_MONITOR_HUMAN_FRIENDLY_FORMAT, enabled)
-  /** @see com.hazelcast.instance.GroupProperty.PERFORMANCE_MONITOR_MAX_ROLLED_FILE_COUNT */
-  def setPerfMonMaxRolledFileCount(count: Int): Config = set(PERFORMANCE_MONITOR_MAX_ROLLED_FILE_COUNT, count)
-  /** @see com.hazelcast.instance.GroupProperty.PERFORMANCE_MONITOR_MAX_ROLLED_FILE_SIZE_MB */
-  def setPerfMonMaxRolledFileSize(maxSize: MemorySize): Config = set(PERFORMANCE_MONITOR_MAX_ROLLED_FILE_SIZE_MB, maxSize.megaBytes)
-  /** @see com.hazelcast.instance.GroupProperty.PERFORMANCE_METRICS_LEVEL */
-  def setPerformanceMetricsLevel(level: ProbeLevel): Config = set(PERFORMANCE_METRICS_LEVEL, level.name)
   /** @see com.hazelcast.instance.GroupProperty.PARTITION_MIGRATION_ZIP_ENABLED */
   def setPartitionMigrationZipEnabled(enabled: Boolean): Config = set(PARTITION_MIGRATION_ZIP_ENABLED, enabled)
   /** @see com.hazelcast.instance.GroupProperty.LOCK_MAX_LEASE_TIME_SECONDS */
@@ -118,6 +103,10 @@ class HzMemberProperties(conf: Config) extends HzProperties(conf) {
   def setHealthMonitoringInterval(interval: FiniteDuration): Config = set(HEALTH_MONITORING_DELAY_SECONDS, interval.toSeconds)
   /** @see com.hazelcast.instance.GroupProperty.HEALTH_MONITORING_LEVEL */
   def setHealthMonitoringLevel(level: HealthMonitorLevel): Config = set(HEALTH_MONITORING_LEVEL, level.name)
+  /** @see com.hazelcast.instance.GroupProperty.HEALTH_MONITORING_THRESHOLD_MEMORY_PERCENTAGE */
+  def setHealthMonitoringMemoryThreshold(percentage: Byte): Config = set(HEALTH_MONITORING_THRESHOLD_MEMORY_PERCENTAGE, percentage)
+  /** @see com.hazelcast.instance.GroupProperty.HEALTH_MONITORING_THRESHOLD_CPU_PERCENTAGE */
+  def setHealthMonitoringCpuThreshold(percentage: Byte): Config = set(HEALTH_MONITORING_THRESHOLD_CPU_PERCENTAGE, percentage)
   /** @see com.hazelcast.instance.GroupProperty.HEARTBEAT_INTERVAL_SECONDS */
   def setHeartbeatInterval(interval: FiniteDuration): Config = set(HEARTBEAT_INTERVAL_SECONDS, interval.toSeconds)
   /** @see com.hazelcast.instance.GroupProperty.ICMP_ENABLED */
@@ -176,8 +165,6 @@ class HzMemberProperties(conf: Config) extends HzProperties(conf) {
   def setMergeRunDelay(delay: FiniteDuration): Config = set(MERGE_FIRST_RUN_DELAY_SECONDS, delay.toSeconds)
   /** @see com.hazelcast.instance.GroupProperty.MERGE_NEXT_RUN_DELAY_SECONDS */
   def setMergeRunInterval(interval: FiniteDuration): Config = set(MERGE_NEXT_RUN_DELAY_SECONDS, interval.toSeconds)
-  /** @see com.hazelcast.instance.GroupProperty.MIGRATION_MIN_DELAY_ON_MEMBER_REMOVED_SECONDS */
-  def setMemberRemovedMigrationDelay(delay: FiniteDuration): Config = set(MIGRATION_MIN_DELAY_ON_MEMBER_REMOVED_SECONDS, delay.toSeconds)
   /** @see com.hazelcast.instance.GroupProperty.OPERATION_BACKUP_TIMEOUT_MILLIS */
   def setOperationBackupTimeout(timeout: FiniteDuration): Config = set(OPERATION_BACKUP_TIMEOUT_MILLIS, timeout.toMillis)
   /** @see com.hazelcast.instance.GroupProperty.OPERATION_CALL_TIMEOUT_MILLIS */

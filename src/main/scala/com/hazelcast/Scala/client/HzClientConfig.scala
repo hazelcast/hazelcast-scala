@@ -13,20 +13,23 @@ import com.hazelcast.partition.PartitionLostEvent
 import com.hazelcast.Scala.DistributedObjectChange
 import com.hazelcast.Scala.EventSubscription
 import com.hazelcast.Scala.MemberEvent
+import java.util.EventListener
 
 class HzClientConfig(conf: ClientConfig) extends EventSubscription {
   type ESR = ClientConfig
 
   def newClient(): HazelcastInstance = HazelcastClient.newHazelcastClient(conf)
 
+  def addListener(l: EventListener): ESR =
+    conf addListenerConfig new ListenerConfig(l)
   def onLifecycleStateChange(runOn: ExecutionContext = null)(listener: PartialFunction[LifecycleState, Unit]): ESR =
-    conf addListenerConfig new ListenerConfig(EventSubscription.asLifecycleListener(listener, Option(runOn)))
+    conf addListener EventSubscription.asLifecycleListener(listener, Option(runOn))
   def onDistributedObjectEvent(runOn: ExecutionContext = null)(listener: PartialFunction[DistributedObjectChange, Unit]): ESR =
-    conf addListenerConfig new ListenerConfig(EventSubscription.asDistributedObjectListener(listener, Option(runOn)))
+    conf addListener EventSubscription.asDistributedObjectListener(listener, Option(runOn))
   def onPartitionLost(runOn: ExecutionContext = null)(listener: PartitionLostEvent => Unit): ESR =
-    conf addListenerConfig new ListenerConfig(EventSubscription.asPartitionLostListener(listener, Option(runOn)))
+    conf addListener EventSubscription.asPartitionLostListener(listener, Option(runOn))
   def onMigration(runOn: ExecutionContext = null)(listener: PartialFunction[MigrationEvent, Unit]): ESR =
-    conf addListenerConfig new ListenerConfig(EventSubscription.asMigrationListener(listener, Option(runOn)))
+    conf addListener EventSubscription.asMigrationListener(listener, Option(runOn))
 
   type MER = Future[InitialMembershipEvent]
   def onMemberChange(runOn: ExecutionContext = null)(listener: PartialFunction[MemberEvent, Unit]): MER = {

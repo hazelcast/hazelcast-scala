@@ -21,7 +21,7 @@ private[Scala] final class FutureCallback[X, R](nullReplacement: R = null.asInst
     case null => promise success nullReplacement
     case value =>
       try {
-        promise success map(value.asInstanceOf[X])
+        promise success map(value)
       } catch {
         case NonFatal(e) => onFailure(e)
       }

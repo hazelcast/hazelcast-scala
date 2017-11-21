@@ -12,7 +12,7 @@ final class HzTopic[T](private val topic: ITopic[T]) extends AnyVal {
       def onMessage(msg: Message[T]) = invokeWith(msg)
     }
     new ListenerRegistration {
-      def cancel(): Unit = topic removeMessageListener regId
+      def cancel(): Boolean = topic removeMessageListener regId
     }
   }
   def onSeqMessage(startFrom: Long = -1, gapTolerant: Boolean = false, runOn: ExecutionContext = null)(listener: PartialFunction[(Long, Message[T]), Unit]): ListenerRegistration = {
@@ -26,7 +26,7 @@ final class HzTopic[T](private val topic: ITopic[T]) extends AnyVal {
       def onMessage(msg: Message[T]) = invokeWith(seq -> msg)
     }
     new ListenerRegistration {
-      def cancel(): Unit = topic removeMessageListener regId
+      def cancel(): Boolean = topic removeMessageListener regId
     }
   }
 

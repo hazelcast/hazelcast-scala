@@ -59,7 +59,7 @@ class TestTopic {
     assertTrue(cdl.await(5, SECONDS))
     reg.cancel()
   }
-  @Test @Ignore // FIXME: Un-ignore when fixed: https://github.com/hazelcast/hazelcast/issues/7317
+  @Test
   def stale {
     val messages = Seq("a", "b", "c", "d", "e")
     val cdl = new CountDownLatch(smallRBCapacity)
