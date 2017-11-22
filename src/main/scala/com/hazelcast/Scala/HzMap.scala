@@ -23,8 +23,12 @@ import com.hazelcast.spi.AbstractDistributedObject
 import com.hazelcast.map.impl.recordstore.RecordStore
 import com.hazelcast.map.impl.record.Record
 import com.hazelcast.nio.serialization.Data
-import scala.util.Try
+import scala.util.{ Try, Success, Failure }
 import scala.collection.parallel.ParIterable
+import com.hazelcast.map.impl.MapServiceContext
+import scala.concurrent.blocking
+import language.higherKinds
+import scala.collection.IterableLike
 
 final class HzMap[K, V](protected val imap: IMap[K, V])
     extends KeyedIMapDeltaUpdates[K, V]
@@ -35,23 +39,53 @@ final class HzMap[K, V](protected val imap: IMap[K, V])
     case _ => getClientHzProxy(imap) getOrElse sys.error(s"Cannot get HazelcastInstance from ${imap.getClass}")
   }
 
-  private[Scala] def getLocalObjectsFast(keysByPartition: ParIterable[(Int, cSet[K])]): Option[ParIterable[Entry[K, V]]] = {
-    HzMap.mapServiceContext(imap).toOption.map { ctx =>
+  private[Scala] def getPartitionId(key: K): Int = getHZ.getPartitionService.getPartition(key).getPartitionId
+
+  private[Scala] def getFastIfLocal(keysByPartition: ParIterable[(Int, cSet[K])]): ParIterable[Entry[K, V]] = {
+    HzMap.mapServiceContext(imap).map { implicit ctx =>
       keysByPartition.flatMap {
         case (partitionId, keys) =>
           ctx.getExistingRecordStore(partitionId, imap.getName) match {
-            case partitionStore: RecordStore[Record[V]] =>
+            case recStore: RecordStore[_] =>
               keys.iterator.map { key =>
-                val value = partitionStore.get(ctx.toData(key), false) match {
-                  case data: Data => ctx.toObject(data)
-                  case obj => obj
+                val value = getValueOrNull(key, recStore) match {
+                  case null => blocking(imap get key)
+                  case value => value
                 }
-                if (value == null) null else new ImmutableEntry(key, value.asInstanceOf[V])
-              }.filter(_ != null)
-            case _ => None
+                new ImmutableEntry(key, value)
+              }.filter(_.value != null)
+            case _ => blocking(imap.getAll(keys.asJava)).entrySet.asScala
           }
       }
+    } getOrElse {
+      keysByPartition.flatMap {
+        case (_, keys) => blocking(imap.getAll(keys.asJava)).entrySet.asScala
+      }
     }
+  }
+
+  private def getValueOrNull(key: K, store: RecordStore[_])(implicit ctx: MapServiceContext): V = {
+    store.get(ctx.toData(key), false) match {
+      case data: Data => ctx.toObject(data).asInstanceOf[V]
+      case obj => obj.asInstanceOf[V]
+    }
+  }
+
+  private[Scala] def getFastIfLocal(key: K, partitionId: Int = -1): V = {
+    HzMap.mapServiceContext(imap).map { implicit ctx =>
+      val parId = if (partitionId >= 0) partitionId else getPartitionId(key)
+      val valueOrNull = ctx.getExistingRecordStore(parId, imap.getName) match {
+        case recStore: RecordStore[_] => getValueOrNull(key, recStore)
+        case _ => null.asInstanceOf[V]
+      }
+      valueOrNull match {
+        case null => imap.get(key)
+        case value => value
+      }
+    } getOrElse {
+      imap.get(key)
+    }
+
   }
 
   def async: AsyncMap[K, V] = new AsyncMap(imap)
@@ -63,9 +97,11 @@ final class HzMap[K, V](protected val imap: IMap[K, V])
     * subset of the data is needed, thus limiting
     * unnecessary network traffic.
     */
-  def getAs[R](key: K)(map: V => R): Option[R] = async.getAs(key)(map).await
+  def getAs[R](key: K)(map: V => R): Option[R] =
+    async.getAs(key)(map).await
 
-  def getAs[C, R](getCtx: HazelcastInstance => C, key: K)(mf: (C, V) => R): Option[R] = async.getAs(getCtx, key)(mf).await
+  def getAs[C, R](getCtx: HazelcastInstance => C, key: K)(mf: (C, V) => R): Option[R] =
+    async.getAs(getCtx, key)(mf).await
 
   def getAll(keys: cSet[K]): mMap[K, V] =
     if (keys.isEmpty) mMap.empty
@@ -104,10 +140,10 @@ final class HzMap[K, V](protected val imap: IMap[K, V])
     map.asScala.asInstanceOf[mMap[K, V]]
   }
 
-  def update(predicate: Predicate[_, _] = null)(updateIfPresent: V => V): Unit = {
+  def updateAll(predicate: Predicate[_, _] = null)(updateIfPresent: V => V): Unit = {
     updateValues(Option(predicate), updateIfPresent, _ => null)
   }
-  def updateAndGet(predicate: Predicate[_, _])(updateIfPresent: V => V): mMap[K, V] = {
+  def updateAndGetAll(predicate: Predicate[_, _])(updateIfPresent: V => V): mMap[K, V] = {
     updateValues(Option(predicate), updateIfPresent, _.asInstanceOf[Object])
   }
 
@@ -141,23 +177,30 @@ final class HzMap[K, V](protected val imap: IMap[K, V])
     }
   }
 
-  def execute[R](filter: EntryFilter[K, V])(thunk: Entry[K, V] => R): mMap[K, R] = {
+  def setIfAbsent(key: K, value: V, ttl: Duration = Duration.Inf): Boolean =
+    async.setIfAbsent(key, value, ttl).await
+
+  def execute[R](filter: EntryFilter[K, V])(thunk: Entry[K, filter.EV] => R): filter.M[R] = {
       def ep = new HzMap.ExecuteEP(thunk)
-    val jMap: java.util.Map[K, Object] = filter match {
+    filter match {
+      case ok @ OnKey(key) =>
+        val okThunk = thunk.asInstanceOf[Entry[K, ok.EV] => R]
+        imap.executeOnKey(key, new HzMap.ExecuteOptEP(okThunk))
+          .asInstanceOf[filter.M[R]]
       case OnEntries(null) =>
         imap.executeOnEntries(ep)
+          .asScala.asInstanceOf[filter.M[R]]
       case OnEntries(predicate) =>
         imap.executeOnEntries(ep, predicate)
-      case OnKey(key) =>
-        val value = imap.executeOnKey(key, ep)
-        Collections.singletonMap(key, value)
-      case OnKeys(keys) =>
+          .asScala.asInstanceOf[filter.M[R]]
+      case OnKeys(keys) => {
         if (keys.isEmpty) java.util.Collections.emptyMap()
         else imap.executeOnKeys(keys.asJava, ep)
+      }.asScala.asInstanceOf[filter.M[R]]
       case OnValues(include) =>
         imap.executeOnEntries(ep, new ValuePredicate(include))
+          .asScala.asInstanceOf[filter.M[R]]
     }
-    jMap.asInstanceOf[java.util.Map[K, R]].asScala
   }
 
   type MSR = ListenerRegistration
@@ -167,7 +210,7 @@ final class HzMap[K, V](protected val imap: IMap[K, V])
       if (localOnly) imap.addLocalEntryListener(listener)
       else imap.addEntryListener(listener, /* includeValue = */ false)
     new ListenerRegistration {
-      def cancel(): Unit = imap.removeEntryListener(regId)
+      def cancel(): Boolean = imap.removeEntryListener(regId)
     }
   }
   def onPartitionLost(runOn: ExecutionContext)(listener: PartialFunction[PartitionLost, Unit]): MSR = {
@@ -193,8 +236,8 @@ final class HzMap[K, V](protected val imap: IMap[K, V])
         case comp => comp
       }
       def compare(a: Entry[K, V], b: Entry[K, V]): Int = ordering.compare(sortBy(a), sortBy(b))
-    }.asInstanceOf[Comparator[Entry[_, _]]]
-    val pp = new PagingPredicate(pred, comparator, pageSize)
+    }
+    val pp = new PagingPredicate(pred.asInstanceOf[Predicate[K, V]], comparator, pageSize)
     pp.setPage(pageIdx)
     val result = imap.values(pp).asScala
     if (dropValues == 0) result
@@ -211,8 +254,8 @@ final class HzMap[K, V](protected val imap: IMap[K, V])
       }
       def compare(a: Entry[K, V], b: Entry[K, V]): Int =
         ordering.compare(sortBy(a), sortBy(b))
-    }.asInstanceOf[Comparator[Entry[_, _]]]
-    val pp = new PagingPredicate(pred, comparator, pageSize)
+    }
+    val pp = new PagingPredicate(pred.asInstanceOf[Predicate[K, V]], comparator, pageSize)
     pp.setPage(pageIdx)
     val result = imap.entrySet(pp).iterator.asScala.toIterable
     if (dropEntries == 0) result
@@ -229,8 +272,8 @@ final class HzMap[K, V](protected val imap: IMap[K, V])
       }
       def compare(a: Entry[K, V], b: Entry[K, V]): Int =
         ordering.compare(sortBy(a), sortBy(b))
-    }.asInstanceOf[Comparator[Entry[_, _]]]
-    val pp = new PagingPredicate(pred, comparator, pageSize)
+    }
+    val pp = new PagingPredicate(pred.asInstanceOf[Predicate[K, V]], comparator, pageSize)
     pp.setPage(pageIdx)
     val result = (if (localOnly) imap.localKeySet(pp) else imap.keySet(pp)).iterator.asScala.toIterable
     if (dropEntries == 0) result
@@ -295,6 +338,18 @@ private[Scala] object HzMap {
   final class ExecuteEP[K, V, R](_thunk: Entry[K, V] => R) extends AbstractEntryProcessor[K, V](true) {
     def thunk = _thunk
     def process(entry: Entry[K, V]): Object = _thunk(entry) match {
+      case null | _: Unit => null
+      case value => value.asInstanceOf[Object]
+    }
+  }
+  final class ExecuteOptEP[K, V, R](_thunk: Entry[K, Option[V]] => R) extends AbstractEntryProcessor[K, V](true) {
+    private class OptEntry(org: Entry[K, V]) extends Entry[K, Option[V]] {
+      def getKey() = org.getKey
+      def getValue() = Option(org.getValue)
+      def setValue(opt: Option[V]): Option[V] = Option(org.setValue(opt getOrElse null.asInstanceOf[V]))
+    }
+    def thunk = _thunk
+    def process(entry: Entry[K, V]): Object = _thunk(new OptEntry(entry)) match {
       case null | _: Unit => null
       case value => value.asInstanceOf[Object]
     }

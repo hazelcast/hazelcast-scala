@@ -4,7 +4,7 @@ import scala.concurrent._
 import com.hazelcast.Scala._
 import com.hazelcast.Scala.aggr._
 import scala.reflect.ClassTag
-import collection.{ Map => cMap }
+import collection.{ Map => cMap, Set => cSet }
 import com.hazelcast.core._
 import com.hazelcast.query._
 import collection.JavaConverters._
@@ -111,14 +111,11 @@ private[Scala] final class AggrMapDDSTask[K, E, AW](
           entryFold.foldEntry(acc, entry)(remoteFold)
         } else acc
       }
-      val partSvc = hz.getPartitionService
-      val keysByPartition = localKeys.groupBy(partSvc.getPartition(_).getPartitionId).toIterable.par
+      val keysByPartition = hz.groupByPartitionId(localKeys).toIterable.par
       taskSupport.foreach { taskSupport =>
         keysByPartition.tasksupport = hz.userCtx(taskSupport)
       }
-      val entries = imap.getLocalObjectsFast(keysByPartition).getOrElse {
-        keysByPartition.map(parKeys => blocking(imap.getAll(parKeys._2.asJava))).flatMap(_.entrySet.asScala)
-      }
+      val entries = imap.getFastIfLocal(keysByPartition)
       entries.aggregate(aggr.remoteInit)(seqop, aggr.remoteCombine)
     }
   }

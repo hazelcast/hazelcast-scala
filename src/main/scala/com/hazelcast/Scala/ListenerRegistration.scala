@@ -1,5 +1,5 @@
 package com.hazelcast.Scala
 
 trait ListenerRegistration {
-  def cancel(): Unit
+  def cancel(): Boolean
 }

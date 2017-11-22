@@ -1,16 +1,13 @@
 package com.hazelcast.Scala.dds
 
-import com.hazelcast.core.IMap
 import java.util.Map.Entry
-import collection.JavaConverters._
-import com.hazelcast.query.Predicate
-import com.hazelcast.core._
-import scala.concurrent._
-import scala.concurrent.ExecutionContext.Implicits.global
-import scala.reflect.ClassTag
+
 import scala.collection.{ Set => aSet }
+import scala.reflect.ClassTag
 
 import com.hazelcast.Scala._
+import com.hazelcast.core.IMap
+import com.hazelcast.query.Predicate
 
 /** Distributed data structure. */
 sealed trait DDS[E] {
@@ -67,7 +64,8 @@ private[Scala] final class MapDDS[K, V, E](
     val keySet: Option[collection.Set[K]],
     val pipe: Option[Pipe[E]]) extends DDS[E] {
 
-  private[Scala] def this(imap: IMap[K, V], predicate: Predicate[_, _] = null) = this(imap, Option(predicate), None, None)
+  def this(imap: IMap[K, V], predicate: Predicate[_, _] = null) =
+    this(imap, Option(predicate), None, None)
 
   def groupBy[G, F](gf: E => G, mf: E => F): GroupDDS[G, F] = {
     val prev = this.pipe getOrElse PassThroughPipe[E]

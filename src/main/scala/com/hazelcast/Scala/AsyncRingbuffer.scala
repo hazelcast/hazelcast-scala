@@ -8,9 +8,9 @@ import com.hazelcast.core.ExecutionCallback
 import com.hazelcast.ringbuffer.impl.RingbufferProxy
 import java.util.concurrent.Executor
 
-private object AsyncRingbuffer {
-  implicit val jl2osl = (jl: java.lang.Long) => if (jl == -1L) None else Some(jl: Long)
-  def MaxBatchSize = RingbufferProxy.MAX_BATCH_SIZE
+object AsyncRingbuffer {
+  private implicit val jl2osl = (jl: java.lang.Long) => if (jl == -1L) None else Some(jl: Long)
+  private def MaxBatchSize = RingbufferProxy.MAX_BATCH_SIZE
 }
 
 class AsyncRingbuffer[E](private val rb: Ringbuffer[E]) extends AnyVal {
@@ -19,8 +19,8 @@ class AsyncRingbuffer[E](private val rb: Ringbuffer[E]) extends AnyVal {
   /**
     * Add item.
     * @param item The item to add
-    * @param overflowPolicy The overflow policy, defaults to [[OVERWRITE]]
-    * @return The sequence number added. Will only return `None` if default policy is [[FAIL]] and capacity is reached.
+    * @param overflowPolicy The overflow policy, defaults to `OVERWRITE`
+    * @return The sequence number added. Will only return `None` if default policy is `FAIL` and capacity is reached.
     */
   def add(item: E, overflowPolicy: OverflowPolicy = OverflowPolicy.OVERWRITE): Future[Option[Long]] = {
     rb.addAsync(item, overflowPolicy).asScala
@@ -29,8 +29,8 @@ class AsyncRingbuffer[E](private val rb: Ringbuffer[E]) extends AnyVal {
   /**
     * Add batch of items.
     * @param items The items to add
-    * @param overflowPolicy The overflow policy, defaults to [[OVERWRITE]]
-    * @return The last sequence number added. Will only return `None` if default policy is [[FAIL]] and capacity is reached.
+    * @param overflowPolicy The overflow policy, defaults to `OVERWRITE`
+    * @return The last sequence number added. Will only return `None` if default policy is `FAIL` and capacity is reached.
     */
   def addAll(items: Iterable[E], overflowPolicy: OverflowPolicy = OverflowPolicy.OVERWRITE): Future[Option[Long]] = {
     rb.addAllAsync(items.asJavaCollection, overflowPolicy).asScala

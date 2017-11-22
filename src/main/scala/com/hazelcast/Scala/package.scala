@@ -25,12 +25,13 @@ import query.PredicateBuilder
 import query.Predicates
 import query.SqlPredicate
 import ringbuffer.Ringbuffer
+import durableexecutor.DurableExecutorService
 
 package Scala {
 
   sealed trait UpsertResult
-  final case object Insert extends UpsertResult
-  final case object Update extends UpsertResult
+  final case object WasInserted extends UpsertResult
+  final case object WasUpdated extends UpsertResult
 
   object Macros {
     import reflect.macros.whitebox.Context
@@ -92,6 +93,7 @@ package Scala {
     @inline implicit def partsvc2scala(ps: PartitionService) = new HzPartitionService(ps)
     @inline implicit def topic2scala[T](topic: ITopic[T]) = new HzTopic(topic)
     @inline implicit def exec2scala(exec: IExecutorService) = new HzExecutorService(exec)
+    @inline implicit def durexec2scala(exec: DurableExecutorService) = new HzDurableExecutorService(exec)
     @inline implicit def dds2numDds[N: Numeric](dds: DDS[N]): NumericDDS[N] = dds match {
       case dds: MapDDS[_, _, N] => new NumericMapDDS(dds)
     }
@@ -119,20 +121,24 @@ package object Scala extends HighPriorityImplicits {
   @inline implicit def fu2pfu[A](f: A => Unit): PartialFunction[A, Unit] = PartialFunction(f)
   @inline implicit def imap2scala[K, V](imap: IMap[K, V]) = new HzMap[K, V](imap)
   @inline implicit def icoll2scala[T](coll: ICollection[T]) = new HzCollection[T](coll)
+  @inline implicit def rb2scala[E](rb: Ringbuffer[E]) = new HzRingbuffer(rb)
 
   implicit class HzMessage[T](private val msg: Message[T]) extends AnyVal {
     @inline def get(): T = msg.getMessageObject
   }
 
-  @inline implicit def mbrConf2props(conf: config.Config) = new HzMemberProperties(conf)
-  @inline implicit def mbrConf2scala(conf: config.Config) = new HzConfig(conf)
-  @inline implicit def rb2scala[E](rb: Ringbuffer[E]) = new HzRingbuffer(rb)
+  implicit def toConfig(ms: MaxSize) = ms.toConfig
+  implicit def mbrConf2props(conf: config.Config) = new HzMemberProperties(conf)
+  implicit def mbrConf2scala(conf: config.Config) = new HzConfig(conf)
 
   implicit class HzInt(private val i: Int) extends AnyVal {
     def kilobytes = new MemorySize(i, MemoryUnit.KILOBYTES)
     def gigabytes = new MemorySize(i, MemoryUnit.GIGABYTES)
     def megabytes = new MemorySize(i, MemoryUnit.MEGABYTES)
     def bytes = new MemorySize(i, MemoryUnit.BYTES)
+  }
+  implicit class HzCDL(private val cdl: ICountDownLatch) extends AnyVal {
+    def await(dur: FiniteDuration): Boolean = cdl.await(dur.length, dur.unit)
   }
 
   implicit class ScalaEntry[K, V](private val entry: Entry[K, V]) extends AnyVal {
@@ -174,8 +180,8 @@ package object Scala extends HighPriorityImplicits {
     def <(value: Comparable[_]): PredicateBuilder = eo.lessThan(value)
     def >=(value: Comparable[_]): PredicateBuilder = eo.greaterEqual(value)
     def <=(value: Comparable[_]): PredicateBuilder = eo.lessEqual(value)
+    def in(values: TraversableOnce[_ <: Comparable[_]]): PredicateBuilder = eo.in(values.toSeq: _*)
     def update(name: String, value: Comparable[_]): PredicateBuilder = apply(name).equal(value)
-    def update(value: Comparable[_]): PredicateBuilder = eo.equal(value)
     def <>(value: Comparable[_]): PredicateBuilder = eo.notEqual(value)
   }
 

@@ -20,6 +20,7 @@ import com.hazelcast.instance.Node
 import com.hazelcast.spi.NodeAware
 import collection.JavaConversions._
 import com.hazelcast.core.PartitionAware
+import com.hazelcast.durableexecutor.DurableExecutorService
 
 final class HzExecutorService(private val exec: IExecutorService) extends AnyVal {
 
@@ -66,6 +67,24 @@ final class HzExecutorService(private val exec: IExecutorService) extends AnyVal
             map.updated(entry.key, future)
         }
     }
+  }
+
+}
+
+final class HzDurableExecutorService(private val exec: DurableExecutorService) extends AnyVal {
+
+  def retrieveAndDispose[T](taskId: Long): Future[T] =
+    exec.retrieveAndDisposeResult(taskId).asScala
+  def retrieve[T](taskId: Long): Future[T] =
+    exec.retrieveResult(taskId).asScala
+
+  def submit[T]()(thunk: HazelcastInstance => T): (Future[T], Long) = {
+    val future = exec.submit(new RemoteTask(thunk))
+    future.asScala -> future.getTaskId
+  }
+  def submit[T](member: ToKeyOwner)(thunk: HazelcastInstance => T): (Future[T], Long) = {
+    val future = exec.submitToKeyOwner(new RemoteTask(thunk), member.key)
+    future.asScala -> future.getTaskId
   }
 
 }

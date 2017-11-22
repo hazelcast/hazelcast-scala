@@ -50,17 +50,24 @@ final class AsyncMap[K, V] private[Scala] (protected val imap: IMap[K, V])
     callback.future
   }
 
-  def set(key: K, value: V, ttl: Duration = Duration.Inf): Future[Unit] = {
-    // TODO: Use `setAsync` once available
+  def setIfAbsent(key: K, value: V, ttl: Duration = Duration.Inf): Future[Boolean] = {
     val ep =
       if (ttl.isFinite && ttl.length > 0) {
-        new AsyncMap.TTLSetAsyncEP(imap.getName, value, ttl.length, ttl.unit)
+        new AsyncMap.TTLSetIfAbsentEP(imap.getName, value, ttl.length, ttl.unit)
       } else {
-        new AsyncMap.SetAsyncEP(value)
+        new AsyncMap.SetIfAbsentEP(value)
       }
     val callback = ep.newCallback()
     imap.submitToKey(key, ep, callback)
     callback.future
+  }
+  private[this] val any2unit = (any: Any) => ()
+  def set(key: K, value: V, ttl: Duration = Duration.Inf): Future[Unit] = {
+    if (ttl.isFinite && ttl.length > 0) {
+      imap.setAsync(key, value, ttl.length, ttl.unit).asScala(any2unit)
+    } else {
+      imap.setAsync(key, value).asScala(any2unit)
+    }
   }
 
   def remove(key: K): Future[Option[V]] =
@@ -128,19 +135,28 @@ private[Scala] object AsyncMap {
       existing
     }
   }
-  final class TTLSetAsyncEP[V](val mapName: String, val value: V, val ttl: Long, val unit: TimeUnit)
-      extends SingleEntryCallbackReader[Any, V, Unit]
+  final class TTLSetIfAbsentEP[V](val mapName: String, val putIfAbsent: V, val ttl: Long, val unit: TimeUnit)
+      extends SingleEntryCallbackReader[Any, V, Boolean]
       with HazelcastInstanceAware {
     @BeanProperty @transient
     var hazelcastInstance: HazelcastInstance = _
-    def onEntry(key: Any, existing: V): Unit = {
-      val imap = hazelcastInstance.getMap[Any, V](mapName)
-      imap.set(key, value, ttl, unit)
+    def onEntry(key: Any, existing: V): Boolean = {
+      val set = existing == null
+      if (set) {
+        val imap = hazelcastInstance.getMap[Any, V](mapName)
+        imap.set(key, putIfAbsent, ttl, unit)
+      }
+      set
     }
   }
-  final class SetAsyncEP[V](val value: V)
-      extends SingleEntryCallbackUpdater[Any, V, Unit] {
-    def onEntry(entry: Entry[Any, V]): Unit =
-      entry.value = value
+  final class SetIfAbsentEP[V](val putIfAbsent: V)
+      extends SingleEntryCallbackUpdater[Any, V, Boolean] {
+    def onEntry(entry: Entry[Any, V]): Boolean = {
+      val set = entry.value == null
+      if (set) {
+        entry.value = putIfAbsent
+      }
+      set
+    }
   }
 }

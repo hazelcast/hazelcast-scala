@@ -1,9 +1,12 @@
 package joe.schmoe
 
 import com.hazelcast.Scala._
-import org.junit._, Assert._
-import javax.script.ScriptEngineManager
+import org.junit._
+import Assert._
 import javax.script.ScriptContext
+
+import scala.tools.nsc.Settings
+import scala.tools.nsc.interpreter.Scripted
 
 object TestDynamicExecution extends ClusterSetup {
   override val clusterSize = 3
@@ -14,10 +17,9 @@ object TestDynamicExecution extends ClusterSetup {
   def destroy = ()
 
   val ScriptEngine = {
-    val engine = new scala.tools.nsc.interpreter.IMain
-//    val engine = new ScriptEngineManager().getEngineByName("scala")
-    val settings = engine.asInstanceOf[scala.tools.nsc.interpreter.IMain].settings
+    val settings = new Settings()
     settings.embeddedDefaults[TestDynamicExecution.type]
+    val engine = Scripted(settings = settings)
     engine
   }
 
@@ -29,7 +31,7 @@ class TestDynamicExecution {
   @Test @Ignore
   def `updating/upserting` {
     val theMap = getClientMap[String, Int]()
-    ScriptEngine.bind("theMap", theMap)
+    ScriptEngine.put("theMap", theMap)
     ScriptEngine.getContext.setAttribute("theMap", theMap, ScriptContext.ENGINE_SCOPE)
     val bindings = ScriptEngine.createBindings()
     bindings.put("theMap", theMap)

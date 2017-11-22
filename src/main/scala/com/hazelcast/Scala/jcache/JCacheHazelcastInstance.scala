@@ -1,23 +1,23 @@
 package com.hazelcast.Scala.jcache
 
+import scala.collection.JavaConverters._
 import scala.collection.concurrent.TrieMap
-import scala.reflect.ClassTag
-import scala.reflect.classTag
+import scala.concurrent.{ ExecutionContext, Future }
+import scala.reflect.{ ClassTag, classTag }
 import scala.util.Try
 
 import com.hazelcast.Scala._
 import com.hazelcast.cache.ICache
 import com.hazelcast.cache.impl.HazelcastServerCachingProvider
-import com.hazelcast.core._
+import com.hazelcast.core.{ HazelcastInstance, IExecutorService }
 import com.hazelcast.core.LifecycleEvent.LifecycleState
-import com.hazelcast.instance.GroupProperty
-import com.hazelcast.instance.HazelcastProperty
+import com.hazelcast.spi.properties.{ GroupProperty, HazelcastProperty }
 
 import javax.cache.CacheManager
 
-private object JCacheHazelcastInstance {
-  val CacheManagers = new TrieMap[HazelcastInstance, CacheManager]
-  val PrimitiveWrappers: Map[Class[_], Class[_]] = Map(
+object JCacheHazelcastInstance {
+  private val CacheManagers = new TrieMap[HazelcastInstance, CacheManager]
+  private val PrimitiveWrappers: Map[Class[_], Class[_]] = Map(
     classOf[Boolean] -> classOf[java.lang.Boolean],
     classOf[Byte] -> classOf[java.lang.Byte],
     classOf[Short] -> classOf[java.lang.Short],
@@ -46,56 +46,62 @@ class JCacheHazelcastInstance(private val hz: HazelcastInstance) extends AnyVal 
     case cls => cls.asInstanceOf[Class[T]]
   }
 
-  private def getCacheProvider[K, V](cacheName: String, entryTypes: Option[(Class[K], Class[V])]) = {
-      def setClassType(classType: Class[_], getType: () => String, setType: String => Unit) {
-        val typeName = classType.getName
-        getType() match {
-          case null =>
-            setType(typeName)
-          case configured if configured != typeName =>
-            sys.error(s"""Type $typeName, for cache "$cacheName", does not match configured type $configured""")
-          case _ => // Already set and matching
-        }
-      }
-    val isClient = getProperty(GroupProperty.JCACHE_PROVIDER_TYPE) match {
-      case Some("client") => true
-      case Some("server") => false
-      case Some(other) => sys.error(s"Unknown provider type: $other")
-      case None => hz.isClient
+  def getLocalCacheNames(): Iterable[String] = getCacheManager().getCacheNames.asScala
+
+  def getClusterCacheNames(exec: IExecutorService)(
+      implicit ec: ExecutionContext): Future[Iterable[String]] = {
+    val byMember = exec.submit(ToAll) { hz =>
+      hz.getDistributedObjects.iterator.asScala
+        .filter(_.isInstanceOf[javax.cache.Cache[_, _]])
+        .map(_.getName).toVector
     }
-    if (isClient) {
-      createClientCachingProvider(hz).get
-    } else {
-      entryTypes.foreach {
-        case (keyType, valueType) =>
-          val conf = hz.getConfig.getCacheConfig(cacheName)
-          setClassType(keyType, conf.getKeyType, conf.setKeyType)
-          setClassType(valueType, conf.getValueType, conf.setValueType)
-      }
-      HazelcastServerCachingProvider.createCachingProvider(hz)
-    }
+    Future.sequence(byMember.values).map(_.flatten.toSet)
   }
 
-  def getCache[K: ClassTag, V: ClassTag](name: String, typesafe: Boolean = true): ICache[K, V] = {
-    val entryType = if (typesafe) {
-      Some(getObjectType[K] -> getObjectType[V])
-    } else None
-    val mgr = CacheManagers.get(hz) getOrElse {
-      val mgr = getCacheProvider(name, entryType).getCacheManager
+  private def getCacheManager[K, V](): CacheManager =
+    CacheManagers.get(hz) getOrElse {
+      val mgr = {
+        val isClient = getProperty(GroupProperty.JCACHE_PROVIDER_TYPE) match {
+          case Some("client") => true
+          case Some("server") => false
+          case Some(other) => sys.error(s"Unknown provider type: $other")
+          case None => hz.isClient
+        }
+        val provider =
+          if (isClient) {
+            createClientCachingProvider(hz).get
+          } else {
+            HazelcastServerCachingProvider.createCachingProvider(hz)
+          }
+        provider.getCacheManager
+      }
       CacheManagers.putIfAbsent(hz, mgr) getOrElse {
-        hz.onLifecycleStateChange() {
-          case LifecycleState.SHUTDOWN => CacheManagers.remove(hz)
+        var shutdownReg: ListenerRegistration = null
+        shutdownReg = hz.onLifecycleStateChange() {
+          case LifecycleState.SHUTDOWN =>
+            Try(CacheManagers.remove(hz).foreach(_.close))
+            val reg = shutdownReg
+            if (reg != null) {
+              shutdownReg = null
+              reg.cancel()
+            }
         }
         mgr
       }
     }
-    val cache = entryType.map {
+
+  def getCache[K: ClassTag, V: ClassTag](name: String, typesafe: Boolean = true): ICache[K, V] = {
+    val entryTypes = if (typesafe) {
+      Some(getObjectType[K] -> getObjectType[V])
+    } else None
+    val mgr = getCacheManager()
+    val cache = entryTypes.map {
       case (keyType, valueType) => mgr.getCache[K, V](name, keyType, valueType)
     }.getOrElse(mgr.getCache[K, V](name)) match {
       case null =>
         val cc = new javax.cache.configuration.Configuration[K, V] {
-          def getKeyType() = entryType.map(_._1) getOrElse classOf[Object].asInstanceOf[Class[K]]
-          def getValueType() = entryType.map(_._2) getOrElse classOf[Object].asInstanceOf[Class[V]]
+          def getKeyType() = entryTypes.map(_._1) getOrElse classOf[Object].asInstanceOf[Class[K]]
+          def getValueType() = entryTypes.map(_._2) getOrElse classOf[Object].asInstanceOf[Class[V]]
           def isStoreByValue() = true
         }
         mgr.createCache[K, V, cc.type](name, cc)
