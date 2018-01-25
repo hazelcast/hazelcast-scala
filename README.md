@@ -1,5 +1,4 @@
-[![Build Status](https://drone.io/github.com/hazelcast/hazelcast-scala/status.png)](https://drone.io/github.com/hazelcast/hazelcast-scala)
-[![Scala version](https://img.shields.io/badge/scala-2.11-orange.svg)](http://www.scala-lang.org/api/2.11.8/)
+[![Build Status](https://semaphoreci.com/api/v1/nilskp/hazelcast-scala/branches/master/badge.svg)](https://semaphoreci.com/nilskp/hazelcast-scala)
 [![Scala version](https://img.shields.io/badge/scala-2.11-orange.svg)](https://www.scala-lang.org/api/2.11.x/)
 [![Scala version](https://img.shields.io/badge/scala-2.12-orange.svg)](https://www.scala-lang.org/api/2.12.x/)
 [![Join Chat at https://gitter.im/hazelcast/hazelcast-scala](https://badges.gitter.im/Join%20Chat.svg)](https://gitter.im/hazelcast/hazelcast-scala)
