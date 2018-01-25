@@ -33,7 +33,7 @@ if (vScala == '2.11') {
 }
 
 task wrapper(type: Wrapper) {
-    gradleVersion = '4.3.1'
+    gradleVersion = '4.5'
 }
 if (version == '') {
     version = 'SNAPSHOT'
