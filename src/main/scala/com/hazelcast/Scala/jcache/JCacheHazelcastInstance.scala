@@ -15,7 +15,6 @@ import com.hazelcast.spi.properties.{ GroupProperty, HazelcastProperty }
 
 import javax.cache.CacheManager
 
-private object JCacheHazelcastInstance {
   val CacheManagers = new TrieMap[HazelcastInstance, CacheManager]
   val PrimitiveWrappers: Map[Class[_], Class[_]] = Map(
     classOf[Boolean] -> classOf[java.lang.Boolean],
@@ -26,6 +25,7 @@ private object JCacheHazelcastInstance {
     classOf[Int] -> classOf[java.lang.Integer],
     classOf[Double] -> classOf[java.lang.Double],
     classOf[Long] -> classOf[java.lang.Long])
+object JCacheHazelcastInstance {
 }
 
 class JCacheHazelcastInstance(private val hz: HazelcastInstance) extends AnyVal {

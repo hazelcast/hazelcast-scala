@@ -17,7 +17,7 @@ ext {
     ]
 
     vJUnit = '4.12'
-    vScala = System.properties.scalaVersion ?: '2.11'
+    vScala = System.properties.scalaVersion ?: '2.12'
     vScalaFull = latestScalaFull[vScala]
     vHazelcast = '3.9'
     vKryo = '4.0.1'

@@ -1,11 +1,13 @@
 [![Build Status](https://drone.io/github.com/hazelcast/hazelcast-scala/status.png)](https://drone.io/github.com/hazelcast/hazelcast-scala)
 [![Scala version](https://img.shields.io/badge/scala-2.11-orange.svg)](http://www.scala-lang.org/api/2.11.8/)
+[![Scala version](https://img.shields.io/badge/scala-2.11-orange.svg)](https://www.scala-lang.org/api/2.11.x/)
+[![Scala version](https://img.shields.io/badge/scala-2.12-orange.svg)](https://www.scala-lang.org/api/2.12.x/)
 [![Join Chat at https://gitter.im/hazelcast/hazelcast-scala](https://badges.gitter.im/Join%20Chat.svg)](https://gitter.im/hazelcast/hazelcast-scala)
 [![Download](https://api.bintray.com/packages/hazelcast/maven/hazelcast-scala/images/download.svg)](https://bintray.com/hazelcast/maven/hazelcast-scala/_latestVersion#files)
 
 # Installation
 
-The hazelcast-scala API is based on Scala 2.11 and Hazelcast 3.6/3.7/3.8, but does not define them as hard dependencies (since it works with both open-source and enterprise Hazelcast), so make sure to also include the relevant Hazelcast dependencies.
+The hazelcast-scala API is based on Scala 2.11/2.12 and Hazelcast 3.9, but does not define them as hard dependencies (since it works with both open-source and enterprise Hazelcast, and multiple versions), _so make sure to also include the relevant Hazelcast dependencies explicitly_.
 
 ## Gradle
 Add this to your `build.gradle` file:
@@ -14,9 +16,9 @@ Add this to your `build.gradle` file:
       jcenter()
     }
     dependencies {
-      compile "org.scala-lang:scala-reflect:2.11.+"
-      compile "com.hazelcast:hazelcast:3.7.+" // Or :hazelcast-enterprise:
-      compile "com.hazelcast:hazelcast-scala_2.11:3.7.+"
+      compile "org.scala-lang:scala-reflect:2.12.+"
+      compile "com.hazelcast:hazelcast:3.9.+" // Or :hazelcast-enterprise:
+      compile "com.hazelcast:hazelcast-scala_2.12:3.9.+"
     }
 
 ## SBT
