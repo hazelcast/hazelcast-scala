@@ -126,6 +126,7 @@ bintray {
     publish = !dryRun
     publications = ['maven']
     pkg {
+        userOrg = System.properties.bintrayOrg
         repo = System.properties.bintrayRepo
         name = System.properties.bintrayName
     }
