@@ -46,7 +46,7 @@ private[serialization] object UnsafeSerializer {
   def read(inp: ObjectDataInput, cls: Class[_]): Any = {
     val instance = UNSAFE.allocateInstance(cls)
     fields.get(cls).foreach { field =>
-      field.set(instance, inp.readObject)
+      field.set(instance, inp.readObject[Any])
     }
     instance
   }

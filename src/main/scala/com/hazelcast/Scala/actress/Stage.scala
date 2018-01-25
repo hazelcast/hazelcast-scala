@@ -7,11 +7,8 @@ import com.hazelcast.core.{ HazelcastInstance, IMap }
 import java.util.Map.Entry
 import com.hazelcast.core.HazelcastInstanceAware
 import scala.beans.BeanProperty
-import com.hazelcast.nio.serialization.StreamSerializer
-import com.hazelcast.nio.serialization.ByteArraySerializer
 import com.hazelcast.instance.HazelcastInstanceImpl
 import com.hazelcast.instance.HazelcastInstanceProxy
-import java.util.Arrays
 
 class Stage(private val actressMap: IMap[String, Array[Byte]]) {
 

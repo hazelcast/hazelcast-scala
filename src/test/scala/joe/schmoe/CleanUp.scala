@@ -2,16 +2,16 @@ package joe.schmoe
 
 import org.junit.After
 import com.hazelcast.core.HazelcastInstance
-import collection.JavaConversions._
+import collection.JavaConverters._
 
 trait CleanUp {
 
   def hzs: Vector[HazelcastInstance]
 
   @After
-  def cleanup {
+  def cleanup() {
     hzs.foreach { hz =>
-      hz.getDistributedObjects.foreach(_.destroy)
+      hz.getDistributedObjects.asScala.foreach(_.destroy)
     }
   }
 }

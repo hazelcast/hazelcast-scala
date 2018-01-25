@@ -23,12 +23,9 @@ import com.hazelcast.config.MapIndexConfig
 import com.hazelcast.core.IMap
 import com.hazelcast.map.AbstractEntryProcessor
 import com.hazelcast.query.Predicate
-import scala.collection.immutable.Vector
 import java.util.concurrent.atomic.AtomicReference
-import com.hazelcast.config.MapStoreConfig
 import com.hazelcast.core.MapStore
 import scala.util.control.NoStackTrace
-import com.hazelcast.config.MapConfig
 import com.hazelcast.core.IExecutorService
 
 object TestMap extends ClusterSetup {

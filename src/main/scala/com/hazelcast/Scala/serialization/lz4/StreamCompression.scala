@@ -1,9 +1,6 @@
 package com.hazelcast.Scala.serialization.lz4
 
-import com.hazelcast.nio.serialization.ByteArraySerializer
 import net.jpountz.lz4._
-import com.hazelcast.nio.Bits
-import java.util.Arrays
 import com.hazelcast.nio.serialization.StreamSerializer
 import com.hazelcast.nio.{ ObjectDataInput, ObjectDataOutput }
 import com.hazelcast.Scala.serialization._

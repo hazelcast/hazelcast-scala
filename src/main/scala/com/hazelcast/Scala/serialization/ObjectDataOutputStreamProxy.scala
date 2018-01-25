@@ -1,9 +1,7 @@
 package com.hazelcast.Scala.serialization
 
-import java.io.OutputStream
 import com.hazelcast.internal.serialization.impl.ObjectDataOutputStream
 import com.hazelcast.internal.serialization.{ InternalSerializationService => SerializationService }
-import java.util.Arrays
 import java.lang.reflect.Field
 import com.hazelcast.nio.serialization.HazelcastSerializationException
 import com.hazelcast.nio.ObjectDataOutput

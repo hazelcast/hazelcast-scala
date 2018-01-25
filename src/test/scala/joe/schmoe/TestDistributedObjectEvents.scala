@@ -3,13 +3,8 @@ package joe.schmoe
 import org.junit._
 import org.junit.Assert._
 import com.hazelcast.Scala._
-import java.util.UUID
-import scala.concurrent.Await
 import scala.concurrent.duration._
 import java.util.concurrent.CountDownLatch
-import java.util.concurrent.LinkedBlockingQueue
-import scala.concurrent.Future
-import scala.concurrent.ExecutionContext.Implicits.global
 import java.util.concurrent.atomic.AtomicInteger
 import com.hazelcast.core.IMap
 import com.hazelcast.map.impl.MapService

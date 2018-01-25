@@ -19,8 +19,8 @@ package object Scala extends HighPriorityImplicits {
 
   type Freq = Int
 
-  private[Scala]type ImmutableEntry[K, V] = AbstractMap.SimpleImmutableEntry[K, V]
-  private[Scala]type MutableEntry[K, V] = AbstractMap.SimpleEntry[K, V]
+  private[Scala] type ImmutableEntry[K, V] = AbstractMap.SimpleImmutableEntry[K, V]
+  private[Scala] type MutableEntry[K, V] = AbstractMap.SimpleEntry[K, V]
 
   @inline implicit def fu2pfu[A](f: A => Unit): PartialFunction[A, Unit] = PartialFunction(f)
   @inline implicit def imap2scala[K, V](imap: IMap[K, V]): HzMap[K, V] = new HzMap(imap)
@@ -116,7 +116,11 @@ package object Scala extends HighPriorityImplicits {
       }
     }
     def asScalaOpt[U](implicit ev: T <:< U): Future[Option[U]] = {
-      if (jFuture.isDone) try Future successful Option(jFuture.get) catch { case NonFatal(t) => Future failed t }
+      if (jFuture.isDone) try {
+        Future successful Option(jFuture.get: U)
+      } catch {
+        case NonFatal(t) => Future failed t
+      }
       else {
         val callback = new FutureCallback[T, Option[U]](None)(Some(_))
         jFuture match {
@@ -138,20 +142,23 @@ package object Scala extends HighPriorityImplicits {
   private[Scala] def getClientHzProxy(clientDOProxy: DistributedObject): Option[HazelcastInstance] =
     ClientProxy_getClient.map(_.invoke(clientDOProxy).asInstanceOf[HazelcastInstance])
 
+}
+
+package Scala {
+
   private[Scala] final class EntryPredicate[K, V](
-    include: Entry[K, V] => Boolean, prev: Predicate[Object, Object] = null)
-      extends Predicate[K, V] {
+      include: Entry[K, V] => Boolean, prev: Predicate[Object, Object] = null)
+    extends Predicate[K, V] {
     def this(f: (K, V) => Boolean) = this(entry => f(entry.key, entry.value))
     def apply(entry: Entry[K, V]) = (prev == null || prev(entry.asInstanceOf[Entry[Object, Object]])) && include(entry)
   }
   private[Scala] final class ValuePredicate[V](
-    include: V => Boolean, prev: Predicate[Object, Object] = null)
-      extends Predicate[Object, V] {
+      include: V => Boolean, prev: Predicate[Object, Object] = null)
+    extends Predicate[Object, V] {
     def apply(entry: Entry[Object, V]) = (prev == null || prev(entry.asInstanceOf[Entry[Object, Object]])) && include(entry.value)
   }
   private[Scala] final class KeyPredicate[K](include: K => Boolean, prev: Predicate[Object, Object] = null)
-      extends Predicate[K, Object] {
+    extends Predicate[K, Object] {
     def apply(entry: Entry[K, Object]) = (prev == null || prev(entry.asInstanceOf[Entry[Object, Object]])) && include(entry.key)
   }
-
 }

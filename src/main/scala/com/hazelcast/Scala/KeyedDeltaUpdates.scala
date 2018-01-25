@@ -178,8 +178,8 @@ private[Scala] object KeyedDeltaUpdates {
     def insertIfMissing = None
 
     def getResult(taskRes: Result, oldVal: V, newVal: V) = taskRes match {
-      case UpdateSuccess => Some(oldVal, true)
-      case ConditionFailed => Some(oldVal, false)
+      case UpdateSuccess => Some((oldVal, true))
+      case ConditionFailed => Some((oldVal, false))
       case EntryNotFound => None
     }
   }

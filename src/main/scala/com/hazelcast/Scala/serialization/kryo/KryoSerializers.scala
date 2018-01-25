@@ -10,7 +10,6 @@ import KryoSerializers._
 import com.hazelcast.nio.ObjectDataOutput
 import com.hazelcast.nio.ObjectDataInput
 import com.esotericsoftware.kryo.io.Input
-import java.lang.ref.SoftReference
 import java.util.Arrays
 import com.hazelcast.Scala.serialization.SoftThreadLocal
 

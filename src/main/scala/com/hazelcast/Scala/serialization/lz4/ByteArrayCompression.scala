@@ -2,8 +2,6 @@ package com.hazelcast.Scala.serialization.lz4
 
 import java.util.Arrays
 
-import com.hazelcast.nio.Bits
-
 import com.hazelcast.nio.serialization.ByteArraySerializer
 
 import net.jpountz.lz4.LZ4Compressor

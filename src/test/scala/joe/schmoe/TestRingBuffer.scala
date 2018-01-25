@@ -4,10 +4,6 @@ import org.junit._
 import org.junit.Assert._
 import com.hazelcast.Scala._
 import java.util.UUID
-import scala.concurrent.Await
-import scala.concurrent.duration._
-import java.util.concurrent.CountDownLatch
-import java.util.concurrent.LinkedBlockingQueue
 import scala.concurrent.Future
 
 object TestRingBuffer extends ClusterSetup {

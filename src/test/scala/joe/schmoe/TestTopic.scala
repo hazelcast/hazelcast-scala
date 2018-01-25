@@ -3,11 +3,8 @@ package joe.schmoe
 import org.junit._
 import org.junit.Assert._
 import com.hazelcast.Scala._
-import java.util.UUID
-import scala.concurrent.Await
 import scala.concurrent.duration._
 import java.util.concurrent.CountDownLatch
-import com.hazelcast.core.Message
 import scala.util.Try
 import com.hazelcast.config.RingbufferConfig
 

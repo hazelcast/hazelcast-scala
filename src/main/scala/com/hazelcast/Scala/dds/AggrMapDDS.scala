@@ -3,11 +3,9 @@ package com.hazelcast.Scala.dds
 import scala.concurrent._
 import com.hazelcast.Scala._
 import com.hazelcast.Scala.aggr._
-import scala.reflect.ClassTag
-import collection.{ Map => cMap, Set => cSet }
+import collection.{ Map => cMap }
 import com.hazelcast.core._
 import com.hazelcast.query._
-import java.util.concurrent.{ Future => jFuture }
 import java.util.Map.Entry
 
 private[Scala] class AggrMapDDS[K, E](val dds: MapDDS[K, _, E], sorted: Option[Sorted[E]] = None) extends AggrDDS[E] {

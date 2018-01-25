@@ -19,7 +19,7 @@ object TestSerializers extends CompressedSerializers {
       out.writeBoolean(emp.active)
     }
     def inflate(inp: ObjectDataInput): Employee = {
-      new Employee(inp.readObject.asInstanceOf[UUID], inp.readUTF, inp.readInt, inp.readInt, inp.readBoolean)
+      new Employee(inp.readObject[UUID], inp.readUTF, inp.readInt, inp.readInt, inp.readBoolean)
     }
   }
 

@@ -2,9 +2,7 @@ package joe.schmoe
 
 import java.util.UUID
 
-import scala.BigDecimal.RoundingMode._
 import scala.collection.JavaConverters._
-import scala.concurrent.duration._
 
 import org.junit.Assert._
 import org.junit.Test

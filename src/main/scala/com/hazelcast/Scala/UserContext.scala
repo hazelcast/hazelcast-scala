@@ -1,6 +1,5 @@
 package com.hazelcast.Scala
 
-import scala.reflect.ClassTag
 import java.util.concurrent.ConcurrentMap
 
 object UserContext {
