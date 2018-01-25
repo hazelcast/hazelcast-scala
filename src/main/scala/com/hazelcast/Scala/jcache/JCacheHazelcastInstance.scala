@@ -15,17 +15,14 @@ import com.hazelcast.spi.properties.{ GroupProperty, HazelcastProperty }
 
 import javax.cache.CacheManager
 
-  val CacheManagers = new TrieMap[HazelcastInstance, CacheManager]
-  val PrimitiveWrappers: Map[Class[_], Class[_]] = Map(
-    classOf[Boolean] -> classOf[java.lang.Boolean],
-    classOf[Byte] -> classOf[java.lang.Byte],
-    classOf[Short] -> classOf[java.lang.Short],
-    classOf[Char] -> classOf[java.lang.Character],
-    classOf[Float] -> classOf[java.lang.Float],
-    classOf[Int] -> classOf[java.lang.Integer],
-    classOf[Double] -> classOf[java.lang.Double],
-    classOf[Long] -> classOf[java.lang.Long])
 object JCacheHazelcastInstance {
+  private val CacheManagers = new TrieMap[HazelcastInstance, CacheManager]
+  private val PrimitiveWrappers = new ClassValue[Class[_]] {
+    import java.lang.reflect.Array
+    def computeValue(cls: Class[_]): Class[_] = {
+      Array.get(Array.newInstance(cls, 1), 0).getClass
+    }
+  }
 }
 
 class JCacheHazelcastInstance(private val hz: HazelcastInstance) extends AnyVal {
@@ -41,8 +38,8 @@ class JCacheHazelcastInstance(private val hz: HazelcastInstance) extends AnyVal 
     value getOrElse Option(System.getProperty(name))
   }
 
-  private def getObjectType[T: ClassTag]: Class[T] = classTag[T].runtimeClass match {
-    case cls if cls.isPrimitive => PrimitiveWrappers(cls).asInstanceOf[Class[T]]
+  private def getType[T: ClassTag]: Class[T] = classTag[T].runtimeClass match {
+    case cls if cls.isPrimitive => PrimitiveWrappers.get(cls).asInstanceOf[Class[T]]
     case cls => cls.asInstanceOf[Class[T]]
   }
 
@@ -92,7 +89,7 @@ class JCacheHazelcastInstance(private val hz: HazelcastInstance) extends AnyVal 
 
   def getCache[K: ClassTag, V: ClassTag](name: String, typesafe: Boolean = true): ICache[K, V] = {
     val entryTypes = if (typesafe) {
-      Some(getObjectType[K] -> getObjectType[V])
+      Some(getType[K] -> getType[V])
     } else None
     val mgr = getCacheManager()
     val cache = entryTypes.map {
