@@ -10,3 +10,4 @@
 .settings
 .worksheet
 /out/
+*.log
