@@ -27,6 +27,10 @@ ext {
     vLz4 = '1.4.1'
 }
 
+tasks.withType(ScalaCompile) {
+    def args = System.properties.compilerArgs ?: "-feature -deprecation -explaintypes -unchecked -Xlint"
+    scalaCompileOptions.additionalParameters = args.split(" ").toList()
+}
 tasks.withType(Jar) {
     baseName = "${project.name}_$vScala"
 }
