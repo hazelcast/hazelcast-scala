@@ -19,10 +19,10 @@ ext {
     vJUnit = '4.12'
     vScala = System.properties.scalaVersion ?: '2.12'
     vScalaFull = latestScalaFull[vScala]
-    vHazelcast = '3.9'
+    vHazelcast = '3.9.2'
     vKryo = '4.0.1'
     vObjenesis = '2.6'
-    vLz4 = '1.4.0'
+    vLz4 = '1.4.1'
 }
 
 sourceCompatibility = 1.7
