@@ -25,6 +25,10 @@ ext {
     vLz4 = '1.4.1'
 }
 
+tasks.withType(Jar) {
+    baseName = "${project.name}_$vScala"
+}
+
 sourceCompatibility = 1.7
 if (vScala == '2.11') {
     targetCompatibility = 1.7
@@ -99,7 +103,7 @@ publishing {
     publications {
         maven(MavenPublication) {
             groupId 'com.hazelcast'
-            artifactId jar.baseName
+            artifactId "${project.name}_$vScala"
 
             from components.java
             artifact sourceJar
