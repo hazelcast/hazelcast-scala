@@ -7,8 +7,9 @@ import com.hazelcast.Scala.serialization.lz4.CompressedSerializers
 import com.hazelcast.Scala.serialization.lz4.FastStreamCompression
 import com.hazelcast.nio.ObjectDataInput
 import com.hazelcast.nio.ObjectDataOutput
+import com.hazelcast.Scala.serialization.Defaults
 
-object TestSerializers extends CompressedSerializers {
+object TestSerializers extends CompressedSerializers(Defaults) {
 
   val Employee = new StreamCompressor[Employee](High) {
     def compress(out: ObjectDataOutput, emp: Employee): Unit = {

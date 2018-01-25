@@ -38,13 +38,6 @@ trait ClusterSetup {
   def beforeClass {
     init()
     val group = UUID.randomUUID.toString
-    List(
-      serialization.Defaults,
-      TestSerializers,
-      TestKryoSerializers).foreach { serializers =>
-        serializers.register(memberConfig.getSerializationConfig)
-        serializers.register(clientConfig.getSerializationConfig)
-      }
     memberConfig.getGroupConfig.setName(group)
     memberConfig.getNetworkConfig.setPort(port)
     memberConfig.setGracefulShutdownMaxWait(1.second)
