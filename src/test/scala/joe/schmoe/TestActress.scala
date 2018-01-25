@@ -57,7 +57,7 @@ class TestActress extends FunSuite with BeforeAndAfterAll {
     val (currHz, twoHzLeft) = hzs.partition(_.getLocalEndpoint.getUuid == currOwner.getUuid)
     currHz.head.shutdown()
     while (!twoHzLeft.head.getPartitionService.isClusterSafe) {
-      println("cluster unsafe...")
+      println("cluster unsafe, waiting for safe...")
       Thread sleep 250
     }
     val newCurrOwner = client.getPartitionService.getPartition("fonda/jane").getOwner
@@ -70,7 +70,7 @@ class TestActress extends FunSuite with BeforeAndAfterAll {
     val (newCurrHz, lastHz) = twoHzLeft.partition(_.getLocalEndpoint.getUuid == newCurrOwner.getUuid)
     newCurrHz.head.shutdown()
     while (!lastHz.head.getPartitionService.isClusterSafe) {
-      println("cluster unsafe...")
+      println("cluster unsafe, waiting for safe...")
       Thread sleep 250
     }
     val counterIs5 = janeFonda {
