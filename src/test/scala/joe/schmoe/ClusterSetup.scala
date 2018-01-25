@@ -11,6 +11,7 @@ import com.hazelcast.instance.HazelcastInstanceFactory
 
 import scala.concurrent.ExecutionContext
 import scala.concurrent.duration._
+import scala.util.Random
 
 trait ClusterSetup {
   def randName: String = randomString(50)
@@ -25,7 +26,7 @@ trait ClusterSetup {
 
   def clusterSize = 3
 
-  def port = 9991
+  final val port = 49152 + Random.nextInt(9999)
 
   final val memberConfig = new Config
   final val clientConfig = new ClientConfig
