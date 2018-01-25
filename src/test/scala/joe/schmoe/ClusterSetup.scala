@@ -37,9 +37,10 @@ trait ClusterSetup {
   def beforeClass(): Unit = {
     init()
     val group = UUID.randomUUID.toString
-    memberConfig.getGroupConfig.setName(group)
+    val passw = UUID.randomUUID.toString
     memberConfig.getNetworkConfig.getJoin.getMulticastConfig.setEnabled(false)
     memberConfig.getNetworkConfig.getJoin.getTcpIpConfig.setEnabled(true).addMember(s"127.0.0.1:$port")
+    memberConfig.getGroupConfig.setName(group).setPassword(passw)
     memberConfig.setGracefulShutdownMaxWait(1.second)
     memberConfig.setPhoneHomeEnabled(false)
     memberConfig.getMapConfig("default")
@@ -49,9 +50,12 @@ trait ClusterSetup {
     _hzs = (0 until clusterSize).map { i =>
       memberConfig.getNetworkConfig.setPort(port + i)
       memberConfig.newInstance
-    clientConfig.getGroupConfig.setName(group)
-    clientConfig.getNetworkConfig.addAddress(s"127.0.0.1:$port")
     }.toVector
+    clientConfig.getGroupConfig.setName(group).setPassword(passw)
+    (0 until clusterSize).foldLeft(clientConfig.getNetworkConfig) {
+      case (netConf, i) => netConf.addAddress(s"127.0.0.1:${port+i}")
+    }
+    clientConfig.getNetworkConfig.setConnectionAttemptLimit(100)
     _client = clientConfig.newClient()
   }
 
