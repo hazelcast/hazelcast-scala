@@ -6,7 +6,7 @@ import java.util.{ Comparator, UUID }
 import scala.annotation.tailrec
 import scala.collection.mutable.Builder
 import scala.reflect.ClassTag
-import scala.util.{ Either, Failure, Left, Right, Success, Try }
+import scala.util.{ Failure, Left, Right, Success }
 import com.hazelcast.nio.{ ObjectDataInput, ObjectDataOutput }
 import scala.collection.immutable.Nil
 import scala.runtime.{ IntRef, LongRef, DoubleRef, FloatRef }
