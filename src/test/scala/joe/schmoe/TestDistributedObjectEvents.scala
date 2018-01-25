@@ -1,7 +1,7 @@
 package joe.schmoe
 
-import org.junit._
-import org.junit.Assert._
+import org.scalatest._
+
 import com.hazelcast.Scala._
 import scala.concurrent.duration._
 import java.util.concurrent.CountDownLatch
@@ -17,11 +17,13 @@ object TestDistributedObjectEvents extends ClusterSetup {
   def destroy = ()
 }
 
-class TestDistributedObjectEvents {
+class TestDistributedObjectEvents extends FunSuite with BeforeAndAfterAll {
   import TestDistributedObjectEvents._
 
-  @Test
-  def any {
+  override def beforeAll() = beforeClass()
+  override def afterAll() = afterClass()
+
+  test("any") {
     any(client)
     any(hzs(0))
     any(client, ExecutionContext.global)
@@ -32,23 +34,22 @@ class TestDistributedObjectEvents {
     val counter = new AtomicInteger
     val cdl = new CountDownLatch(expected)
     val reg = hz.onDistributedObjectEvent(runOn = ec) {
-      case DistributedObjectCreated(name, disobj) =>
+      case DistributedObjectCreated(_, _) =>
         counter.incrementAndGet()
         cdl.countDown()
-      case DistributedObjectDestroyed(name, svcName) =>
+      case DistributedObjectDestroyed(_, _) =>
         counter.incrementAndGet()
         cdl.countDown()
     }
     val anyMap = hz.getMap[Int, Int]("anyMap")
     anyMap.put(1, 1)
     anyMap.destroy()
-    assertTrue(cdl.await(5, SECONDS))
-    assertEquals(expected, counter.get)
+    assert(cdl.await(5, SECONDS))
+    assert(counter.get == expected)
     reg.cancel()
   }
 
-  @Test
-  def typed {
+  test("typed") {
     typed(client)
     typed(hzs(0))
     typed(client, ExecutionContext.global)
@@ -59,7 +60,7 @@ class TestDistributedObjectEvents {
     val counter = new AtomicInteger
     val cdl = new CountDownLatch(expected)
     val reg = hz.onDistributedObjectEvent(runOn = ec) {
-      case DistributedObjectCreated(_, imap: IMap[_, _]) =>
+      case DistributedObjectCreated(_, _: IMap[_, _]) =>
         counter.incrementAndGet()
         cdl.countDown()
       case DistributedObjectDestroyed(_, MapService.SERVICE_NAME) =>
@@ -78,13 +79,12 @@ class TestDistributedObjectEvents {
     fooQueue.destroy()
     barMap.destroy()
     barbeQueue.destroy()
-    assertTrue(cdl.await(5, SECONDS))
-    assertEquals(expected, counter.get)
+    assert(cdl.await(5, SECONDS))
+    assert(counter.get == expected)
     reg.cancel()
   }
 
-  @Test
-  def named {
+  test("named") {
     named(client)
     named(hzs(0))
     named(client, ExecutionContext.global)
@@ -114,8 +114,8 @@ class TestDistributedObjectEvents {
     fooQueue.destroy()
     barMap.destroy()
     barbeQueue.destroy()
-    assertTrue(cdl.await(5, SECONDS))
-    assertEquals(expected, counter.get)
+    assert(cdl.await(5, SECONDS))
+    assert(counter.get == expected)
     reg.cancel()
   }
 

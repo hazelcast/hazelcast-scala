@@ -1,7 +1,6 @@
 package joe.schmoe
 
-import org.junit._
-import org.junit.Assert._
+import org.scalatest._
 import com.hazelcast.Scala._
 import scala.concurrent.duration._
 import java.util.concurrent.CountDownLatch
@@ -18,19 +17,22 @@ object TestTopic extends ClusterSetup {
     memberConfig.addRingBufferConfig(rbConf)
   }
   def destroy = ()
+
 }
 
-class TestTopic {
+class TestTopic extends FunSuite with BeforeAndAfterAll {
   import TestTopic._
 
-  @Test
-  def simple {
+  override def beforeAll = beforeClass()
+  override def afterAll = afterClass()
+
+  test("simple") {
     val messages = Seq(1, 2, 3)
 
     val cdl = new CountDownLatch(messages.sum)
 
-    val memberFoo = hzs(0).getTopic[Int]("foo")
-    assertTrue(Try(memberFoo.onSeqMessage()(println(_))).isFailure)
+    val memberFoo = member.getTopic[Int]("foo")
+    assert(Try(memberFoo.onSeqMessage()(println(_))).isFailure)
 
     val registration = memberFoo.onMessage() { msg =>
       val n = msg.get
@@ -38,37 +40,37 @@ class TestTopic {
     }
     val clientFoo = client.getTopic[Int](memberFoo.getName)
     messages.foreach(clientFoo.publish)
-    assertTrue(cdl.await(5, SECONDS))
+    assert(cdl.await(5, SECONDS))
     registration.cancel()
   }
-  @Test
-  def reliable {
+
+  test("reliable") {
     val messages = Seq("a", "b", "c")
     val cdl = new CountDownLatch(messages.length)
     val rTopic = client.getReliableTopic[String]("rTopic")
     val reg = rTopic.onSeqMessage() {
       case SeqMessage(seq, value) =>
-        assertEquals(messages.length - cdl.getCount: Long, seq)
-        assertEquals(messages(seq.toInt), value)
+        assert(messages.length - cdl.getCount === seq)
+        assert(messages(seq.toInt) === value)
         cdl.countDown()
     }
     messages.foreach(rTopic.publish)
-    assertTrue(cdl.await(5, SECONDS))
+    assert(cdl.await(5, SECONDS))
     reg.cancel()
   }
-  @Test
-  def stale {
+
+  test("stale") {
     val messages = Seq("a", "b", "c", "d", "e")
     val cdl = new CountDownLatch(smallRBCapacity)
     val rTopic = client.getReliableTopic[String](smallRB)
     messages.foreach(rTopic.publish)
     val reg = rTopic.onSeqMessage(startFrom = 0, gapTolerant = true) {
       case SeqMessage(seq, value) =>
-        assertEquals(messages.length - cdl.getCount: Long, seq)
-        assertEquals(messages(seq.toInt), value)
+        assert(messages.length - cdl.getCount === seq)
+        assert(messages(seq.toInt) === value)
         cdl.countDown()
     }
-    assertTrue(cdl.await(5, SECONDS))
+    assert(cdl.await(5, SECONDS))
     reg.cancel()
   }
 }

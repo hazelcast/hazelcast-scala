@@ -1,7 +1,6 @@
 package joe.schmoe
 
-import org.junit._
-import org.junit.Assert._
+import org.scalatest._
 
 import com.hazelcast.Scala.actress._
 import com.hazelcast.Scala.serialization.SerializerEnum
@@ -34,11 +33,13 @@ object TestActress extends ClusterSetup {
   }
 }
 
-class TestActress {
+class TestActress extends FunSuite with BeforeAndAfterAll {
   import TestActress._
 
-  @Test
-  def foo {
+  override def beforeAll() = beforeClass()
+  override def afterAll() = afterClass()
+
+  test("foo") {
     memberConfig.getMapConfig("Foo").setBackupCount(2)
     val stage: Stage = new Stage("Foo", client)
     val janeFonda = stage.actressOf("fonda/jane", new JaneFonda)
@@ -51,7 +52,7 @@ class TestActress {
       janeFonda {
         case (_, jf) => jf.currCounter
       }.await
-    assertEquals(6, counterIs6)
+    assert(counterIs6 == 6)
     val currOwner = client.getPartitionService.getPartition("fonda/jane").getOwner
     val (currHz, twoHzLeft) = hzs.partition(_.getLocalEndpoint.getUuid == currOwner.getUuid)
     currHz.head.shutdown()
@@ -65,7 +66,7 @@ class TestActress {
         jf.incrementBy(4)
         jf.currCounter
     }
-    assertEquals(10, counterIs10.await)
+    assert(counterIs10.await == 10)
     val (newCurrHz, lastHz) = twoHzLeft.partition(_.getLocalEndpoint.getUuid == newCurrOwner.getUuid)
     newCurrHz.head.shutdown()
     while (!lastHz.head.getPartitionService.isClusterSafe) {
@@ -77,7 +78,7 @@ class TestActress {
         jf.incrementBy(-5)
         jf.currCounter
     }
-    assertEquals(5, counterIs5.await)
+    assert(counterIs5.await == 5)
   }
 
 }

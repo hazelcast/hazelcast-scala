@@ -1,7 +1,6 @@
 package joe.schmoe
 
-import org.junit._
-import org.junit.Assert._
+import org.scalatest._
 import com.hazelcast.Scala._
 import java.util.UUID
 import scala.concurrent.Future
@@ -12,41 +11,43 @@ object TestRingBuffer extends ClusterSetup {
   def destroy = ()
 }
 
-class TestRingBuffer {
+class TestRingBuffer extends FunSuite with BeforeAndAfterAll {
   import TestRingBuffer._
 
-  @Test
-  def async {
+  override def beforeAll = beforeClass()
+  override def afterAll = afterClass()
+
+  test("read nothing from empty buffer and no minimum") {
+    val rb = client.getRingbuffer[String](UUID.randomUUID.toString)
+    val itemsRead = rb.async.readBatch(startFrom = 0, minItems = 0)(_ => Unit).await
+    assert(itemsRead == 0)
+  }
+  test("sequence number alignment") {
     val isNumber = (s: String) => s.length > 0 && s.forall(c => c >= '0' && c <= '9')
     val rb = client.getRingbuffer[String](UUID.randomUUID.toString)
-    var itemsRead = rb.async.readBatch(startFrom = 0, 0)(_ => Unit).await
-    assertEquals(0, itemsRead)
     val values = Seq("a", "123", "b", "456", "c", "789", "d", "987", "e")
-    val lastSeqAdded = rb.async.addAll(values).await.get
-    assertEquals(values.length - 1L, lastSeqAdded)
-    assertEquals(values.last, rb.readOne(lastSeqAdded))
-    var numbers = Vector.empty[Int]
-    itemsRead = rb.async.readBatch(startFrom = 2, 2 to 1000) {
+    val Some(lastSeqAdded) = rb.async.addAll(values).await
+    assert(lastSeqAdded == values.length - 1L)
+    assert(rb.readOne(lastSeqAdded) == values.last)
+    @volatile var numbers = Vector.empty[Int]
+    val itemsRead = rb.async.readBatch(startFrom = 2, 2 to 1000) {
       case str if isNumber(str) => numbers :+= str.toInt
     }.await
-    assertEquals(Vector(456, 789, 987), numbers)
-    assertEquals(values.length-2, itemsRead)
-    itemsRead = rb.async.readBatch(startFrom = 2 + itemsRead, 0)(println(_)).await
-    assertEquals(0, itemsRead)
+    assert(numbers == Vector(456, 789, 987))
+    assert(itemsRead == values.length - 2)
+    val itemsReadAgain = rb.async.readBatch(startFrom = 2 + itemsRead, 0)(println(_)).await
+    assert(itemsReadAgain == 0)
   }
 
-  @Test
-  def `verify batch` {
-    val cdl = new CountDownLatch(1)
+  test("verify batch") {
     val rb = client.getRingbuffer[String](UUID.randomUUID.toString)
+    //    val cdl = new CountDownLatch(1)
     val readCount = Future {
       rb.async.readBatch(0)(_ => Unit)
     }.flatMap(identity)
     val values = Seq("a", "b", "c")
-    rb.async.addAll(values) andThen { _ =>
-      assertEquals(values.size, readCount.await)
-      cdl.countDown()
-    }
-    assertTrue(cdl.await(5, SECONDS))
+    val Some(lastSeq) = rb.async.addAll(values).await
+    assert(values.size === readCount.await)
+    assert(lastSeq == values.size - 1)
   }
 }

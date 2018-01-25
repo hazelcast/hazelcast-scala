@@ -8,6 +8,7 @@ plugins {
     id 'com.jfrog.bintray' version "1.8.0"
     id 'scala'
     id 'maven-publish'
+    id "com.github.maiflai.scalatest" version "0.19"
 }
 
 ext {
@@ -16,7 +17,8 @@ ext {
         '2.12': '2.12.4'
     ]
 
-    vJUnit = '4.12'
+    vScalaTest = '3.0.4'
+    vPegdown = '1.6.0'
     vScala = System.properties.scalaVersion ?: '2.12'
     vScalaFull = latestScalaFull[vScala]
     vHazelcast = '3.9.2'
@@ -27,6 +29,10 @@ ext {
 
 tasks.withType(Jar) {
     baseName = "${project.name}_$vScala"
+}
+
+test {
+    maxParallelForks = 1
 }
 
 sourceCompatibility = 1.7
@@ -71,7 +77,8 @@ dependencies {
 
     compileOnly "org.lz4:lz4-java:$vLz4"
 
-    testCompile "junit:junit:$vJUnit"
+    testCompile "org.scalatest:scalatest_$vScala:$vScalaTest"
+    testCompile "org.pegdown:pegdown:$vPegdown"
     testCompile "org.scala-lang:scala-compiler:$vScalaFull"
     testCompile "com.hazelcast:hazelcast:$vHazelcast"
     testCompile "com.hazelcast:hazelcast-client:$vHazelcast"

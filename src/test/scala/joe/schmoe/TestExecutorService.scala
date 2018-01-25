@@ -1,7 +1,7 @@
 package joe.schmoe
 
-import org.junit._
-import org.junit.Assert._
+import org.scalatest._
+
 import com.hazelcast.Scala._
 import java.util.UUID
 
@@ -15,11 +15,13 @@ object TestExecutorService extends ClusterSetup {
 
 }
 
-class TestExecutorService {
+class TestExecutorService extends FunSuite with BeforeAndAfterAll {
   import TestExecutorService._
 
-  @Test
-  def `user context` {
+  override def beforeAll() = beforeClass()
+  override def afterAll() = afterClass()
+
+  test("user context") {
     hzs.foreach { hz =>
       hz.userCtx(MemberId) = UUID fromString hz.getLocalEndpoint.getUuid
     }
@@ -30,13 +32,12 @@ class TestExecutorService {
     val resolved = result.mapValues(_.await)
     resolved.foreach {
       case (mbr, (id, uuid)) =>
-        assertEquals(mbr.getUuid, id)
-        assertEquals(id, uuid.toString)
+        assert(id == mbr.getUuid)
+        assert(uuid.toString == id)
     }
   }
 
-  @Test
-  def `tasks` {
+  test("tasks") {
     val clusterSize = client.getCluster.getMembers.size
     val myMap = client.getMap[Int, String](randName)
     1 to 10000 foreach { i =>
@@ -52,8 +53,8 @@ class TestExecutorService {
       val myMap = hz.getMap[Int, String](mapName)
       myMap.localKeySet.size
     }.mapValues(_.await)
-    assertEquals(clusterSize, allLocals.size)
-    assertTrue(allLocals.values.exists(_ == randomLocal))
-    assertEquals(myMap.size, allLocals.values.sum)
+    assert(allLocals.size == clusterSize)
+    assert(allLocals.values.exists(_ == randomLocal))
+    assert(allLocals.values.sum == myMap.size)
   }
 }

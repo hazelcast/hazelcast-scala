@@ -4,8 +4,7 @@ import java.util.UUID
 
 import scala.collection.JavaConverters._
 
-import org.junit.Assert._
-import org.junit.Test
+import org.scalatest._, Matchers._
 
 import com.hazelcast.Scala._
 
@@ -29,12 +28,13 @@ object TestJoin extends ClusterSetup {
   case class Order(id: OrdId, products: Map[ProdId, Int], customer: CustId)
 }
 
-class TestJoin {
-
+class TestJoin extends FunSuite with BeforeAndAfterAll {
   import TestJoin._
 
-  @Test
-  def `let's join maps` {
+  override def beforeAll() = beforeClass()
+  override def afterAll() = afterClass()
+
+  test("let's join maps") {
     val customerMap = {
       val map = client.getMap[CustId, Customer]("customers")
       List("Alice", "Bob", "Carl").foreach { name =>
@@ -74,18 +74,18 @@ class TestJoin {
             }
             (order, customer, prodQty)
         }.values.await.head
-    assertEquals(order.customer, customer.id)
+    assert(customer.id == order.customer)
     val err = 0.00005f
     val avgOrderQty = orderMap.flatMap(_.value.products.map(_._2.toFloat)).mean().await.get
-    assertEquals(products.map(_._2.toFloat).sum / products.size, avgOrderQty, err)
+    assert(avgOrderQty === products.map(_._2.toFloat).sum / products.size +- err)
     val joinQueriedCustomer = orderMap.query(_.getMap[CustId, Customer]("customers"), where.key in orderId) {
       case (customers, _, order) => customers.get(order.customer)
     }
-    assertEquals(customerMap.get(bobId), joinQueriedCustomer(orderId))
+    assert(joinQueriedCustomer(orderId) == customerMap.get(bobId))
     val joinGetAs = orderMap.getAs(_.getMap[CustId, Customer]("customers"), orderId) {
       case (customers, order) => customers.get(order.customer)
     }
-    assertEquals(customerMap.get(bobId), joinGetAs.get)
+    assert(joinGetAs.get == customerMap.get(bobId))
   }
 
 }

@@ -8,7 +8,6 @@ import com.hazelcast.client.config.ClientConfig
 import com.hazelcast.config.Config
 import com.hazelcast.core.HazelcastInstance
 import com.hazelcast.instance.HazelcastInstanceFactory
-import org.junit._
 
 import scala.concurrent.ExecutionContext
 import scala.concurrent.duration._
@@ -34,25 +33,25 @@ trait ClusterSetup {
   def init(): Unit
   def destroy(): Unit
 
-  @BeforeClass
-  def beforeClass {
+  def beforeClass(): Unit = {
     init()
     val group = UUID.randomUUID.toString
     memberConfig.getGroupConfig.setName(group)
-    memberConfig.getNetworkConfig.setPort(port)
     memberConfig.setGracefulShutdownMaxWait(1.second)
     memberConfig.setPhoneHomeEnabled(false)
     memberConfig.getMapConfig("default")
       .setStatisticsEnabled(false)
       .setMaxSizeConfig(UsedHeapSize(60.gigabytes))
     memberConfig.setShutdownHookEnabled(false)
-    _hzs = (1 to clusterSize).par.map(_ => memberConfig.newInstance).seq.toVector
+    _hzs = (0 until clusterSize).map { i =>
+      memberConfig.getNetworkConfig.setPort(port + i)
+      memberConfig.newInstance
+    }.seq.toVector
     clientConfig.getGroupConfig.setName(group)
-    clientConfig.getNetworkConfig.addAddress(s"localhost:$port")
+    clientConfig.getNetworkConfig.addAddress(s"127.0.0.1:$port")
     _client = clientConfig.newClient()
   }
 
-  @AfterClass
   def afterClass() {
     destroy()
     _client.shutdown()
