@@ -37,6 +37,8 @@ trait ClusterSetup {
     init()
     val group = UUID.randomUUID.toString
     memberConfig.getGroupConfig.setName(group)
+    memberConfig.getNetworkConfig.getJoin.getMulticastConfig.setEnabled(false)
+    memberConfig.getNetworkConfig.getJoin.getTcpIpConfig.setEnabled(true).addMember(s"127.0.0.1:$port")
     memberConfig.setGracefulShutdownMaxWait(1.second)
     memberConfig.setPhoneHomeEnabled(false)
     memberConfig.getMapConfig("default")
@@ -46,9 +48,9 @@ trait ClusterSetup {
     _hzs = (0 until clusterSize).map { i =>
       memberConfig.getNetworkConfig.setPort(port + i)
       memberConfig.newInstance
-    }.seq.toVector
     clientConfig.getGroupConfig.setName(group)
     clientConfig.getNetworkConfig.addAddress(s"127.0.0.1:$port")
+    }.toVector
     _client = clientConfig.newClient()
   }
 
