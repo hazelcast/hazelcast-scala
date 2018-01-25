@@ -22,7 +22,6 @@ import com.hazelcast.config.MapIndexConfig
 import com.hazelcast.core.IMap
 import com.hazelcast.map.AbstractEntryProcessor
 import com.hazelcast.query.Predicate
-import java.util.concurrent.atomic.AtomicReference
 import com.hazelcast.core.MapStore
 import scala.util.control.NoStackTrace
 import com.hazelcast.core.IExecutorService
@@ -968,22 +967,18 @@ class TestMap extends FunSuite with CleanUp with BeforeAndAfterAll with BeforeAn
     (1 to 2500) foreach { i =>
       myMap.set(i.toString, i * 271)
     }
-    val changes = new AtomicReference[List[(String, Int)]](Nil)
-      def addChange(key: String, value: Int) {
-        val list = changes.get
-        if (!changes.compareAndSet(list, (key, value) :: list)) {
-          addChange(key, value)
-        }
-      }
+    val changes = new java.util.concurrent.LinkedBlockingQueue[(String, Int)]
     myMap.onEntryEvents() {
-      case EntryUpdated(key, _, newValue) => addChange(key, newValue)
+      case EntryUpdated(key, _, newValue) => assert {
+        changes.offer(key -> newValue)
+      }
     }
 
     myMap.execute(OnKey("45")) { entry =>
       entry.value = entry.value.map(_ * 2)
     }
     assert(myMap.get("45") == 45 * 271 * 2)
-    assert(changes.get.head == "45" -> (45 * 271 * 2))
+    assert(changes.take() == "45" -> (45 * 271 * 2))
 
     myMap.execute(OnKeys(Set("1", "2", "3"))) { entry =>
       entry.value = 0
@@ -991,7 +986,7 @@ class TestMap extends FunSuite with CleanUp with BeforeAndAfterAll with BeforeAn
     assert(myMap.get("1") == 0)
     assert(myMap.get("2") == 0)
     assert(myMap.get("3") == 0)
-    changes.get.take(3).sortBy(_._1) match {
+    (1 to 3).map(_ => changes.take).toList.sortBy(_._1) match {
       case ("1", 0) :: ("2", 0) :: ("3", 0) :: Nil => // As expected
       case _ => fail(s"Changes: $changes")
     }
