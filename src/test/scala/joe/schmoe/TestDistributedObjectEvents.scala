@@ -10,6 +10,7 @@ import com.hazelcast.core.IMap
 import com.hazelcast.map.impl.MapService
 import com.hazelcast.core.HazelcastInstance
 import scala.concurrent.ExecutionContext
+import java.util.UUID
 
 object TestDistributedObjectEvents extends ClusterSetup {
   override def clusterSize = 1
@@ -30,21 +31,22 @@ class TestDistributedObjectEvents extends FunSuite with BeforeAndAfterAll {
     any(hzs(0), ExecutionContext.global)
   }
   private def any(hz: HazelcastInstance, ec: ExecutionContext = null) {
+    val MapName = UUID.randomUUID.toString
     val expected = 2 // 1 created, 1 destroyed
     val counter = new AtomicInteger
     val cdl = new CountDownLatch(expected)
     val reg = hz.onDistributedObjectEvent(runOn = ec) {
-      case DistributedObjectCreated(_, _) =>
+      case DistributedObjectCreated(MapName, _) =>
         counter.incrementAndGet()
         cdl.countDown()
-      case DistributedObjectDestroyed(_, _) =>
+      case DistributedObjectDestroyed(MapName, _) =>
         counter.incrementAndGet()
         cdl.countDown()
     }
-    val anyMap = hz.getMap[Int, Int]("anyMap")
+    val anyMap = hz.getMap[Int, Int](MapName)
     anyMap.put(1, 1)
     anyMap.destroy()
-    assert(cdl.await(5, SECONDS))
+    assert(cdl.await(10, SECONDS))
     assert(counter.get == expected)
     reg.cancel()
   }
@@ -79,7 +81,7 @@ class TestDistributedObjectEvents extends FunSuite with BeforeAndAfterAll {
     fooQueue.destroy()
     barMap.destroy()
     barbeQueue.destroy()
-    assert(cdl.await(5, SECONDS))
+    assert(cdl.await(10, SECONDS))
     assert(counter.get == expected)
     reg.cancel()
   }
@@ -114,7 +116,7 @@ class TestDistributedObjectEvents extends FunSuite with BeforeAndAfterAll {
     fooQueue.destroy()
     barMap.destroy()
     barbeQueue.destroy()
-    assert(cdl.await(5, SECONDS))
+    assert(cdl.await(10, SECONDS))
     assert(counter.get == expected)
     reg.cancel()
   }
