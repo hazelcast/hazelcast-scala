@@ -4,6 +4,8 @@ import com.hazelcast.config.SerializationConfig
 import scala.reflect.{ ClassTag, classTag }
 import com.hazelcast.nio.serialization.Serializer
 import com.hazelcast.config.SerializerConfig
+import com.hazelcast.nio.ObjectDataOutput
+import com.hazelcast.nio.ObjectDataInput
 
 abstract class SerializerEnum private (offsetOrExtends: Either[Int, Option[SerializerEnum]]) extends Enumeration {
   def this(offset: Int) = this(Left(offset))
@@ -34,6 +36,10 @@ abstract class SerializerEnum private (offsetOrExtends: Either[Int, Option[Seria
 
   abstract class ByteArraySerializer[T: ClassTag] extends ClassSerializer[T] with com.hazelcast.nio.serialization.ByteArraySerializer[T]
   abstract class StreamSerializer[T: ClassTag] extends ClassSerializer[T] with com.hazelcast.nio.serialization.StreamSerializer[T]
+  class SingletonSerializer[T: ClassTag](singleton: T) extends ClassSerializer[T] with com.hazelcast.nio.serialization.StreamSerializer[T] {
+    def write(out: ObjectDataOutput, obj: T) = assert(obj == singleton)
+    def read(inp: ObjectDataInput): T = singleton
+  }
 
   def register(conf: SerializationConfig): Unit = {
     extendFrom.foreach(_.register(conf))
