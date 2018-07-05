@@ -594,6 +594,49 @@ object Defaults extends SerializerEnum(-987654321) {
     }
     def read(inp: ObjectDataInput): ISortedSet = ITreeSetSer.read(inp)
   }
+  private type IIntMap = collection.immutable.IntMap[Any]
+  val IntMapSer = new StreamSerializer[IIntMap] {
+    def write(out: ObjectDataOutput, map: IIntMap) = {
+      out.writeInt(map.size)
+      map.foreach {
+        case (key, value) =>
+          out.writeInt(key)
+          out.writeObject(value)
+      }
+    }
+    def read(inp: ObjectDataInput): IIntMap = {
+      val size = inp.readInt
+      var map = collection.immutable.IntMap[Any]()
+      var i = 0
+      while (i < size) {
+        map = map.updated(inp.readInt, inp.readObject[Any])
+        i += 1
+      }
+      map
+    }
+  }
+  private type ILongMap = collection.immutable.LongMap[Any]
+  val LongMapSer = new StreamSerializer[ILongMap] {
+    def write(out: ObjectDataOutput, map: ILongMap) = {
+      out.writeInt(map.size)
+      map.foreach {
+        case (key, value) =>
+          out.writeLong(key)
+          out.writeObject(value)
+      }
+    }
+    def read(inp: ObjectDataInput): ILongMap = {
+      val size = inp.readInt
+      var map = collection.immutable.LongMap[Any]()
+      var i = 0
+      while (i < size) {
+        map = map.updated(inp.readLong, inp.readObject[Any])
+        i += 1
+      }
+      map
+    }
+  }
+
   private type JHashMap = java.util.HashMap[Any, Any]
   val JHashMapSer = new StreamSerializer[JHashMap] {
     def write(out: ObjectDataOutput, m: JHashMap): Unit = {
