@@ -47,7 +47,7 @@ class JCacheHazelcastInstance(private val hz: HazelcastInstance) extends AnyVal 
 
   def getClusterCacheNames(exec: IExecutorService)(
       implicit ec: ExecutionContext): Future[Iterable[String]] = {
-    val byMember = exec.submit(ToAll) { hz =>
+    val byMember = exec.submit(ToAll) { (hz, callerAddress) =>
       hz.getDistributedObjects.iterator.asScala
         .filter(_.isInstanceOf[javax.cache.Cache[_, _]])
         .map(_.getName).toVector

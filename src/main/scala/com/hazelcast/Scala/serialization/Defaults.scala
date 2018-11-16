@@ -1,19 +1,22 @@
 package com.hazelcast.Scala.serialization
 
 import java.util.Map.Entry
-import java.math.{ MathContext, RoundingMode }
-import java.util.{ Comparator, UUID }
+import java.math.{MathContext, RoundingMode}
+import java.util.{Comparator, UUID}
+
 import scala.annotation.tailrec
 import scala.collection.mutable.Builder
 import scala.reflect.ClassTag
-import scala.util.{ Failure, Left, Right, Success }
-import com.hazelcast.nio.{ ObjectDataInput, ObjectDataOutput }
+import scala.util.{Failure, Left, Right, Success}
+import com.hazelcast.nio.{Address, ObjectDataInput, ObjectDataOutput}
+
 import scala.collection.immutable.Nil
-import scala.runtime.{ IntRef, LongRef, DoubleRef, FloatRef }
+import scala.runtime.{DoubleRef, FloatRef, IntRef, LongRef}
 import com.hazelcast.Scala._
 import com.hazelcast.Scala.aggr._
 import com.hazelcast.core.HazelcastInstance
 import com.hazelcast.query.Predicate
+
 import scala.concurrent.duration._
 import Duration.Infinite
 
@@ -147,7 +150,7 @@ object Defaults extends SerializerEnum(-987654321) {
       out.writeObject(task.thunk)
     }
     def read(inp: ObjectDataInput): RemoteTask[_] = {
-      val thunk = inp.readObject[HazelcastInstance => Any]
+      val thunk = inp.readObject[(HazelcastInstance, Option[Address]) => Any]
       new RemoteTask(thunk)
     }
   }

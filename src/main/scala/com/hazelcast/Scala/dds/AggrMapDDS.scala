@@ -3,10 +3,13 @@ package com.hazelcast.Scala.dds
 import scala.concurrent._
 import com.hazelcast.Scala._
 import com.hazelcast.Scala.aggr._
-import collection.{ Map => cMap }
+
+import collection.{Map => cMap}
 import com.hazelcast.core._
 import com.hazelcast.query._
 import java.util.Map.Entry
+
+import com.hazelcast.nio.Address
 
 private[Scala] class AggrMapDDS[K, E](val dds: MapDDS[K, _, E], sorted: Option[Sorted[E]] = None) extends AggrDDS[E] {
 
@@ -76,19 +79,19 @@ private[Scala] final class AggrMapDDSTask[K, E, AW](
   val keysByMemberId: Map[String, collection.Set[K]],
   val predicate: Option[Predicate[_, _]],
   val pipe: Pipe[E])
-    extends (HazelcastInstance => AW) with Serializable {
+    extends ((HazelcastInstance, Option[Address]) => AW) with Serializable {
 
   import collection.JavaConverters._
 
-  def apply(hz: HazelcastInstance): AW = {
+  def apply(hz: HazelcastInstance, callerAddress:Option[Address]): AW = {
     aggr match {
       case aggr: HazelcastInstanceAware => aggr.setHazelcastInstance(hz)
       case _ => // Ignore
     }
-    val folded = processLocalData(hz)
+    val folded = processLocalData(hz, callerAddress)
     aggr.remoteFinalize(folded)
   }
-  private def processLocalData(hz: HazelcastInstance): aggr.Q = {
+  private def processLocalData(hz: HazelcastInstance, callerAddress:Option[Address]): aggr.Q = {
     val imap = hz.getMap[K, Any](mapName)
     val (localKeys, includeEntry) = keysByMemberId.get(hz.getCluster.getLocalMember.getUuid) match {
       case None =>
@@ -101,7 +104,7 @@ private[Scala] final class AggrMapDDSTask[K, E, AW](
     else {
       type Q = aggr.Q
       val remoteFold = aggr.remoteFold _
-      val entryFold = pipe.prepare[Q](hz)
+      val entryFold = pipe.prepare[Q](hz, callerAddress)
       val seqop = (acc: Q, entry: Entry[K, Any]) => {
         if (includeEntry(entry)) {
           entryFold.foldEntry(acc, entry)(remoteFold)
@@ -111,7 +114,7 @@ private[Scala] final class AggrMapDDSTask[K, E, AW](
       taskSupport.foreach { taskSupport =>
         keysByPartition.tasksupport = hz.userCtx(taskSupport)
       }
-      val entries = imap.getFastIfLocal(keysByPartition)
+      val entries = imap.getFastIfLocal(keysByPartition, callerAddress)
       entries.aggregate(aggr.remoteInit)(seqop, aggr.remoteCombine)
     }
   }

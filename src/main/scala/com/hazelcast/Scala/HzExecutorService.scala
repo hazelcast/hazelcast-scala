@@ -4,9 +4,9 @@ import java.util.concurrent.Callable
 
 import scala.collection.JavaConverters._
 import scala.concurrent.Future
-
-import com.hazelcast.core.{ HazelcastInstance, IExecutorService, Member, MemberSelector }
+import com.hazelcast.core.{HazelcastInstance, IExecutorService, Member, MemberSelector}
 import com.hazelcast.durableexecutor.DurableExecutorService
+import com.hazelcast.nio.Address
 
 final class HzExecutorService(private val exec: IExecutorService) extends AnyVal {
 
@@ -27,10 +27,10 @@ final class HzExecutorService(private val exec: IExecutorService) extends AnyVal
     callback.future
   }
 
-  def submit[T](toMember: SingleMember = ToOne)(thunk: HazelcastInstance => T): Future[T] =
+  def submit[T](toMember: SingleMember = ToOne)(thunk: (HazelcastInstance, Option[Address]) => T): Future[T] =
     submitSingle(toMember, new RemoteTask(thunk))
 
-  def submit[T](toMembers: MultipleMembers)(thunk: HazelcastInstance => T): Map[Member, Future[T]] =
+  def submit[T](toMembers: MultipleMembers)(thunk: (HazelcastInstance, Option[Address]) => T): Map[Member, Future[T]] =
     submitMultiple(toMembers, new RemoteTask(thunk))
 
   private def submitMultiple[T](toMembers: MultipleMembers, task: Callable[T]): Map[Member, Future[T]] = {
@@ -64,11 +64,11 @@ final class HzDurableExecutorService(private val exec: DurableExecutorService) e
   def retrieve[T](taskId: Long): Future[T] =
     exec.retrieveResult(taskId).asScala
 
-  def submit[T]()(thunk: HazelcastInstance => T): (Future[T], Long) = {
+  def submit[T]()(thunk: (HazelcastInstance, Option[Address]) => T): (Future[T], Long) = {
     val future = exec.submit(new RemoteTask(thunk))
     future.asScala -> future.getTaskId
   }
-  def submit[T](member: ToKeyOwner)(thunk: HazelcastInstance => T): (Future[T], Long) = {
+  def submit[T](member: ToKeyOwner)(thunk: (HazelcastInstance, Option[Address]) => T): (Future[T], Long) = {
     val future = exec.submitToKeyOwner(new RemoteTask(thunk), member.key)
     future.asScala -> future.getTaskId
   }

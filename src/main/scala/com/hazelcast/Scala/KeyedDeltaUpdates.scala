@@ -1,8 +1,11 @@
 package com.hazelcast.Scala
 
 import java.util.Map.Entry
+
 import concurrent.Future
 import com.hazelcast.core._
+import com.hazelcast.nio.Address
+
 import language.higherKinds
 
 private[Scala] trait KeyedDeltaUpdates[K, V] {
@@ -103,7 +106,7 @@ private[Scala] object KeyedDeltaUpdates {
     case object EntryNotFound extends Result
   }
   abstract class DeltaTask[K, V, +R]
-      extends (HazelcastInstance => R) {
+      extends ((HazelcastInstance, Option[Address]) => R) {
 
     import DeltaTask._
     private def NULL = null.asInstanceOf[V]
@@ -129,13 +132,13 @@ private[Scala] object KeyedDeltaUpdates {
       }
     }
 
-    def apply(hz: HazelcastInstance): R = process(hz.getMap[K, V](mapName))
+    def apply(hz: HazelcastInstance, callerAddress:Option[Address]): R = process(hz.getMap[K, V](mapName), callerAddress)
 
-    private def process(imap: IMap[K, V], attemptsLeft: Int = 16): R = {
+    private def process(imap: IMap[K, V], callerAddress:Option[Address], attemptsLeft: Int = 16): R = {
       if (attemptsLeft == 0) {
         throw new HazelcastException(s"Gave up; concurrency too high on key $key in $imap")
       } else {
-        val oldValue = imap.getFastIfLocal(key, partitionId)
+        val oldValue = imap.getFastIfLocal(key, callerAddress, partitionId)
         if (oldValue == null) {
           insertIfMissing match {
             case None => // Update
@@ -147,7 +150,7 @@ private[Scala] object KeyedDeltaUpdates {
                 case oldValue => // Existing
                   updateExisting(imap, oldValue) match {
                     case (Retry, _) => // Retry
-                      process(imap, attemptsLeft - 1)
+                      process(imap, callerAddress, attemptsLeft - 1)
                     case (status, newValue) =>
                       getResult(status, oldValue, newValue)
                   }
@@ -157,7 +160,7 @@ private[Scala] object KeyedDeltaUpdates {
         } else {
           updateExisting(imap, oldValue) match {
             case (Retry, _) => // Retry
-              process(imap, attemptsLeft - 1)
+              process(imap, callerAddress, attemptsLeft - 1)
             case (status, newValue) =>
               getResult(status, oldValue, newValue)
           }

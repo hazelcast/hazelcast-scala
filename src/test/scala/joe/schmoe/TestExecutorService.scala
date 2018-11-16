@@ -26,7 +26,7 @@ class TestExecutorService extends FunSuite with BeforeAndAfterAll {
       hz.userCtx(MemberId) = UUID fromString hz.getLocalEndpoint.getUuid
     }
     val es = member.getExecutorService("default")
-    val result = es.submit(ToAll) { hz =>
+    val result = es.submit(ToAll) { (hz, callerAddress) =>
       (hz.getLocalEndpoint.getUuid, hz.userCtx(MemberId).toString)
     }
     val resolved = result.mapValues(_.await)
@@ -45,11 +45,11 @@ class TestExecutorService extends FunSuite with BeforeAndAfterAll {
     }
     val exec = client.getExecutorService("executioner")
     val mapName = myMap.getName
-    val randomLocal = exec.submit(ToOne) { hz =>
+    val randomLocal = exec.submit(ToOne) { (hz, callerAddress) =>
       val myMap = hz.getMap[Int, String](mapName)
       myMap.localKeySet.size
     }.await
-    val allLocals = exec.submit(ToAll) { hz =>
+    val allLocals = exec.submit(ToAll) { (hz, callerAddress) =>
       val myMap = hz.getMap[Int, String](mapName)
       myMap.localKeySet.size
     }.mapValues(_.await)

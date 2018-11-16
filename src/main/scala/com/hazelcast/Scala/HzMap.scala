@@ -4,12 +4,11 @@ import java.util.Comparator
 import java.util.Map.Entry
 
 import scala.collection.JavaConverters._
-import scala.collection.mutable.{ Map => mMap }
-import scala.collection.{ Set => cSet }
+import scala.collection.mutable.{Map => mMap}
+import scala.collection.{Set => cSet}
 import scala.concurrent._
 import scala.concurrent.duration._
 import scala.util.Try
-
 import com.hazelcast.Scala.dds.DDS
 import com.hazelcast.Scala.dds.MapDDS
 import com.hazelcast.core.HazelcastInstance
@@ -22,8 +21,10 @@ import com.hazelcast.query.PredicateBuilder
 import com.hazelcast.spi.AbstractDistributedObject
 import com.hazelcast.map.impl.recordstore.RecordStore
 import com.hazelcast.nio.serialization.Data
+
 import scala.collection.parallel.ParIterable
 import com.hazelcast.map.impl.MapServiceContext
+import com.hazelcast.nio.Address
 
 final class HzMap[K, V](protected val imap: IMap[K, V])
     extends KeyedIMapDeltaUpdates[K, V]
@@ -36,14 +37,14 @@ final class HzMap[K, V](protected val imap: IMap[K, V])
 
   private[Scala] def getPartitionId(key: K): Int = getHZ.getPartitionService.getPartition(key).getPartitionId
 
-  private[Scala] def getFastIfLocal(keysByPartition: ParIterable[(Int, cSet[K])]): ParIterable[Entry[K, V]] = {
+  private[Scala] def getFastIfLocal(keysByPartition: ParIterable[(Int, cSet[K])], callerAddress:Option[Address]): ParIterable[Entry[K, V]] = {
     HzMap.mapServiceContext(imap).map { implicit ctx =>
       keysByPartition.flatMap {
         case (partitionId, keys) =>
           ctx.getExistingRecordStore(partitionId, imap.getName) match {
             case recStore: RecordStore[_] =>
               keys.iterator.map { key =>
-                val value = getValueOrNull(key, recStore) match {
+                val value = getValueOrNull(key, recStore, callerAddress) match {
                   case null => blocking(imap get key)
                   case value => value
                 }
@@ -59,18 +60,18 @@ final class HzMap[K, V](protected val imap: IMap[K, V])
     }
   }
 
-  private def getValueOrNull(key: K, store: RecordStore[_])(implicit ctx: MapServiceContext): V = {
-    store.get(ctx.toData(key), false, null) match {
+  private def getValueOrNull(key: K, store: RecordStore[_], callerAddress:Option[Address])(implicit ctx: MapServiceContext): V = {
+    store.get(ctx.toData(key), false, callerAddress.getOrElse(null)) match {
       case data: Data => ctx.toObject(data).asInstanceOf[V]
       case obj => obj.asInstanceOf[V]
     }
   }
 
-  private[Scala] def getFastIfLocal(key: K, partitionId: Int = -1): V = {
+  private[Scala] def getFastIfLocal(key: K, callerAddress:Option[Address], partitionId: Int = -1): V = {
     HzMap.mapServiceContext(imap).map { implicit ctx =>
       val parId = if (partitionId >= 0) partitionId else getPartitionId(key)
       val valueOrNull = ctx.getExistingRecordStore(parId, imap.getName) match {
-        case recStore: RecordStore[_] => getValueOrNull(key, recStore)
+        case recStore: RecordStore[_] => getValueOrNull(key, recStore, callerAddress)
         case _ => null.asInstanceOf[V]
       }
       valueOrNull match {
