@@ -162,8 +162,6 @@ class HzMemberProperties(conf: Config) extends HzProperties(conf) {
   def setMasterConfirmationTimeout(timeout: FiniteDuration): Config = set(MAX_NO_MASTER_CONFIRMATION_SECONDS, timeout.toSeconds)
   /** @see com.hazelcast.instance.GroupProperty.MAX_WAIT_SECONDS_BEFORE_JOIN */
   def setMaxWaitBeforeJoin(wait: FiniteDuration): Config = set(MAX_WAIT_SECONDS_BEFORE_JOIN, wait.toSeconds)
-  /** @see com.hazelcast.instance.GroupProperty.MC_MAX_VISIBLE_INSTANCE_COUNT */
-  def setManCenterMaxVisibleInstances(count: Int): Config = set(MC_MAX_VISIBLE_INSTANCE_COUNT, count)
   /** @see com.hazelcast.instance.GroupProperty.MC_MAX_VISIBLE_SLOW_OPERATION_COUNT */
   def setManCenterMaxVisibleSlowOps(count: Int): Config = set(MC_MAX_VISIBLE_SLOW_OPERATION_COUNT, count)
   /** @see com.hazelcast.instance.GroupProperty.MC_URL_CHANGE_ENABLED */

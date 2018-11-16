@@ -60,7 +60,7 @@ final class HzMap[K, V](protected val imap: IMap[K, V])
   }
 
   private def getValueOrNull(key: K, store: RecordStore[_])(implicit ctx: MapServiceContext): V = {
-    store.get(ctx.toData(key), false) match {
+    store.get(ctx.toData(key), false, null) match {
       case data: Data => ctx.toObject(data).asInstanceOf[V]
       case obj => obj.asInstanceOf[V]
     }
