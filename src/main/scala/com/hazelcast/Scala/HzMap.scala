@@ -26,8 +26,8 @@ import scala.collection.parallel.ParIterable
 import com.hazelcast.map.impl.MapServiceContext
 
 final class HzMap[K, V](protected val imap: IMap[K, V])
-    extends KeyedIMapDeltaUpdates[K, V]
-    with MapEventSubscription {
+  extends KeyedIMapDeltaUpdates[K, V]
+  with MapEventSubscription {
 
   private[Scala] def getHZ: HazelcastInstance = imap match {
     case ado: AbstractDistributedObject[_] => ado.getNodeEngine.getHazelcastInstance
@@ -86,12 +86,12 @@ final class HzMap[K, V](protected val imap: IMap[K, V])
   def async: AsyncMap[K, V] = new AsyncMap(imap)
 
   /**
-    * NOTE: This method is generally slower than `get`
-    * and also will not be part of `get` statistics.
-    * It is meant for very large objects where only a
-    * subset of the data is needed, thus limiting
-    * unnecessary network traffic.
-    */
+   * NOTE: This method is generally slower than `get`
+   * and also will not be part of `get` statistics.
+   * It is meant for very large objects where only a
+   * subset of the data is needed, thus limiting
+   * unnecessary network traffic.
+   */
   def getAs[R](key: K)(map: V => R): Option[R] =
     async.getAs(key)(map).await
 
@@ -302,8 +302,8 @@ private[Scala] object HzMap {
     def process(entry: Entry[Any, V]): Object = _mf(entry.value).asInstanceOf[Object]
   }
   final class ContextQueryEP[C, K, V, T](val getCtx: HazelcastInstance => C, _mf: (C, K, V) => T)
-      extends AbstractEntryProcessor[K, V](false)
-      with HazelcastInstanceAware {
+    extends AbstractEntryProcessor[K, V](false)
+    with HazelcastInstanceAware {
     @transient private[this] var ctx: C = _
     def setHazelcastInstance(hz: HazelcastInstance) {
       this.ctx = getCtx(hz)
@@ -312,8 +312,8 @@ private[Scala] object HzMap {
     def process(entry: Entry[K, V]): Object = _mf(ctx, entry.key, entry.value).asInstanceOf[Object]
   }
   final class ForEachEP[K, V, C](val getCtx: HazelcastInstance => C, _thunk: (C, K, V) => Unit)
-      extends AbstractEntryProcessor[K, V](false)
-      with HazelcastInstanceAware {
+    extends AbstractEntryProcessor[K, V](false)
+    with HazelcastInstanceAware {
     def thunk = _thunk
     @transient private[this] var ctx: C = _
     def setHazelcastInstance(hz: HazelcastInstance) = ctx = getCtx(hz)
