@@ -14,7 +14,7 @@ plugins {
 ext {
     latestScalaFull = [
         '2.11': '2.11.12',
-        '2.12': '2.12.4'
+        '2.12': '2.12.8'
     ]
 
     vScalaTest = '3.0.4'
@@ -23,8 +23,8 @@ ext {
     vScalaFull = latestScalaFull[vScala]
     vHazelcast = '3.9.4'
     vKryo = '4.0.2'
-    vObjenesis = '2.6'
-    vLz4 = '1.4.1'
+    vObjenesis = '3.0.1'
+    vLz4 = '1.5.0'
 }
 
 tasks.withType(ScalaCompile) {
