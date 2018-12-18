@@ -24,6 +24,7 @@ import com.hazelcast.map.impl.recordstore.RecordStore
 import com.hazelcast.nio.serialization.Data
 import scala.collection.parallel.ParIterable
 import com.hazelcast.map.impl.MapServiceContext
+import com.hazelcast.map.impl.record.Record
 
 final class HzMap[K, V](protected val imap: IMap[K, V])
   extends KeyedIMapDeltaUpdates[K, V]
@@ -59,10 +60,13 @@ final class HzMap[K, V](protected val imap: IMap[K, V])
     }
   }
 
-  private def getValueOrNull(key: K, store: RecordStore[_])(implicit ctx: MapServiceContext): V = {
-    store.get(ctx.toData(key), false) match {
-      case data: Data => ctx.toObject(data).asInstanceOf[V]
-      case obj => obj.asInstanceOf[V]
+  private def getValueOrNull(key: K, store: RecordStore[_ <: Record[_]])(implicit ctx: MapServiceContext): V = {
+    store.getRecordOrNull(ctx.toData(key)) match {
+      case null => null.asInstanceOf[V]
+      case record => record.getValue match {
+        case data: Data => ctx.toObject(data).asInstanceOf[V]
+        case value => value.asInstanceOf[V]
+      }
     }
   }
 

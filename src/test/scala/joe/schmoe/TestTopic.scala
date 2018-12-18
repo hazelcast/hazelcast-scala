@@ -5,16 +5,16 @@ import com.hazelcast.Scala._
 import scala.concurrent.duration._
 import java.util.concurrent.CountDownLatch
 import scala.util.Try
-import com.hazelcast.config.RingbufferConfig
 
 object TestTopic extends ClusterSetup {
   val smallRB = "smallRB"
   val smallRBCapacity = 3
   override def clusterSize = 1
   def init = {
-    val rbConf = new RingbufferConfig(smallRB)
-    rbConf.setCapacity(smallRBCapacity)
-    memberConfig.addRingBufferConfig(rbConf)
+    memberConfig.getRingbufferConfig(smallRB)
+      .setCapacity(smallRBCapacity)
+    clientConfig.getReliableTopicConfig(smallRB)
+      .setReadBatchSize(smallRBCapacity)
   }
   def destroy = ()
 
