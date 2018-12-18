@@ -46,8 +46,8 @@ if (vScala == '2.11') {
     targetCompatibility = 1.8
 }
 
-task wrapper(type: Wrapper) {
-    gradleVersion = '4.8'
+wrapper {
+    gradleVersion = '4.10.3'
 }
 if (version == '') {
     version = 'SNAPSHOT'
