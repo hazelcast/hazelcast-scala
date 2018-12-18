@@ -36,19 +36,20 @@ class TestDistributedObjectEvents extends FunSuite with BeforeAndAfterAll {
     val counter = new AtomicInteger
     val cdl = new CountDownLatch(expected)
     val reg = hz.onDistributedObjectEvent(runOn = ec) {
-      case DistributedObjectCreated(MapName, _) =>
-        counter.incrementAndGet()
+      case evt @ DistributedObjectCreated(MapName, _) =>
+        assert(counter.incrementAndGet <= expected, evt)
         cdl.countDown()
-      case DistributedObjectDestroyed(MapName, _) =>
-        counter.incrementAndGet()
+      case evt @ DistributedObjectDestroyed(MapName, _) =>
+        assert(counter.incrementAndGet <= expected, evt)
         cdl.countDown()
     }
-    val anyMap = hz.getMap[Int, Int](MapName)
-    anyMap.put(1, 1)
-    anyMap.destroy()
-    assert(cdl.await(10, SECONDS))
-    assert(counter.get == expected)
-    reg.cancel()
+    try {
+      val anyMap = hz.getMap[Int, Int](MapName)
+      anyMap.put(1, 1)
+      anyMap.destroy()
+      assert(cdl.await(60, SECONDS))
+      assert(counter.get == expected)
+    } finally reg.cancel()
   }
 
   test("typed") {
@@ -62,28 +63,29 @@ class TestDistributedObjectEvents extends FunSuite with BeforeAndAfterAll {
     val counter = new AtomicInteger
     val cdl = new CountDownLatch(expected)
     val reg = hz.onDistributedObjectEvent(runOn = ec) {
-      case DistributedObjectCreated(_, _: IMap[_, _]) =>
-        counter.incrementAndGet()
+      case evt @ DistributedObjectCreated(_, _: IMap[_, _]) =>
+        assert(counter.incrementAndGet <= expected, evt)
         cdl.countDown()
-      case DistributedObjectDestroyed(_, MapService.SERVICE_NAME) =>
-        counter.incrementAndGet()
+      case evt @ DistributedObjectDestroyed(_, MapService.SERVICE_NAME) =>
+        assert(counter.incrementAndGet <= expected, evt)
         cdl.countDown()
     }
-    val fooMap = hz.getMap[Int, Int]("foo")
-    fooMap.put(1, 1)
-    val fooQueue = hz.getQueue[Int]("foo")
-    fooQueue.offer(1)
-    val barMap = hz.getMap[Int, Int]("bar")
-    barMap.put(1, 1)
-    val barbeQueue = hz.getQueue[Int]("bar")
-    barbeQueue.offer(1)
-    fooMap.destroy()
-    fooQueue.destroy()
-    barMap.destroy()
-    barbeQueue.destroy()
-    assert(cdl.await(10, SECONDS))
-    assert(counter.get == expected)
-    reg.cancel()
+    try {
+      val fooMap = hz.getMap[Int, Int]("foo")
+      fooMap.put(1, 1)
+      val fooQueue = hz.getQueue[Int]("foo")
+      fooQueue.offer(1)
+      val barMap = hz.getMap[Int, Int]("bar")
+      barMap.put(1, 1)
+      val barbeQueue = hz.getQueue[Int]("bar")
+      barbeQueue.offer(1)
+      fooMap.destroy()
+      fooQueue.destroy()
+      barMap.destroy()
+      barbeQueue.destroy()
+      assert(cdl.await(60, SECONDS))
+      assert(counter.get == expected)
+    } finally reg.cancel()
   }
 
   test("named") {
@@ -97,28 +99,29 @@ class TestDistributedObjectEvents extends FunSuite with BeforeAndAfterAll {
     val counter = new AtomicInteger
     val cdl = new CountDownLatch(expected)
     val reg = hz.onDistributedObjectEvent(runOn = ec) {
-      case DistributedObjectCreated("foo", _) =>
-        counter.incrementAndGet()
+      case evt @ DistributedObjectCreated("foo", _) =>
+        assert(counter.incrementAndGet <= expected, evt)
         cdl.countDown()
-      case DistributedObjectDestroyed("foo", _) =>
-        counter.incrementAndGet()
+      case evt @ DistributedObjectDestroyed("foo", _) =>
+        assert(counter.incrementAndGet <= expected, evt)
         cdl.countDown()
     }
-    val fooMap = hz.getMap[Int, Int]("foo")
-    fooMap.put(1, 1)
-    val fooQueue = hz.getQueue[Int]("foo")
-    fooQueue.offer(1)
-    val barMap = hz.getMap[Int, Int]("bar")
-    barMap.put(1, 1)
-    val barbeQueue = hz.getQueue[Int]("bar")
-    barbeQueue.offer(1)
-    fooMap.destroy()
-    fooQueue.destroy()
-    barMap.destroy()
-    barbeQueue.destroy()
-    assert(cdl.await(10, SECONDS))
-    assert(counter.get == expected)
-    reg.cancel()
+    try {
+      val fooMap = hz.getMap[Int, Int]("foo")
+      fooMap.put(1, 1)
+      val fooQueue = hz.getQueue[Int]("foo")
+      fooQueue.offer(1)
+      val barMap = hz.getMap[Int, Int]("bar")
+      barMap.put(1, 1)
+      val barbeQueue = hz.getQueue[Int]("bar")
+      barbeQueue.offer(1)
+      fooMap.destroy()
+      fooQueue.destroy()
+      barMap.destroy()
+      barbeQueue.destroy()
+      assert(cdl.await(60, SECONDS))
+      assert(counter.get == expected)
+    } finally reg.cancel()
   }
 
 }
