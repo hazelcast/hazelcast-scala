@@ -9,10 +9,26 @@ private[Scala] trait KeyedDeltaUpdates[K, V] {
   type UpdateR[T]
 
   def upsertAndGet(key: K, insertIfMissing: V, runOn: IExecutorService = null)(updateIfPresent: V => V): UpdateR[V]
+
   def updateAndGet(key: K, runOn: IExecutorService = null)(updateIfPresent: V => V): UpdateR[Option[V]]
-  def updateAndGetIf(cond: V => Boolean, key: K, runOn: IExecutorService = null)(updateIfPresent: V => V): UpdateR[Option[V]]
+  def updateAndGet(key: K, initIfMissing: V)(update: V => V): UpdateR[V]
+
+  def updateAndGetIf(cond: V => Boolean, key: K, runOn: IExecutorService = null)(update: V => V): UpdateR[Option[V]]
+
   def upsert(key: K, insertIfMissing: V, runOn: IExecutorService = null)(updateIfPresent: V => V): UpdateR[UpsertResult]
+
+  /**
+   * Update value, if present.
+   * @return `true` if present (thus updated), `false` if unknown key
+   */
   def update(key: K, runOn: IExecutorService = null)(updateIfPresent: V => V): UpdateR[Boolean]
+  /**
+   * Update value, initialize if missing.
+   * NOTE: The `update` function will always run, also on the initial value.
+   * @return `true` if present, `false` if unknown key
+   */
+  def update(key: K, initIfMissing: V)(update: V => V): UpdateR[Boolean]
+
   def updateIf(cond: V => Boolean, key: K, runOn: IExecutorService = null)(updateIfPresent: V => V): UpdateR[Boolean]
   def getAndUpsert(key: K, insertIfMissing: V, runOn: IExecutorService = null)(updateIfPresent: V => V): UpdateR[Option[V]]
   def getAndUpdate(key: K, runOn: IExecutorService = null)(updateIfPresent: V => V): UpdateR[Option[V]]
@@ -46,8 +62,8 @@ private[Scala] object KeyedDeltaUpdates {
       }
     }
   }
-  final class UpdateEP[V](val cond: V => Boolean, val updateIfPresent: V => V)
-      extends SingleEntryCallbackUpdater[Any, V, Boolean] {
+  final class UpdateIfEP[V](val cond: V => Boolean, val updateIfPresent: V => V)
+    extends SingleEntryCallbackUpdater[Any, V, Boolean] {
     def onEntry(entry: Entry[Any, V]): Boolean = {
       entry.value match {
         case null => false
@@ -58,10 +74,22 @@ private[Scala] object KeyedDeltaUpdates {
       }
     }
   }
-  final class UpdateAndGetEP[V](val cond: V => Boolean, val updateIfPresent: V => V)
-      extends SingleEntryCallbackUpdater[Any, V, V] {
+  final class UpdateEP[V](val initIfMissing: V, val updateIfPresent: V => V)
+    extends SingleEntryCallbackUpdater[Any, V, Boolean] {
+    def onEntry(entry: Entry[Any, V]): Boolean = {
+      val isPresent = entry.value != null
+      (if (isPresent) entry.value else initIfMissing) match {
+        case null => false
+        case value =>
+          entry.value = updateIfPresent(value)
+          isPresent
+      }
+    }
+  }
+  final class UpdateAndGetEP[V](val cond: V => Boolean, val updateIfPresent: V => V, val initIfMissing: V)
+    extends SingleEntryCallbackUpdater[Any, V, V] {
     def onEntry(entry: Entry[Any, V]): V =
-      entry.value match {
+      (if (entry.value == null) initIfMissing else entry.value) match {
         case null => null.asInstanceOf[V]
         case value if cond(value) =>
           entry.value = updateIfPresent(value)
@@ -271,12 +299,20 @@ private[Scala] trait KeyedIMapDeltaUpdates[K, V]
 
   def upsertAndGet(key: K, insertIfMissing: V, runOn: IExecutorService)(updateIfPresent: V => V): UpdateR[V] =
     async.upsertAndGet(key, insertIfMissing, runOn)(updateIfPresent).await
+
   def updateAndGet(key: K, runOn: IExecutorService)(updateIfPresent: V => V): UpdateR[Option[V]] =
     async.updateAndGet(key, runOn)(updateIfPresent).await
+  def updateAndGet(key: K, initIfMissing: V)(updateIfPresent: V => V): UpdateR[V] =
+    async.updateAndGet(key, initIfMissing)(updateIfPresent).await
+
   def upsert(key: K, insertIfMissing: V, runOn: IExecutorService)(updateIfPresent: V => V): UpdateR[UpsertResult] =
     async.upsert(key, insertIfMissing, runOn)(updateIfPresent).await
+
   def update(key: K, runOn: IExecutorService)(updateIfPresent: V => V): UpdateR[Boolean] =
     async.update(key, runOn)(updateIfPresent).await
+  def update(key: K, initIfMissing: V)(update: V => V): UpdateR[Boolean] =
+    async.update(key, initIfMissing)(update).await
+
   def getAndUpsert(key: K, insertIfMissing: V, runOn: IExecutorService)(updateIfPresent: V => V): UpdateR[Option[V]] =
     async.getAndUpsert(key, insertIfMissing, runOn)(updateIfPresent).await
   def getAndUpdate(key: K, runOn: IExecutorService)(updateIfPresent: V => V): UpdateR[Option[V]] =
@@ -330,8 +366,21 @@ private[Scala] trait KeyedIMapAsyncDeltaUpdates[K, V] extends KeyedDeltaUpdates[
   def updateAndGet(key: K, runOn: IExecutorService)(updateIfPresent: V => V): Future[Option[V]] =
     updateAndGetIf(TrueFunction[V], key, runOn)(updateIfPresent)
 
+  def updateAndGet(key: K, initIfMissing: V)(update: V => V): Future[V] = {
+    val ep = new UpdateAndGetEP(TrueFunction[V], update, initIfMissing)
+    val callback = ep.newCallback()
+    imap.submitToKey(key, ep, callback)
+    callback.future
+  }
+
   def update(key: K, runOn: IExecutorService)(updateIfPresent: V => V): Future[Boolean] =
     updateIf(TrueFunction[V], key, runOn)(updateIfPresent)
+  def update(key: K, initIfMissing: V)(update: V => V): Future[Boolean] = {
+    val ep = new UpdateEP(initIfMissing, update)
+    val callback = ep.newCallback()
+    imap.submitToKey(key, ep, callback)
+    callback.future
+  }
 
   def getAndUpsert(key: K, insertIfMissing: V, runOn: IExecutorService)(updateIfPresent: V => V): Future[Option[V]] = {
     if (runOn == null) {
@@ -351,7 +400,7 @@ private[Scala] trait KeyedIMapAsyncDeltaUpdates[K, V] extends KeyedDeltaUpdates[
 
   def updateAndGetIf(cond: V => Boolean, key: K, runOn: IExecutorService)(updateIfPresent: V => V): UpdateR[Option[V]] = {
     if (runOn == null) {
-      val ep = new UpdateAndGetEP(cond, updateIfPresent)
+      val ep = new UpdateAndGetEP(cond, updateIfPresent, null.asInstanceOf[V])
       val callback = ep.newCallbackOpt
       imap.submitToKey(key, ep, callback)
       callback.future
@@ -363,7 +412,7 @@ private[Scala] trait KeyedIMapAsyncDeltaUpdates[K, V] extends KeyedDeltaUpdates[
   }
   def updateIf(cond: V => Boolean, key: K, runOn: IExecutorService)(updateIfPresent: V => V): UpdateR[Boolean] = {
     if (runOn == null) {
-      val ep = new UpdateEP(cond, updateIfPresent)
+      val ep = new UpdateIfEP(cond, updateIfPresent)
       val callback = ep.newCallback()
       imap.submitToKey(key, ep, callback)
       callback.future

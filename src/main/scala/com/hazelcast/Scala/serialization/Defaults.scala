@@ -316,8 +316,8 @@ object Defaults extends SerializerEnum(-987654321) {
       new EP(insert, update)
     }
   }
-  val UpdateEPSer = new StreamSerializer[KeyedDeltaUpdates.UpdateEP[Any]] {
-    type EP = KeyedDeltaUpdates.UpdateEP[Any]
+  val UpdateIfEPSer = new StreamSerializer[KeyedDeltaUpdates.UpdateIfEP[Any]] {
+    type EP = KeyedDeltaUpdates.UpdateIfEP[Any]
     def write(out: ObjectDataOutput, ep: EP): Unit = {
       out.writeObject(ep.cond)
       out.writeObject(ep.updateIfPresent)
@@ -328,16 +328,30 @@ object Defaults extends SerializerEnum(-987654321) {
       new EP(cond, update)
     }
   }
+  val UpdateEPSer = new StreamSerializer[KeyedDeltaUpdates.UpdateEP[Any]] {
+    type EP = KeyedDeltaUpdates.UpdateEP[Any]
+    def write(out: ObjectDataOutput, ep: EP): Unit = {
+      out writeObject ep.initIfMissing
+      out writeObject ep.updateIfPresent
+    }
+    def read(inp: ObjectDataInput): EP = {
+      val initIfMissing = inp.readObject[Any]
+      val update = inp.readObject[Any => Any]
+      new EP(initIfMissing, update)
+    }
+  }
   val UpdateAndGetEPSer = new StreamSerializer[KeyedDeltaUpdates.UpdateAndGetEP[Any]] {
     type EP = KeyedDeltaUpdates.UpdateAndGetEP[Any]
     def write(out: ObjectDataOutput, ep: EP): Unit = {
-      out.writeObject(ep.cond)
-      out.writeObject(ep.updateIfPresent)
+      out writeObject ep.cond
+      out writeObject ep.updateIfPresent
+      out writeObject ep.initIfMissing
     }
     def read(inp: ObjectDataInput): EP = {
       val cond = inp.readObject[Any => Boolean]
       val update = inp.readObject[Any => Any]
-      new EP(cond, update)
+      val initIfMissing = inp.readObject[Any]
+      new EP(cond, update, initIfMissing)
     }
   }
   val GetAndUpdateEPSer = new StreamSerializer[KeyedDeltaUpdates.GetAndUpdateEP[Any]] {

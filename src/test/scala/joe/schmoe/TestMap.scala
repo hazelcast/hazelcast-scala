@@ -1113,6 +1113,28 @@ class TestMap extends FunSuite with CleanUp with BeforeAndAfterAll with BeforeAn
     assert(!employees.containsKey(key1))
     assert(employees.containsKey(key2))
   }
+
+  test("update with init value") {
+    val employees = client.getMap[UUID, Employee](randName)
+    val randEmp1 = Employee.random
+    val key1 = randEmp1.id
+    val existed = employees.update(key1, randEmp1) { emp =>
+      emp.copy(salary = emp.salary * 2)
+    }
+    assert(!existed)
+    val emp1 = employees.get(key1)
+    assert(emp1.salary / 2 == randEmp1.salary)
+  }
+  test("update and get with init value") {
+    val employees = client.getMap[UUID, Employee](randName)
+    val randEmp1 = Employee.random
+    val key1 = randEmp1.id
+    val emp1 = employees.updateAndGet(key1, randEmp1) { emp =>
+      emp.copy(salary = emp.salary * 2)
+    }
+    assert(emp1.salary / 2 == randEmp1.salary)
+  }
+
 }
 case object UTF8Serializer extends com.hazelcast.nio.serialization.ByteArraySerializer[String] {
   def destroy() = ()
