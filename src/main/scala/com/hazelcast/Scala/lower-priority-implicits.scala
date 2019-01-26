@@ -43,6 +43,8 @@ trait HighPriorityImplicits extends MediumPriorityImplicits {
   @inline implicit def clientsvc2scala(cs: ClientService) = new HzClientService(cs)
   @inline implicit def partsvc2scala(ps: PartitionService) = new HzPartitionService(ps)
   @inline implicit def topic2scala[T](topic: ITopic[T]) = new HzTopic(topic)
+  @inline implicit def queue2scala[T](queue: BaseQueue[T]) = new HzQueue(queue)
+  @inline implicit def txqueue2scala[T](queue: TransactionalQueue[T]) = new HzTxQueue(queue)
   @inline implicit def exec2scala(exec: IExecutorService) = new HzExecutorService(exec)
   @inline implicit def durexec2scala(exec: DurableExecutorService) = new HzDurableExecutorService(exec)
   @inline implicit def dds2numDds[N: Numeric](dds: DDS[N]): NumericDDS[N] = dds match {
