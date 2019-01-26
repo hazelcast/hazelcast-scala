@@ -16,6 +16,7 @@ import com.hazelcast.transaction.TransactionalTaskContext
 import com.hazelcast.nio.serialization.ByteArraySerializer
 import com.hazelcast.Scala.serialization.ByteArrayInterceptor
 import scala.reflect.ClassTag
+import com.hazelcast.transaction.TransactionContext
 
 private object HzHazelcastInstance {
   private[this] val DefaultTxnOpts = TransactionOptions.getDefault
@@ -71,15 +72,7 @@ final class HzHazelcastInstance(hz: HazelcastInstance) extends MemberEventSubscr
     hz.getCluster.onMemberChange(runOn)(listener)
   }
 
-  /**
-    * Execute transaction.
-    * @param durability Number of backups
-    * @param transactionType Type of transaction
-    * @param timeout Transaction timeout
-    */
-  def transaction[T](
-    txnType: TxnType = DefaultTxnType,
-    timeout: FiniteDuration = DefaultTxnTimeout)(thunk: TransactionalTaskContext => T): T = {
+  private def toTxnOpts(txnType: TxnType, timeout: FiniteDuration) = {
     val opts = new TransactionOptions().setTimeout(timeout.length, timeout.unit)
     txnType match {
       case OnePhase =>
@@ -87,7 +80,17 @@ final class HzHazelcastInstance(hz: HazelcastInstance) extends MemberEventSubscr
       case TwoPhase(durability) =>
         opts.setTransactionType(TransactionType.TWO_PHASE).setDurability(durability)
     }
-    transaction(opts)(thunk)
+  }
+
+  /**
+    * Execute transaction. Commit or rollback is done implicitly.
+    * @param txnType Type of transaction
+    * @param timeout Transaction timeout
+    */
+  def transaction[T](
+    txnType: TxnType = DefaultTxnType,
+    timeout: FiniteDuration = DefaultTxnTimeout)(thunk: TransactionalTaskContext => T): T = {
+    transaction(toTxnOpts(txnType, timeout))(thunk)
   }
   def transaction[T](opts: TransactionOptions)(thunk: TransactionalTaskContext => T): T = {
     val task = new TransactionalTask[T] {
@@ -97,6 +100,27 @@ final class HzHazelcastInstance(hz: HazelcastInstance) extends MemberEventSubscr
       hz.executeTransaction(task)
     } else {
       hz.executeTransaction(opts, task)
+    }
+  }
+  /**
+    * Begin transaction. Commit or rollback must be done explicitly.
+    * @param txnType Type of transaction
+    * @param timeout Transaction timeout
+    */
+  def beginTransaction[T](
+    txnType: TxnType = DefaultTxnType,
+    timeout: FiniteDuration = DefaultTxnTimeout)(thunk: TransactionContext => T): T = {
+    beginTransaction(toTxnOpts(txnType, timeout))(thunk)
+  }
+  def beginTransaction[T](opts: TransactionOptions)(thunk: TransactionContext => T): T = {
+    if (opts == null) {
+      val ctx = hz.newTransactionContext()
+      ctx.beginTransaction()
+      thunk(ctx)
+    } else {
+      val ctx = hz.newTransactionContext(opts)
+      ctx.beginTransaction()
+      thunk(ctx)
     }
   }
 
