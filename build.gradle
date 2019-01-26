@@ -21,7 +21,7 @@ ext {
     vPegdown = '1.6.0'
     vScala = System.properties.scalaVersion ?: '2.12'
     vScalaFull = latestScalaFull[vScala]
-    vHazelcast = '3.11'
+    vHazelcast = '3.11.1'
     vKryo = '4.0.2'
     vObjenesis = '3.0.1'
     vLz4 = '1.5.0'
