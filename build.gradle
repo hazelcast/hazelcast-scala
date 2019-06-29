@@ -8,7 +8,7 @@ plugins {
     id 'com.jfrog.bintray' version "1.8.1"
     id 'scala'
     id 'maven-publish'
-    id "com.github.maiflai.scalatest" version "0.19"
+    id "com.github.maiflai.scalatest" version "0.25"
 }
 
 ext {
