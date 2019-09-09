@@ -56,7 +56,7 @@ private[Scala] final class InlineSavingAggregator[E, A, AK](
 private[Scala] final class InlineSavingGroupAggregator[G, E, A](
   val mapName: String,
   val unitAggr: InlineUnitAggregator[E, A])
-    extends Aggregator.Grouped[G, E, Unit, Unit](unitAggr, PartialFunction(identity))
+    extends Aggregator.Grouped[G, E, Unit, Unit](unitAggr, PartialFunctionUnit)
     with HazelcastInstanceAware {
   def this(mapName: String, init: () => A, seqop: (A, E) => A, combop: (A, A) => A) =
     this(mapName, new InlineUnitAggregator(init, seqop, combop))

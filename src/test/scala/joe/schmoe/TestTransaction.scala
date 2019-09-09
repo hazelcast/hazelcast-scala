@@ -10,7 +10,7 @@ import com.hazelcast.Scala._
 
 object TestTransaction extends ClusterSetup {
   override val clusterSize = 3
-  def init {
+  def init: Unit = {
     TestKryoSerializers.register(memberConfig.getSerializationConfig)
     TestKryoSerializers.register(clientConfig.getSerializationConfig)
     memberConfig.getSerializationConfig.setAllowUnsafe(true)

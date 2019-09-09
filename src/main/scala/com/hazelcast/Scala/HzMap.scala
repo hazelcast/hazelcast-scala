@@ -146,7 +146,7 @@ final class HzMap[K, V](protected val imap: IMap[K, V])
     updateValues(Option(predicate), updateIfPresent, _.asInstanceOf[Object])
   }
 
-  def set(key: K, value: V, ttl: Duration) {
+  def set(key: K, value: V, ttl: Duration): Unit = {
     if (ttl.isFinite && ttl.length > 0) {
       imap.set(key, value, ttl.length, ttl.unit)
     } else {
@@ -309,7 +309,7 @@ private[Scala] object HzMap {
     extends AbstractEntryProcessor[K, V](false)
     with HazelcastInstanceAware {
     @transient private[this] var ctx: C = _
-    def setHazelcastInstance(hz: HazelcastInstance) {
+    def setHazelcastInstance(hz: HazelcastInstance): Unit = {
       this.ctx = getCtx(hz)
     }
     def mf = _mf

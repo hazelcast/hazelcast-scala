@@ -66,7 +66,7 @@ trait AggrGroupDDS[G, E] {
   def distinct()(implicit ec: ExecutionContext): Future[aMap[G, Set[E]]] = submit(aggr.Distinct[E]())
   def distribution()(implicit ec: ExecutionContext): Future[aMap[G, aMap[E, Freq]]] = submit(aggr.Distribution[E]())
   def count()(implicit ec: ExecutionContext): Future[aMap[G, Int]] = submit(aggr.Count)
-  def mode()(implicit ec: ExecutionContext): Future[aMap[G, aSet[E]]] = distribution() map (_.mapValues(AggrDDS.mode))
+  def mode()(implicit ec: ExecutionContext): Future[aMap[G, aSet[E]]] = distribution() map (_.mapValues(AggrDDS.mode).toMap)
 
   def maxBy[O: Ordering](m: E => O)(implicit ec: ExecutionContext): Future[aMap[G, E]] = submitGrouped(Aggregator.groupSome(new aggr.Max(m)))
   def minBy[O: Ordering](m: E => O)(implicit ec: ExecutionContext): Future[aMap[G, E]] = submitGrouped(Aggregator.groupSome(new aggr.Min(m)))

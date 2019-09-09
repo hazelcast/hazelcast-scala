@@ -110,55 +110,55 @@ final case class PartitionLost(member: core.Member, partitionId: Int)(evt: map.M
 sealed trait OnKeyEvent[K] extends map.listener.MapListener
 trait OnKeyAdded[K] extends OnKeyEvent[K] with map.listener.EntryAddedListener[K, Object] {
   final def entryAdded(evt: core.EntryEvent[K, Object]): Unit = apply(new KeyAdded(evt.getKey)(evt))
-  def apply(evt: KeyAdded[K])
+  def apply(evt: KeyAdded[K]): Unit
 }
 trait OnKeyEvicted[K] extends OnKeyEvent[K] with map.listener.EntryEvictedListener[K, Object] {
   final def entryEvicted(evt: core.EntryEvent[K, Object]): Unit = apply(new KeyEvicted(evt.getKey)(evt))
-  def apply(evt: KeyEvicted[K])
+  def apply(evt: KeyEvicted[K]): Unit
 }
 trait OnKeyMerged[K] extends OnKeyEvent[K] with map.listener.EntryMergedListener[K, Object] {
   final def entryMerged(evt: core.EntryEvent[K, Object]): Unit = apply(new KeyMerged(evt.getKey)(evt))
-  def apply(evt: KeyMerged[K])
+  def apply(evt: KeyMerged[K]): Unit
 }
 trait OnKeyRemoved[K] extends OnKeyEvent[K] with map.listener.EntryRemovedListener[K, Object] {
   final def entryRemoved(evt: core.EntryEvent[K, Object]): Unit = apply(new KeyRemoved(evt.getKey)(evt))
-  def apply(evt: KeyRemoved[K])
+  def apply(evt: KeyRemoved[K]): Unit
 }
 trait OnKeyUpdated[K] extends OnKeyEvent[K] with map.listener.EntryUpdatedListener[K, Object] {
   final def entryUpdated(evt: core.EntryEvent[K, Object]): Unit = apply(new KeyUpdated(evt.getKey)(evt))
-  def apply(evt: KeyUpdated[K])
+  def apply(evt: KeyUpdated[K]): Unit
 }
 trait OnKeyExpired[K] extends OnKeyEvent[K] with map.listener.EntryExpiredListener[K, Object] {
   final def entryExpired(evt: core.EntryEvent[K, Object]): Unit = apply(new KeyExpired(evt.getKey)(evt))
-  def apply(evt: KeyExpired[K])
+  def apply(evt: KeyExpired[K]): Unit
 }
 trait OnKeyLoaded[K] extends OnKeyEvent[K] with map.listener.EntryLoadedListener[K, Object] {
   final def entryLoaded(evt: core.EntryEvent[K, Object]): Unit = apply(new KeyLoaded(evt.getKey)(evt))
-  def apply(evt: KeyLoaded[K])
+  def apply(evt: KeyLoaded[K]): Unit
 }
 
 sealed trait OnEntryEvent[K, V] extends map.listener.MapListener
 trait OnEntryAdded[K, V] extends OnEntryEvent[K, V] with map.listener.EntryAddedListener[K, V] {
   final def entryAdded(evt: core.EntryEvent[K, V]): Unit = apply(new EntryAdded(evt.getKey, evt.getValue)(evt))
-  def apply(evt: EntryAdded[K, V])
+  def apply(evt: EntryAdded[K, V]): Unit
 }
 trait OnEntryEvicted[K, V] extends OnEntryEvent[K, V] with map.listener.EntryEvictedListener[K, V] {
   final def entryEvicted(evt: core.EntryEvent[K, V]): Unit = apply(new EntryEvicted(evt.getKey, evt.getOldValue)(evt))
-  def apply(evt: EntryEvicted[K, V])
+  def apply(evt: EntryEvicted[K, V]): Unit
 }
 trait OnEntryMerged[K, V] extends OnEntryEvent[K, V] with map.listener.EntryMergedListener[K, V] {
   final def entryMerged(evt: core.EntryEvent[K, V]): Unit = apply(new EntryMerged(evt.getKey, Option(evt.getOldValue), evt.getMergingValue, Option(evt.getValue))(evt))
-  def apply(evt: EntryMerged[K, V])
+  def apply(evt: EntryMerged[K, V]): Unit
 }
 trait OnEntryRemoved[K, V] extends OnEntryEvent[K, V] with map.listener.EntryRemovedListener[K, V] {
   final def entryRemoved(evt: core.EntryEvent[K, V]): Unit = apply(new EntryRemoved(evt.getKey, evt.getOldValue)(evt))
-  def apply(evt: EntryRemoved[K, V])
+  def apply(evt: EntryRemoved[K, V]): Unit
 }
 trait OnEntryUpdated[K, V] extends OnEntryEvent[K, V] with map.listener.EntryUpdatedListener[K, V] {
   final def entryUpdated(evt: core.EntryEvent[K, V]): Unit = apply(new EntryUpdated(evt.getKey, evt.getOldValue, evt.getValue)(evt))
-  def apply(evt: EntryUpdated[K, V])
+  def apply(evt: EntryUpdated[K, V]): Unit
 }
 trait OnEntryExpired[K, V] extends OnEntryEvent[K, V] with map.listener.EntryExpiredListener[K, V] {
   final def entryExpired(evt: core.EntryEvent[K, V]): Unit = apply(new EntryExpired(evt.getKey, evt.getOldValue)(evt))
-  def apply(evt: EntryExpired[K, V])
+  def apply(evt: EntryExpired[K, V]): Unit
 }

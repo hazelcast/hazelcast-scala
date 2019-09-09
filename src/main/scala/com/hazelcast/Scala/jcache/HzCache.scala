@@ -26,7 +26,7 @@ final class HzCache[K, V](icache: cache.ICache[K, V]) {
     val ep = new CacheEntryProcessor[K, V, R] {
       def process(entry: MutableEntry[K, V], args: Object*) = thunk(entry).asInstanceOf[Option[Object]].orNull.asInstanceOf[R]
     }
-    icache.invokeAll(keys.asJava, ep).asScala.mapValues(_.get)
+    icache.invokeAll(keys.asJava, ep).asScala.mapValues(_.get).toMap
   }
   def onPartitionLost(runOn: ExecutionContext = null)(listener: PartialFunction[CachePartitionLostEvent, Unit]): ListenerRegistration = {
     val regId = icache addPartitionLostListener new PfProxy(listener, Option(runOn)) with CachePartitionLostListener {

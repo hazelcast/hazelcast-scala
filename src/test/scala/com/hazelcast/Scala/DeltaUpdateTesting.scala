@@ -9,7 +9,7 @@ object DeltaUpdateTesting {
 
   type Map = KeyedDeltaUpdates[UUID, Int] { type UpdateR[T] = T }
 
-  def testUpsert(numbers: Map, get: UUID => Option[Int], remove: UUID => Unit, runOn: IExecutorService = null) {
+  def testUpsert(numbers: Map, get: UUID => Option[Int], remove: UUID => Unit, runOn: IExecutorService = null): Unit = {
     val key = UUID.randomUUID()
     numbers.upsert(key, 5, runOn)(_ + 1) match {
       case WasUpdated => fail("Should have been Insert")
@@ -28,7 +28,7 @@ object DeltaUpdateTesting {
     assert(numbers.upsertAndGet(UUID.randomUUID, 99, runOn)(_ + 55) == 99)
   }
 
-  def testUpdate(numbers: Map, get: UUID => Option[Int], insert: (UUID, Int) => Unit, remove: UUID => Unit, runOn: IExecutorService = null) {
+  def testUpdate(numbers: Map, get: UUID => Option[Int], insert: (UUID, Int) => Unit, remove: UUID => Unit, runOn: IExecutorService = null): Unit = {
     val key = UUID.randomUUID()
     assert(numbers.updateAndGet(key, runOn)(_ + 3) == None)
     assert(numbers.updateAndGetIf(_ => true, key, runOn)(_ + 3) == None)

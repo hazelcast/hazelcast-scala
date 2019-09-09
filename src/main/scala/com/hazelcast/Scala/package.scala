@@ -1,7 +1,7 @@
 package com.hazelcast
 
 import config._
-import core._
+import core.{ MapEvent => _, _ }
 import query._
 import ringbuffer.Ringbuffer
 
@@ -22,7 +22,7 @@ package object Scala extends HighPriorityImplicits {
   private[Scala] type ImmutableEntry[K, V] = AbstractMap.SimpleImmutableEntry[K, V]
   private[Scala] type MutableEntry[K, V] = AbstractMap.SimpleEntry[K, V]
 
-  @inline implicit def fu2pfu[A](f: A => Unit): PartialFunction[A, Unit] = PartialFunction(f)
+  @inline implicit def fu2pfu[A](f: A => Unit): PartialFunction[A, Unit] = { case a => f(a) }
   @inline implicit def imap2scala[K, V](imap: IMap[K, V]): HzMap[K, V] = new HzMap(imap)
   @inline implicit def icoll2scala[T](coll: ICollection[T]): HzCollection[T] = new HzCollection(coll)
   @inline implicit def rb2scala[E](rb: Ringbuffer[E]): HzRingbuffer[E] = new HzRingbuffer(rb)

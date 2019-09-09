@@ -26,10 +26,5 @@ private[serialization] object ObjectDataInputStreamProxy {
     val field = SerSvcField.get(out.getClass)
     field.get(out).asInstanceOf[SerializationService]
   }
-  def apply(is: ByteArrayInputStream, inp: ObjectDataInput) = new ObjectDataInputStreamProxy(is, getSerializationService(inp))
+  def apply(is: ByteArrayInputStream, inp: ObjectDataInput) = new ObjectDataInputStream(is, getSerializationService(inp))
 }
-
-private[serialization] class ObjectDataInputStreamProxy(
-  is: ByteArrayInputStream,
-  ss: SerializationService)
-    extends ObjectDataInputStream(is, ss)

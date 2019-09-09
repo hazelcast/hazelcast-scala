@@ -7,7 +7,7 @@ trait CleanUp {
 
   def hzs: Vector[HazelcastInstance]
 
-  def cleanup() {
+  def cleanup(): Unit = {
     hzs.foreach { hz =>
       hz.getDistributedObjects.asScala.foreach(_.destroy)
     }

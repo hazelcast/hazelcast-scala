@@ -18,9 +18,9 @@ class AsyncCache[K, V] private[Scala] (private val icache: ICache[K, V]) extends
   def put(key: K, value: V)(implicit expiryPolicy: ExpiryPolicy = null): Future[Unit] =
     expiryPolicy match {
       case null =>
-        icache.putAsync(key, value).asScala(_ => Unit)
+        icache.putAsync(key, value).asScala(_ => ())
       case expiryPolicy =>
-        icache.putAsync(key, value, expiryPolicy).asScala(_ => Unit)
+        icache.putAsync(key, value, expiryPolicy).asScala(_ => ())
     }
 
   def getAndPut(key: K, value: V)(implicit expiryPolicy: ExpiryPolicy = null): Future[Option[V]] =

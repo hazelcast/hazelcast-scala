@@ -388,7 +388,7 @@ object Defaults extends SerializerEnum(-987654321) {
   }
 
   val ObjArraySer = new StreamSerializer[Array[Object]] {
-    def write(out: ObjectDataOutput, arr: Array[Object]) {
+    def write(out: ObjectDataOutput, arr: Array[Object]): Unit = {
       out.writeInt(arr.length)
       var idx = 0
       while (idx < arr.length) {
@@ -795,7 +795,7 @@ object Defaults extends SerializerEnum(-987654321) {
   private[serialization] abstract class DeltaUpsertTaskSer[Task <: KeyedDeltaUpdates.DeltaTask[Any, Any, Any]: ClassTag]
       extends StreamSerializer[Task] {
     def newInstance(mapName: String, key: Any, partitionId: Int, insertIfMissing: Some[Any], updateIfPresent: Any => Any): Task
-    final def write(out: ObjectDataOutput, task: Task) {
+    final def write(out: ObjectDataOutput, task: Task): Unit = {
       out.writeUTF(task.mapName)
       out.writeObject(task.key)
       out.writeInt(task.partitionId)
@@ -814,7 +814,7 @@ object Defaults extends SerializerEnum(-987654321) {
   private[serialization] abstract class DeltaUpdateTaskSer[Task <: KeyedDeltaUpdates.DeltaTask[Any, Any, Any]: ClassTag]
       extends StreamSerializer[Task] {
     def newInstance(mapName: String, key: Any, partitionId: Int, updateIfPresent: Any => Any, cond: Any => Boolean): Task
-    def write(out: ObjectDataOutput, task: Task) {
+    def write(out: ObjectDataOutput, task: Task): Unit = {
       out.writeUTF(task.mapName)
       out.writeObject(task.key)
       out.writeInt(task.partitionId)

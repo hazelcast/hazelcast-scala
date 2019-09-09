@@ -29,11 +29,11 @@ private[serialization] class ByteArrayOutputStream
 
   def withArray[T](thunk: (Array[Byte], Int) => T): T = thunk(buf, count)
   def copyArray: Array[Byte] = Arrays.copyOf(buf, count)
-  private def ensureCapacity(minCapacity: Int) {
+  private def ensureCapacity(minCapacity: Int): Unit = {
     if (minCapacity - buf.length > 0) grow(minCapacity)
   }
 
-  private def grow(minCapacity: Int) {
+  private def grow(minCapacity: Int): Unit = {
     val oldCapacity = buf.length
     var newCapacity = oldCapacity << 1
     if (newCapacity - minCapacity < 0)
@@ -42,19 +42,19 @@ private[serialization] class ByteArrayOutputStream
       newCapacity = hugeCapacity(minCapacity)
     buf = Arrays.copyOf(buf, newCapacity)
   }
-  def write(b: Int) {
+  def write(b: Int): Unit = {
     ensureCapacity(count + 1)
     buf(count) = b.asInstanceOf[Byte]
     count += 1
   }
 
-  override def write(b: Array[Byte], off: Int, len: Int) {
+  override def write(b: Array[Byte], off: Int, len: Int): Unit = {
     ensureCapacity(count + len)
     System.arraycopy(b, off, buf, count, len)
     count += len
   }
 
-  def reset() {
+  def reset(): Unit = {
     count = 0
   }
 

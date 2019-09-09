@@ -61,5 +61,5 @@ trait OrderingGroupDDS[G, O] extends AggrGroupDDS[G, O] {
   def max()(implicit ec: ExecutionContext): Future[cMap[G, O]] = this.maxBy(identity)
   def min()(implicit ec: ExecutionContext): Future[cMap[G, O]] = this.minBy(identity)
   def minMax()(implicit ec: ExecutionContext): Future[cMap[G, (O, O)]] = this.minMaxBy(identity)
-  def medianValues()(implicit ec: ExecutionContext): Future[cMap[G, (O, O)]] = distribution().map(_.mapValues(OrderingDDS.medianValues[O](_).get))
+  def medianValues()(implicit ec: ExecutionContext): Future[cMap[G, (O, O)]] = distribution().map(_.mapValues(OrderingDDS.medianValues[O](_).get).toMap)
 }

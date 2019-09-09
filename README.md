@@ -1,6 +1,7 @@
 [![Build Status](https://semaphoreci.com/api/v1/nilskp/hazelcast-scala/branches/master/badge.svg)](https://semaphoreci.com/nilskp/hazelcast-scala)
 [![Scala version](https://img.shields.io/badge/scala-2.11-orange.svg)](https://www.scala-lang.org/api/2.11.x/)
 [![Scala version](https://img.shields.io/badge/scala-2.12-orange.svg)](https://www.scala-lang.org/api/2.12.x/)
+[![Scala version](https://img.shields.io/badge/scala-2.13-orange.svg)](https://www.scala-lang.org/api/2.13.x/)
 [![Join Chat at https://gitter.im/hazelcast/hazelcast-scala](https://badges.gitter.im/Join%20Chat.svg)](https://gitter.im/hazelcast/hazelcast-scala)
 [![Download](https://api.bintray.com/packages/hazelcast/maven/hazelcast-scala/images/download.svg)](https://bintray.com/hazelcast/maven/hazelcast-scala/_latestVersion#files)
 
@@ -14,12 +15,13 @@ Add this to your `build.gradle` file:
 ```groovy
 repositories {
   jcenter()
+  mavenCentral()
 }
 
 dependencies {
   compile "org.scala-lang:scala-reflect:2.12.+"
-  compile "com.hazelcast:hazelcast:3.11.+" // Or :hazelcast-enterprise:
-  compile "com.hazelcast:hazelcast-scala_2.12:3.11.+"
+  compile "com.hazelcast:hazelcast:3.12.+" // Or :hazelcast-enterprise:
+  compile "com.hazelcast:hazelcast-scala_2.12:3.12.+"
 }
 ```
 

@@ -28,7 +28,7 @@ import com.hazelcast.core.IExecutorService
 
 object TestMap extends ClusterSetup {
   override val clusterSize = 3
-  def init {
+  def init: Unit = {
     TestKryoSerializers.register(memberConfig.getSerializationConfig)
     TestKryoSerializers.register(clientConfig.getSerializationConfig)
     memberConfig.getSerializationConfig.setAllowUnsafe(true)
@@ -81,7 +81,7 @@ class TestMap extends FunSuite with CleanUp with BeforeAndAfterAll with BeforeAn
   }
 
   test("asyncSet should work") {
-      def asyncSet(map: IMap[Int, String]) {
+      def asyncSet(map: IMap[Int, String]): Unit = {
         map.async.set(5, "Hello").await
         assert("Hello" == map.get(5))
         map.async.set(5, "World").await
@@ -110,7 +110,7 @@ class TestMap extends FunSuite with CleanUp with BeforeAndAfterAll with BeforeAn
   }
   test("update") {
     val map = client.getMap[UUID, Int](randName)
-      def moreTests(runOn: IExecutorService = null) {
+      def moreTests(runOn: IExecutorService = null): Unit = {
         (1 to 10) foreach { _ =>
           map.set(UUID.randomUUID, 5)
         }
@@ -167,12 +167,12 @@ class TestMap extends FunSuite with CleanUp with BeforeAndAfterAll with BeforeAn
         latch.countDown()
     }
     val callback = new OnEntryAdded[String, Int] with OnEntryUpdated[String, Int] {
-      def apply(evt: EntryAdded[String, Int]) {
+      def apply(evt: EntryAdded[String, Int]): Unit = {
         assert(evt.key == "foo")
         assert(evt.value == 1)
         latch.countDown()
       }
-      def apply(evt: EntryUpdated[String, Int]) {
+      def apply(evt: EntryUpdated[String, Int]): Unit = {
         assert(evt.key == "foo")
         assert(evt.oldValue == 1)
         assert(evt.newValue == 2)
@@ -198,7 +198,7 @@ class TestMap extends FunSuite with CleanUp with BeforeAndAfterAll with BeforeAn
     clientMap.clear()
     entryTest(member.getMap[String, Int](clientMap.getName))
   }
-  private def entryTest(map: IMap[String, Int]) {
+  private def entryTest(map: IMap[String, Int]): Unit = {
     val isFactor37 = (c: Int) => c % 37 == 0
     val count = 50000
     val tempMap = new java.util.HashMap[String, Int](count)
@@ -306,7 +306,7 @@ class TestMap extends FunSuite with CleanUp with BeforeAndAfterAll with BeforeAn
       distribution(clientMap, i == iterations)
       distribution(memberMap, i == iterations)
     }
-      def distribution(map: IMap[Int, String], printTimings: Boolean) {
+      def distribution(map: IMap[Int, String], printTimings: Boolean): Unit = {
         val localMap = new java.util.HashMap[Int, String]
         (1 to 1000).foreach { n =>
           val fizzBuzz = new StringBuilder()
@@ -569,7 +569,7 @@ class TestMap extends FunSuite with CleanUp with BeforeAndAfterAll with BeforeAn
     val aliceSrc = Source.fromInputStream(getClass.getResourceAsStream("/alice.txt"), "UTF-8")
     val sb = new java.lang.StringBuilder
     var currChapter: Option[String] = None
-      def saveChapter() {
+      def saveChapter(): Unit = {
         currChapter.foreach { chapter =>
           aliceChapters.set(chapter, sb.toString)
         }
@@ -610,7 +610,7 @@ class TestMap extends FunSuite with CleanUp with BeforeAndAfterAll with BeforeAn
     val flatlandSrc = Source.fromInputStream(getClass.getResourceAsStream("/flatland.txt"), "UTF-8")
     val sb = new java.lang.StringBuilder
     var currChapter: String = "PREFACE"
-      def saveChapter() {
+      def saveChapter(): Unit = {
         flatlandChapters.set(currChapter, sb.toString)
         sb.setLength(0)
       }

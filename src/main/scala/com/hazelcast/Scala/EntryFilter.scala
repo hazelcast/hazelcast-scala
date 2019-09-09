@@ -1,8 +1,9 @@
 package com.hazelcast.Scala
 
+import scala.language.{ higherKinds }
+
 import com.hazelcast.query.Predicate
 import collection.mutable.Map
-import language.higherKinds
 
 sealed trait EntryFilter[K, V] {
   type EV

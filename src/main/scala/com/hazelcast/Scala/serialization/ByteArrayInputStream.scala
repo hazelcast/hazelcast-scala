@@ -46,7 +46,7 @@ private[serialization] class ByteArrayInputStream(buf: Array[Byte], offset: Int,
     mark = pos
   }
 
-  override def reset() {
+  override def reset(): Unit = {
     pos = mark
   }
 
