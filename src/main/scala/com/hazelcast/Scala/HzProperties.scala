@@ -140,10 +140,13 @@ class HzMemberProperties(conf: Config) extends HzProperties(conf) {
   /** @see com.hazelcast.spi.properties.GroupProperty.HEARTBEAT_INTERVAL_SECONDS */
   def setHeartbeatInterval(interval: FiniteDuration): Config = set(HEARTBEAT_INTERVAL_SECONDS, interval.toSeconds)
   /** @see com.hazelcast.spi.properties.GroupProperty.ICMP_ENABLED */
+  @deprecated("", since="3.10")
   def setIcmpEnabled(enabled: Boolean): Config = set(ICMP_ENABLED, enabled)
   /** @see com.hazelcast.spi.properties.GroupProperty.ICMP_TIMEOUT */
+  @deprecated("", since="3.10")
   def setIcmpTimeout(timeout: FiniteDuration): Config = set(ICMP_TIMEOUT, timeout.toMillis)
   /** @see com.hazelcast.spi.properties.GroupProperty.ICMP_TTL */
+  @deprecated("", since="3.10")
   def setIcmpTTL(hops: Int): Config = set(ICMP_TTL, hops)
   /** @see com.hazelcast.spi.properties.GroupProperty.INITIAL_MIN_CLUSTER_SIZE */
   def setInitialMinClusterSize(minSize: Int): Config = set(INITIAL_MIN_CLUSTER_SIZE, minSize)
@@ -175,6 +178,7 @@ class HzMemberProperties(conf: Config) extends HzProperties(conf) {
   /** @see com.hazelcast.spi.properties.GroupProperty.MAP_WRITE_BEHIND_QUEUE_CAPACITY */
   def setMapWriteBehindNonCoalescingCapacity(capacity: Int): Config = set(MAP_WRITE_BEHIND_QUEUE_CAPACITY, capacity)
   /** @see com.hazelcast.spi.properties.GroupProperty.MASTER_CONFIRMATION_INTERVAL_SECONDS */
+  @deprecated("", since="3.10")
   def setMasterConfirmationInterval(interval: FiniteDuration): Config = set(MASTER_CONFIRMATION_INTERVAL_SECONDS, interval.toSeconds)
   /** @see com.hazelcast.spi.properties.GroupProperty.MAX_JOIN_MERGE_TARGET_SECONDS */
   def setMergeTargetTimeout(timeout: FiniteDuration): Config = set(MAX_JOIN_MERGE_TARGET_SECONDS, timeout.toSeconds)
@@ -191,10 +195,12 @@ class HzMemberProperties(conf: Config) extends HzProperties(conf) {
   /** @see com.hazelcast.spi.properties.GroupProperty.MC_MAX_VISIBLE_SLOW_OPERATION_COUNT */
   def setManCenterMaxVisibleSlowOps(count: Int): Config = set(MC_MAX_VISIBLE_SLOW_OPERATION_COUNT, count)
   /** @see com.hazelcast.spi.properties.GroupProperty.MC_URL_CHANGE_ENABLED */
+  @deprecated("", since="?")
   def setManCenterUrlChangeEnabled(enabled: Boolean): Config = set(MC_URL_CHANGE_ENABLED, enabled)
   /** @see com.hazelcast.spi.properties.GroupProperty.MEMBER_LIST_PUBLISH_INTERVAL_SECONDS */
   def setMemberListPublishInterval(interval: FiniteDuration): Config = set(MEMBER_LIST_PUBLISH_INTERVAL_SECONDS, interval.toSeconds)
   /** @see com.hazelcast.spi.properties.GroupProperty.MEMCACHE_ENABLED */
+  @deprecated("", since="?")
   def setMemcacheEnabled(enabled: Boolean): Config = set(MEMCACHE_ENABLED, enabled)
   /** @see com.hazelcast.spi.properties.GroupProperty.MERGE_FIRST_RUN_DELAY_SECONDS */
   def setMergeRunDelay(delay: FiniteDuration): Config = set(MERGE_FIRST_RUN_DELAY_SECONDS, delay.toSeconds)
@@ -234,6 +240,7 @@ class HzMemberProperties(conf: Config) extends HzProperties(conf) {
   @deprecated("Use setHttpEnabled instead", since="3.9.0")
   def setRESTEnabled(enabled: Boolean): Config = set(REST_ENABLED, enabled)
   /** @see com.hazelcast.spi.properties.GroupProperty.REST_ENABLED */
+  @deprecated("", since="?")
   def setHttpEnabled(enabled: Boolean): Config = set(REST_ENABLED, enabled)
   /** @see com.hazelcast.spi.properties.GroupProperty.SHUTDOWNHOOK_ENABLED */
   def setShutdownHookEnabled(enabled: Boolean): Config = set(SHUTDOWNHOOK_ENABLED, enabled)
@@ -278,6 +285,7 @@ class HzMemberProperties(conf: Config) extends HzProperties(conf) {
   /** @see com.hazelcast.spi.properties.GroupProperty.PHONE_HOME_ENABLED */
   def setPhoneHomeEnabled(enabled: Boolean): Config = set(PHONE_HOME_ENABLED, enabled)
   /** @see com.hazelcast.spi.properties.GroupProperty.HTTP_HEALTHCHECK_ENABLED */
+  @deprecated("", "?")
   def setHttpHealthcheckEnabled(enabled: Boolean): Config = set(HTTP_HEALTHCHECK_ENABLED, enabled)
 
   /** @see com.hazelcast.spi.properties.GroupProperty.MAP_INVALIDATION_MESSAGE_BATCH_ENABLED */

@@ -6,7 +6,7 @@ import scala.runtime.IntRef
 
 object Distribution {
   type Q[T] = java.util.HashMap[T, IntRef]
-  type W[T] = collection.Map[T, Freq]
+  type W[T] = Map[T, Freq]
   type R[T] = W[T]
 
   def apply[T]() = new Distribution[T]
@@ -35,7 +35,7 @@ object Distribution {
       }
       map
     }
-    def remoteFinalize(map: Q) = map.asScala.mapValues(_.elem)
+    def remoteFinalize(map: Q) = map.asScala.mapValues(_.elem).toMap
 
     def localCombine(x: W, y: W): W = {
       val fold = if (x.size < y.size) {

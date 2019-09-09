@@ -65,3 +65,9 @@ package aggr {
     }
   }
 }
+
+package object aggr {
+
+  val PartialFunctionUnit: PartialFunction[Unit, Unit] = { case u => u }
+
+}

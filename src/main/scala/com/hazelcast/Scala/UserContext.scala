@@ -4,7 +4,7 @@ import java.util.concurrent.ConcurrentMap
 
 object UserContext {
   class Key[T](nameOrNull: String) extends Serializable {
-    def this() = this(null)
+    protected def this() = this(null)
     val name = if (nameOrNull != null) nameOrNull else getClass.getName
   }
 }

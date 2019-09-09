@@ -14,17 +14,58 @@ plugins {
 ext {
     latestScalaFull = [
         '2.11': '2.11.12',
-        '2.12': '2.12.8'
+        '2.12': '2.12.10',
+        '2.13': '2.13.1'
     ]
 
-    vScalaTest = '3.0.4'
+    vScalaTest = '3.0.8'
     vPegdown = '1.6.0'
-    vScala = System.properties.scalaVersion ?: '2.12'
+    vScala = System.properties.scalaVersion ?: '2.13'
     vScalaFull = latestScalaFull[vScala]
-    vHazelcast = '3.12.1'
+    vHazelcast = '3.12.3'
     vKryo = '4.0.2'
-    vObjenesis = '3.0.1'
-    vLz4 = '1.5.0'
+    vObjenesis = '3.1'
+    vLz4 = '1.6.0'
+}
+
+allprojects {
+    apply plugin: 'scala'
+    apply plugin: 'maven-publish'
+    apply plugin: 'com.jfrog.bintray'
+
+    sourceCompatibility = 1.8
+    targetCompatibility = 1.8
+
+    dependencies {
+
+        compile "javax.cache:cache-api:1.0.0"
+        compile "javax.transaction:transaction-api:1.1"
+
+        compileOnly "org.scala-lang:scala-reflect:$vScalaFull"
+        if (vScala == '2.13') {
+            compileOnly "org.scala-lang.modules:scala-parallel-collections_$vScala:0.2.0"
+            testCompile "org.scala-lang.modules:scala-parallel-collections_$vScala:0.2.0"
+        }
+
+        compileOnly "com.hazelcast:hazelcast:$vHazelcast"
+        compileOnly "com.hazelcast:hazelcast-client:$vHazelcast"
+
+        compileOnly "com.esotericsoftware:kryo:$vKryo"
+        compileOnly "org.objenesis:objenesis:$vObjenesis"
+
+        compileOnly "org.lz4:lz4-java:$vLz4"
+
+        testCompile "org.scalatest:scalatest_$vScala:$vScalaTest"
+        testCompile "org.pegdown:pegdown:$vPegdown"
+        testCompile "org.scala-lang:scala-compiler:$vScalaFull"
+        testCompile "com.hazelcast:hazelcast:$vHazelcast"
+        testCompile "com.hazelcast:hazelcast-client:$vHazelcast"
+        testCompile "com.esotericsoftware:kryo:$vKryo"
+        testCompile "org.objenesis:objenesis:$vObjenesis"
+        testCompile "org.lz4:lz4-java:$vLz4"
+
+    }
+
 }
 
 tasks.withType(ScalaCompile) {
@@ -46,6 +87,15 @@ if (vScala == '2.11') {
     targetCompatibility = 1.8
 }
 
+sourceSets {
+    def diff = (vScala == '2.11' || vScala == '2.12') ? 'src/main/legacy' : 'src/main/modern'
+    main {
+        scala {
+            srcDirs = ['src/main/scala', diff]
+        }
+    }
+}
+
 wrapper {
     gradleVersion = '5.6.2'
 }
@@ -65,32 +115,6 @@ def tsVersion(version) {
 
 repositories {
     jcenter()
-}
-
-dependencies {
-
-    compile "javax.cache:cache-api:1.0.0"
-    compile "javax.transaction:transaction-api:1.1"
-
-    compileOnly "org.scala-lang:scala-reflect:$vScalaFull"
-
-    compileOnly "com.hazelcast:hazelcast:$vHazelcast"
-    compileOnly "com.hazelcast:hazelcast-client:$vHazelcast"
-
-    compileOnly "com.esotericsoftware:kryo:$vKryo"
-    compileOnly "org.objenesis:objenesis:$vObjenesis"
-
-    compileOnly "org.lz4:lz4-java:$vLz4"
-
-    testCompile "org.scalatest:scalatest_$vScala:$vScalaTest"
-    testCompile "org.pegdown:pegdown:$vPegdown"
-    testCompile "org.scala-lang:scala-compiler:$vScalaFull"
-    testCompile "com.hazelcast:hazelcast:$vHazelcast"
-    testCompile "com.hazelcast:hazelcast-client:$vHazelcast"
-    testCompile "com.esotericsoftware:kryo:$vKryo"
-    testCompile "org.objenesis:objenesis:$vObjenesis"
-    testCompile "org.lz4:lz4-java:$vLz4"
-
 }
 
 jar {

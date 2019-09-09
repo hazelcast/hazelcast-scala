@@ -37,7 +37,7 @@ object Aggregator {
 
   /** Group into `Map` according to Aggregator result type. */
   def groupAll[G, T, R](aggr: Aggregator[T, R]) =
-    new Grouped[G, T, R, R](aggr, PartialFunction(identity))
+    new Grouped[G, T, R, R](aggr, { case r => r }: PartialFunction[R, R])
   /** Group into `Map` according to Aggregator result type inside `Option`. */
   def groupSome[G, T, R](aggr: Aggregator[T, Option[R]]) =
     new Grouped[G, T, Option[R], R](aggr, {

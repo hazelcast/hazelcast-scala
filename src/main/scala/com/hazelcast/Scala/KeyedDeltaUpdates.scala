@@ -3,7 +3,6 @@ package com.hazelcast.Scala
 import java.util.Map.Entry
 import concurrent.Future
 import com.hazelcast.core._
-import language.higherKinds
 
 private[Scala] trait KeyedDeltaUpdates[K, V] {
   type UpdateR[T]

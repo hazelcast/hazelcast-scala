@@ -30,7 +30,7 @@ class TestDistributedObjectEvents extends FunSuite with BeforeAndAfterAll {
     any(client, ExecutionContext.global)
     any(hzs(0), ExecutionContext.global)
   }
-  private def any(hz: HazelcastInstance, ec: ExecutionContext = null) {
+  private def any(hz: HazelcastInstance, ec: ExecutionContext = null): Unit = {
     val MapName = UUID.randomUUID.toString
     val expected = 2 // 1 created, 1 destroyed
     val counter = new AtomicInteger
@@ -58,7 +58,7 @@ class TestDistributedObjectEvents extends FunSuite with BeforeAndAfterAll {
     typed(client, ExecutionContext.global)
     typed(hzs(0), ExecutionContext.global)
   }
-  private def typed(hz: HazelcastInstance, ec: ExecutionContext = null) {
+  private def typed(hz: HazelcastInstance, ec: ExecutionContext = null): Unit = {
     val expected = 4 // 2 IMap created, 2 IMap destroyed
     val counter = new AtomicInteger
     val cdl = new CountDownLatch(expected)
@@ -94,7 +94,7 @@ class TestDistributedObjectEvents extends FunSuite with BeforeAndAfterAll {
     named(client, ExecutionContext.global)
     named(hzs(0), ExecutionContext.global)
   }
-  private def named(hz: HazelcastInstance, ec: ExecutionContext = null) {
+  private def named(hz: HazelcastInstance, ec: ExecutionContext = null): Unit = {
     val expected = 4 // 2 "foo" created, 2 "foo" destroyed
     val counter = new AtomicInteger
     val cdl = new CountDownLatch(expected)

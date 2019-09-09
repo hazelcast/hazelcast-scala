@@ -1,10 +1,12 @@
 package com.hazelcast.Scala
 
-import scala.concurrent.ExecutionContext
-import scala.concurrent.Future
-import scala.concurrent.Promise
+import scala.concurrent.{ ExecutionContext, Future, Promise }
 
-import com.hazelcast.core._
+import com.hazelcast.core.{
+  LifecycleEvent, MigrationEvent, DistributedObjectEvent, InitialMembershipEvent, MembershipEvent, MemberAttributeEvent,
+  LifecycleListener, DistributedObjectListener, MigrationListener, InitialMembershipListener, ClientListener,
+  Client
+}
 import com.hazelcast.map.MapPartitionLostEvent
 import com.hazelcast.map.listener.MapPartitionLostListener
 import com.hazelcast.partition.PartitionLostEvent
@@ -68,10 +70,12 @@ private[Scala] object EventSubscription {
 
     }
 
-  def asPartitionLostListener(listener: PartitionLostEvent => Unit, ec: Option[ExecutionContext]) =
-    new PfProxy(PartialFunction(listener), ec) with PartitionLostListener {
+  def asPartitionLostListener(listener: PartitionLostEvent => Unit, ec: Option[ExecutionContext]) = {
+    val pf: PartialFunction[PartitionLostEvent, Unit] = { case evt => listener(evt) }
+    new PfProxy[PartitionLostEvent](pf, ec) with PartitionLostListener {
       def partitionLost(evt: PartitionLostEvent): Unit = invokeWith(evt)
     }
+  }
 
   def asMigrationListener(listener: PartialFunction[MigrationEvent, Unit], ec: Option[ExecutionContext]) =
     new PfProxy(listener, ec) with MigrationListener {

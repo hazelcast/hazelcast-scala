@@ -62,19 +62,19 @@ trait NumericGroupDDS[G, N] extends OrderingGroupDDS[G, N] {
     val n = num
     minMax().map(_.mapValues {
       case (min, max) => n.minus(max, min)
-    })(SameThread)
+    }.toMap)(SameThread)
   }
 
   def median()(implicit ec: ExecutionContext): Future[cMap[G, N]] = {
     medianValues().map(_.mapValues {
       case (a, b) => NumericDDS.numMedian(a, b)
-    })(SameThread)
+    }.toMap)(SameThread)
   }
 
   def variance(nCorrection: (Int) => N = aggr.Variance.NoCorrection[N])(implicit ec: ExecutionContext): Future[cMap[G, N]] =
     submitGrouped(Aggregator groupSome aggr.Variance[N](nCorrection))
 
   def stdDev(nCorrection: (Int) => N = aggr.Variance.NoCorrection[N])(implicit ec: ExecutionContext, ev: N =:= Double): Future[cMap[G, Double]] =
-    variance(nCorrection).map(_.mapValues(n => math.sqrt(n.asInstanceOf[Double])))(SameThread)
+    variance(nCorrection).map(_.mapValues(n => math.sqrt(n.asInstanceOf[Double])).toMap)(SameThread)
 
 }

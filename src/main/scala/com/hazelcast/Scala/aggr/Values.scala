@@ -80,7 +80,7 @@ object Values {
         System.arraycopy(arr, 0, array, 0, size)
         array
       }
-      WrappedArray.make(array)
+      WrappedArray.make[T](array).toIndexedSeq
     }
   }
 
@@ -98,7 +98,7 @@ object Values {
     private def binarySearch(arr: Array[AnyRef], obj: T): Int = {
       java.util.Arrays.binarySearch(arr, obj.asInstanceOf[AnyRef], anyRefOrd)
     }
-    private def insertElement(arr: Array[AnyRef], obj: T, pos: Int) {
+    private def insertElement(arr: Array[AnyRef], obj: T, pos: Int): Unit = {
       if (pos != arr.length - 1) {
         System.arraycopy(arr, pos, arr, pos + 1, arr.length - pos - 1)
       }
@@ -184,8 +184,8 @@ object Values {
         }
         java.util.Arrays.sort(result, anyRefOrd)
         val take = limit min (len - skip)
-        if (skip == 0 && take >= result.length) WrappedArray.make[T](result)
-        else result.iterator.drop(skip).take(take).map(_.asInstanceOf[T]).toIndexedSeq
+        if (skip == 0 && take >= result.length) WrappedArray.make[AnyRef](result).asInstanceOf[R]
+        else result.iterator.drop(skip).take(take).toIndexedSeq.asInstanceOf[R]
       }
     }
   }
@@ -214,8 +214,8 @@ object Values {
             offset + part.length
         }
         java.util.Arrays.sort(result, ordering.asInstanceOf[Ordering[AnyRef]])
-        if (skip == 0) WrappedArray.make[T](result)
-        else result.iterator.drop(skip).map(_.asInstanceOf[T]).toIndexedSeq
+        if (skip == 0) WrappedArray.make[AnyRef](result).asInstanceOf[R]
+        else result.iterator.drop(skip).toIndexedSeq.asInstanceOf[R]
       }
     }
   }

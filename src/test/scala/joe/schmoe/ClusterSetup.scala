@@ -21,8 +21,8 @@ trait ClusterSetup {
   private[this] var _hzs: Vector[HazelcastInstance] = _
   implicit def hzs = _hzs
   private[this] var _client: HazelcastInstance = _
-  def client = _client
-  def member = hzs(0)
+  def client: HazelcastInstance = _client
+  def member: HazelcastInstance = hzs(0)
 
   def clusterSize = 3
 
@@ -59,7 +59,7 @@ trait ClusterSetup {
     _client = clientConfig.newClient()
   }
 
-  def afterClass() {
+  def afterClass(): Unit = {
     destroy()
     _client.shutdown()
     HazelcastInstanceFactory.terminateAll()

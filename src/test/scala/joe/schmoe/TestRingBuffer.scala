@@ -19,7 +19,7 @@ class TestRingBuffer extends FunSuite with BeforeAndAfterAll {
 
   test("read nothing from empty buffer and no minimum") {
     val rb = client.getRingbuffer[String](UUID.randomUUID.toString)
-    val itemsRead = rb.async.readBatch(startFrom = 0, minItems = 0)(_ => Unit).await
+    val itemsRead = rb.async.readBatch(startFrom = 0, minItems = 0)(_ => ()).await
     assert(itemsRead == 0)
   }
   test("sequence number alignment") {
@@ -43,7 +43,7 @@ class TestRingBuffer extends FunSuite with BeforeAndAfterAll {
     val rb = client.getRingbuffer[String](UUID.randomUUID.toString)
     //    val cdl = new CountDownLatch(1)
     val readCount = Future {
-      rb.async.readBatch(0)(_ => Unit)
+      rb.async.readBatch(0)(_ => ())
     }.flatMap(identity)
     val values = Seq("a", "b", "c")
     val Some(lastSeq) = rb.async.addAll(values).await

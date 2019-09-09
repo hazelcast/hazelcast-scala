@@ -60,7 +60,7 @@ class KryoSerializers(
   })
 
   class KryoStreamSerializer[T: ClassTag] extends StreamSerializer[T] {
-    def write(out: ObjectDataOutput, obj: T) {
+    def write(out: ObjectDataOutput, obj: T): Unit = {
       threadLocal.write {
         case (kryo, kOut) =>
           kryo.writeObject(kOut, obj)
