@@ -65,11 +65,7 @@ object Aggregator {
         }
       fold {
         case (jmap, entry) =>
-          jmap.put(entry.key, entry.value) match {
-            case null => // Ok, no previous value
-            case prev =>
-              jmap.put(entry.key, comb(prev, entry.value))
-          }
+          jmap.merge(entry.key, entry.value, (prev, curr) => comb(prev, curr))
           jmap
       }
     }
