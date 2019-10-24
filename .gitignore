@@ -1,13 +1,5 @@
 /bin/
-*.iml
-*.idea
-.project
-.classpath
-.cache-main
-.cache-tests
+.*
 /build/
-.gradle
-.settings
-.worksheet
 /out/
 *.log
