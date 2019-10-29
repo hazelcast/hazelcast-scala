@@ -7,7 +7,7 @@
 
 # Installation
 
-The hazelcast-scala API is based on Scala 2.11/2.12 and Hazelcast 3.11, but does not define them as hard dependencies (since it works with both open-source and enterprise Hazelcast, and multiple versions), _so make sure to also include the relevant Hazelcast dependencies explicitly_.
+The hazelcast-scala API is based on Scala 2.11/2.12/2.13 and Hazelcast 3.12, but does not define them as hard dependencies (since it works with both open-source and enterprise Hazelcast, and multiple versions), _so make sure to also include the relevant Hazelcast dependencies explicitly_.
 
 ## Gradle
 Add this to your `build.gradle` file:
