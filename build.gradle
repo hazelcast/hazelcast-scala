@@ -143,7 +143,7 @@ publishing {
 
             from components.java
             artifact sourceJar
-            artifact docsJar
+// FIXME    artifact docsJar
         }
     }
 }
