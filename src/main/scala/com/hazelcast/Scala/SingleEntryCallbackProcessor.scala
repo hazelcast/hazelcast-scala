@@ -19,13 +19,10 @@ private[Scala] sealed abstract class SingleEntryCallbackProcessor[K, V, R] exten
 }
 
 private[Scala] abstract class SingleEntryCallbackReader[K, V, R] extends SingleEntryCallbackProcessor[K, V, R] {
-  final def getBackupProcessor = null
   final def onEntry(entry: Entry[K, V]): R = onEntry(entry.key, entry.value)
   def onEntry(key: K, value: V): R
 }
 private[Scala] abstract class SingleEntryCallbackUpdater[K, V, R]
-    extends SingleEntryCallbackProcessor[K, V, R]
-    with EntryBackupProcessor[K, V] { // TODO: Not sure where this has gone.
-  final def getBackupProcessor = this
+    extends SingleEntryCallbackProcessor[K, V, R] {
   def processBackup(entry: Entry[K, V]): Unit = onEntry(entry)
 }
