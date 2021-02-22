@@ -22,7 +22,7 @@ class AsyncRingbuffer[E](private val rb: Ringbuffer[E]) extends AnyVal {
     * @return The sequence number added. Will only return `None` if default policy is `FAIL` and capacity is reached.
     */
   def add(item: E, overflowPolicy: OverflowPolicy = OverflowPolicy.OVERWRITE): Future[Option[Long]] = {
-    rb.addAsync(item, overflowPolicy).asScala
+    rb.addAsync(item, overflowPolicy).asScala // TODO: Convert to Option
   }
 
   /**
@@ -32,7 +32,7 @@ class AsyncRingbuffer[E](private val rb: Ringbuffer[E]) extends AnyVal {
     * @return The last sequence number added. Will only return `None` if default policy is `FAIL` and capacity is reached.
     */
   def addAll(items: Iterable[E], overflowPolicy: OverflowPolicy = OverflowPolicy.OVERWRITE): Future[Option[Long]] = {
-    rb.addAllAsync(items.asJavaCollection, overflowPolicy).asScala
+    rb.addAllAsync(items.asJavaCollection, overflowPolicy).asScala // TODO: Convert to Option
   }
 
   /**
@@ -45,7 +45,10 @@ class AsyncRingbuffer[E](private val rb: Ringbuffer[E]) extends AnyVal {
     */
   def readBatch(
     startFrom: Long,
-    minItems: Int)(pf: PartialFunction[E, Unit]): Future[Int] = readBatch(startFrom, minItems to MaxBatchSize)(pf)
+    minItems: Int
+  )(
+    pf: PartialFunction[E, Unit]
+  )(implicit ec: ExecutionContext): Future[Int] = readBatch(startFrom, minItems to MaxBatchSize)(pf)
 
   /**
     * Read batch of items. If minimum item count is > 0, then this method will
