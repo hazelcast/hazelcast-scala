@@ -4,10 +4,11 @@ import scala.concurrent._
 import com.hazelcast.Scala._
 import com.hazelcast.Scala.aggr._
 import scala.reflect.ClassTag
-import collection.{ Map => aMap, Set => aSet }
+import collection.{Map => aMap, Set => aSet}
 import collection.immutable._
 import collection.IndexedSeq
 import com.hazelcast.core._
+import com.hazelcast.map.IMap
 
 private object AggrDDS {
   def mode[E](distribution: aMap[E, Freq]): aSet[E] =

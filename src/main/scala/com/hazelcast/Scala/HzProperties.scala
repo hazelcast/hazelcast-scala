@@ -13,7 +13,6 @@ import com.hazelcast.spi.properties.HazelcastProperty
 
 sealed abstract class HzProperties[C <: { def setProperty(k: String, v: String): C }](conf: C) {
   import language.reflectiveCalls
-  import com.hazelcast.spi.properties.GroupProperty._
   protected final def set(key: HazelcastProperty, value: Any): C = value match {
     case null => conf.setProperty(key.getName, null)
     case _ => conf.setProperty(key.getName, value.toString)

@@ -3,6 +3,7 @@ package com.hazelcast.Scala
 import java.util.Map.Entry
 import concurrent.Future
 import com.hazelcast.core._
+import com.hazelcast.map.IMap
 
 private[Scala] trait KeyedDeltaUpdates[K, V] {
   type UpdateR[T]
@@ -367,9 +368,7 @@ private[Scala] trait KeyedIMapAsyncDeltaUpdates[K, V] extends KeyedDeltaUpdates[
 
   def updateAndGet(key: K, initIfMissing: V)(update: V => V): Future[V] = {
     val ep = new UpdateAndGetEP(TrueFunction[V], update, initIfMissing)
-    val callback = ep.newCallback()
-    imap.submitToKey(key, ep, callback) // TODO: This now has too many arguments
-    callback.future
+    imap.submitToKey(key, ep) // TODO: This now has too many arguments
   }
 
   def update(key: K, runOn: IExecutorService)(updateIfPresent: V => V): Future[Boolean] =

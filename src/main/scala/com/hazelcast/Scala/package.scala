@@ -14,11 +14,11 @@ import ringbuffer.Ringbuffer
 import java.lang.reflect.Method
 import java.util.AbstractMap
 import java.util.Map.Entry
-import scala.concurrent.{Await, ExecutionContext, Future, blocking}
+import java.util.concurrent.CompletableFuture
+import scala.concurrent.{Await, ExecutionContext, Future, Promise, blocking}
 import scala.concurrent.duration.{DurationInt, FiniteDuration}
 import scala.language.implicitConversions
 import scala.util.Try
-import scala.util.control.NonFatal
 
 package object Scala extends HighPriorityImplicits {
   type Freq = Int
@@ -35,7 +35,7 @@ package object Scala extends HighPriorityImplicits {
     @inline def get(): T = msg.getMessageObject
   }
 
-  implicit def toConfig(ms: MaxSize): MaxSizeConfig = ms.toConfig
+  implicit def toConfig(ms: MaxSize): MaxSizeConfig = ms.toConfig // TODO: Find out what happened to MaxSizeConfig
   implicit def mbrConf2props(conf: Config): HzMemberProperties = new HzMemberProperties(conf)
   implicit def mbrConf2scala(conf: Config): HzConfig = new HzConfig(conf)
 
@@ -46,7 +46,7 @@ package object Scala extends HighPriorityImplicits {
     def megabytes = new MemorySize(i, MemoryUnit.MEGABYTES)
     def bytes = new MemorySize(i, MemoryUnit.BYTES)
   }
-  implicit class HzCDL(private val cdl: ICountDownLatch) extends AnyVal { // TODO: I can't import ICountDownLatch
+  implicit class HzCDL(private val cdl: ICountDownLatch) extends AnyVal { // TODO: I can't import ICountDownLatch??
     def await(dur: FiniteDuration): Boolean = cdl.await(dur.length, dur.unit)
   }
 
@@ -105,29 +105,36 @@ package object Scala extends HighPriorityImplicits {
     def await(dur: FiniteDuration): T = Await.result(f, dur)
   }
 
+  private[Scala] implicit class CompletionStage[T](private val cs: java.util.concurrent.CompletionStage[T]) extends AnyVal {
+    def asScalaOpt: Future[Option[T]] = {
+      val promise = Promise[Option[T]]()
+
+      cs.whenComplete { (res, exception) =>
+        if (exception != null)
+          promise.failure(exception)
+        else
+          promise.success(Option(res))
+      }
+
+      promise.future
+    }
+  }
+
   private[Scala] implicit class JavaFuture[T](private val jFuture: java.util.concurrent.Future[T]) extends AnyVal {
     @inline def await: T = await(DefaultFutureTimeout)
     @inline def await(dur: FiniteDuration): T = if (jFuture.isDone) jFuture.get else blocking(jFuture.get(dur.length, dur.unit))
-    def asScala[U](implicit ev: T => U): Future[U] = {
-      if (jFuture.isDone) try Future successful jFuture.get catch { case NonFatal(t) => Future failed t }
-      else {
-        val callback = new FutureCallback[T, U]()
-        jFuture match {
-          case jFuture: CompletionStage[T] =>
-            jFuture andThen callback
-        }
-        callback.future
-      }
-    }
-    def asScalaOpt[U](implicit ev: T <:< U): Future[Option[U]] = {
-      if (jFuture.isDone) try {
-        Future successful Option(jFuture.get: U)
-      } catch {
-        case NonFatal(t) => Future failed t
-      }
-      else {
-        val callback = new FutureCallback[T, Option[U]](None)(Some(_))
-        callback.future
+    def asScala: Future[T] = {
+      jFuture match {
+        case jf: CompletableFuture[_] =>
+          val promise = Promise[T]()
+          jf.whenComplete { (res, exception) =>
+            if (exception != null)
+              promise.failure(exception)
+            else
+              promise.success(res.asInstanceOf[T])
+          }
+          promise.future
+        case _ => Future.successful(jFuture.get)
       }
     }
   }

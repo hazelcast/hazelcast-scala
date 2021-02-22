@@ -5,6 +5,7 @@ import scala.jdk.CollectionConverters._
 import scala.concurrent._
 import com.hazelcast.core._
 import com.hazelcast.ringbuffer.impl.RingbufferProxy
+import scala.jdk.FutureConverters.CompletionStageOps
 
 object AsyncRingbuffer {
   private implicit val jl2osl = (jl: java.lang.Long) => if (jl == -1L) None else Some(jl: Long)
@@ -56,22 +57,12 @@ class AsyncRingbuffer[E](private val rb: Ringbuffer[E]) extends AnyVal {
     */
   def readBatch(
     startFrom: Long,
-    numberOfItems: Range = 1 to MaxBatchSize)(pf: PartialFunction[E, Unit]): Future[Int] = {
+    numberOfItems: Range = 1 to MaxBatchSize)(pf: PartialFunction[E, Unit]
+  )(implicit ec: ExecutionContext): Future[Int] = {
     val filter = new IFunction[E, java.lang.Boolean] {
       def apply(item: E) = pf.isDefinedAt(item)
     }
-    val promise = Promise[Int]
-    rb.readManyAsync(startFrom, numberOfItems.head, numberOfItems.last, filter) andThen new ExecutionCallback[ReadResultSet[E]] {
-      def onResponse(result: ReadResultSet[E]) = {
-        try {
-          result.asScala.foreach(pf)
-          promise success result.readCount
-        } catch {
-          case t: Throwable => onFailure(t)
-        }
-      }
-      def onFailure(t: Throwable) = promise failure t
-    }
-    promise.future
+
+    rb.readManyAsync(startFrom, numberOfItems.head, numberOfItems.last, filter).asScala.map(_.readCount())
   }
 }
