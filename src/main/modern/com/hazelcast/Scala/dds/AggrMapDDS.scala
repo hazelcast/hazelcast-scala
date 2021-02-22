@@ -1,13 +1,14 @@
 package com.hazelcast.Scala.dds
 
 import scala.collection.parallel.CollectionConverters._
-
 import scala.concurrent._
 import com.hazelcast.Scala._
 import com.hazelcast.Scala.aggr._
-import collection.{ Map => cMap }
+import collection.{Map => cMap}
+import com.hazelcast.cluster.Member
 import com.hazelcast.core._
 import com.hazelcast.query._
+import com.hazelcast.query.impl.predicates.TruePredicate
 import java.util.Map.Entry
 
 private[Scala] class AggrMapDDS[K, E](val dds: MapDDS[K, _, E], sorted: Option[Sorted[E]] = None) extends AggrDDS[E] {
@@ -21,7 +22,7 @@ private[Scala] class AggrMapDDS[K, E](val dds: MapDDS[K, _, E], sorted: Option[S
 
     val hz = dds.imap.getHZ
     val keysByMember = dds.keySet.map(hz.groupByMember)
-    val es = if (esOrNull == null) hz.queryPool else esOrNull
+    val es = if (esOrNull == null) hz.queryPool() else esOrNull
     val ts = Option(tsOrNull)
 
     sorted match {

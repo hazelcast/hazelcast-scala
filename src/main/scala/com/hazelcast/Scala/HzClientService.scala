@@ -1,6 +1,6 @@
 package com.hazelcast.Scala
 
-import com.hazelcast.core.ClientService
+import com.hazelcast.client.ClientService
 import scala.concurrent.ExecutionContext
 
 class HzClientService(private val service: ClientService) extends AnyVal {

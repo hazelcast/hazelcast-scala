@@ -6,7 +6,6 @@ import scala.concurrent.duration.FiniteDuration
 import com.hazelcast.client.config.ClientConfig
 
 import com.hazelcast.config.Config
-import com.hazelcast.core.PartitioningStrategy
 import com.hazelcast.internal.diagnostics.HealthMonitorLevel
 import com.hazelcast.memory.MemorySize
 import com.hazelcast.query.impl.predicates.QueryOptimizerFactory

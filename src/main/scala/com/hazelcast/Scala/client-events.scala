@@ -1,6 +1,6 @@
 package com.hazelcast.Scala
 
-import com.hazelcast.core.Client
+import com.hazelcast.client.Client
 
 sealed trait ClientEvent {
   def client: Client

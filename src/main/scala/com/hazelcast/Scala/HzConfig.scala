@@ -1,14 +1,12 @@
 package com.hazelcast.Scala
 
+import com.hazelcast.cluster.InitialMembershipEvent
 import java.util.EventListener
-
-import scala.concurrent.{ ExecutionContext, Future }
-
-import com.hazelcast.config.{ Config, ListenerConfig }
+import scala.concurrent.{ExecutionContext, Future}
+import com.hazelcast.config.{Config, ListenerConfig}
 import com.hazelcast.core._
 import com.hazelcast.core.LifecycleEvent.LifecycleState
-import com.hazelcast.core.MigrationEvent
-import com.hazelcast.partition.PartitionLostEvent
+import com.hazelcast.partition.{PartitionLostEvent, ReplicaMigrationEvent}
 
 class HzConfig(conf: Config) extends MemberEventSubscription {
   type ESR = Config
@@ -26,7 +24,7 @@ class HzConfig(conf: Config) extends MemberEventSubscription {
     conf addListener EventSubscription.asDistributedObjectListener(listener, Option(runOn))
   def onPartitionLost(runOn: ExecutionContext = null)(listener: PartitionLostEvent => Unit): ESR =
     conf addListener EventSubscription.asPartitionLostListener(listener, Option(runOn))
-  def onMigration(runOn: ExecutionContext = null)(listener: PartialFunction[MigrationEvent, Unit]): ESR =
+  def onMigration(runOn: ExecutionContext = null)(listener: PartialFunction[ReplicaMigrationEvent, Unit]): ESR =
     conf addListener EventSubscription.asMigrationListener(listener, Option(runOn))
 
   type MER = Future[InitialMembershipEvent]

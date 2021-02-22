@@ -1,8 +1,8 @@
 package com.hazelcast.Scala
 
-import com.hazelcast.core.BaseQueue
+import com.hazelcast.collection.BaseQueue
+import com.hazelcast.transaction.TransactionalQueue
 import scala.concurrent.duration.FiniteDuration
-import com.hazelcast.core.TransactionalQueue
 
 final class HzQueue[T](private val queue: BaseQueue[T]) extends AnyVal {
   def poll(timeout: FiniteDuration): T = queue.poll(timeout.length, timeout.unit)

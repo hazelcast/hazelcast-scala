@@ -1,9 +1,8 @@
 package com.hazelcast.Scala.serialization.lz4
 
 import com.hazelcast.Scala.serialization._
-import com.hazelcast.nio.Bits
-
-import net.jpountz.lz4.{ LZ4Compressor, LZ4Factory, LZ4FastDecompressor }
+import com.hazelcast.internal.nio.Bits
+import net.jpountz.lz4.{LZ4Compressor, LZ4Factory, LZ4FastDecompressor}
 
 private[lz4] object Compression {
   def compress[R](compressor: LZ4Compressor)(bloated: Array[Byte], bloatedLen: Int)(result: (Array[Byte], Int) => R): R = {

@@ -1,7 +1,7 @@
 package com.hazelcast.Scala
 
 import com.hazelcast.ringbuffer._
-import collection.JavaConverters._
+import scala.jdk.CollectionConverters._
 import scala.concurrent._
 import com.hazelcast.core._
 import com.hazelcast.ringbuffer.impl.RingbufferProxy

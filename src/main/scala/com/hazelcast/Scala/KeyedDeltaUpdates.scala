@@ -326,7 +326,7 @@ private[Scala] trait KeyedIMapDeltaUpdates[K, V]
 }
 
 private[Scala] trait KeyedIMapAsyncDeltaUpdates[K, V] extends KeyedDeltaUpdates[K, V] {
-  import com.hazelcast.core.IMap
+  import com.hazelcast.map.IMap
   import KeyedDeltaUpdates._
 
   protected def imap: IMap[K, V]
@@ -337,7 +337,7 @@ private[Scala] trait KeyedIMapAsyncDeltaUpdates[K, V] extends KeyedDeltaUpdates[
     if (runOn == null) {
       val ep = new UpsertEP(insertIfMissing, updateIfPresent)
       val callback = ep.newCallback()
-      imap.submitToKey(key, ep, callback)
+      imap.submitToKey(key, ep, callback) // TODO: This now has too many arguments
       callback.future
     } else {
       val partition = imap.getHZ.getPartitionService.getPartition(key)
@@ -350,7 +350,7 @@ private[Scala] trait KeyedIMapAsyncDeltaUpdates[K, V] extends KeyedDeltaUpdates[
     if (runOn == null) {
       val ep = new UpsertAndGetEP(insertIfMissing, updateIfPresent)
       val callback = ep.newCallback(insertIfMissing)
-      imap.submitToKey(key, ep, callback)
+      imap.submitToKey(key, ep, callback) // TODO: This now has too many arguments
       callback.future
     } else {
       val partition = imap.getHZ.getPartitionService.getPartition(key)
@@ -368,7 +368,7 @@ private[Scala] trait KeyedIMapAsyncDeltaUpdates[K, V] extends KeyedDeltaUpdates[
   def updateAndGet(key: K, initIfMissing: V)(update: V => V): Future[V] = {
     val ep = new UpdateAndGetEP(TrueFunction[V], update, initIfMissing)
     val callback = ep.newCallback()
-    imap.submitToKey(key, ep, callback)
+    imap.submitToKey(key, ep, callback) // TODO: This now has too many arguments
     callback.future
   }
 
@@ -377,7 +377,7 @@ private[Scala] trait KeyedIMapAsyncDeltaUpdates[K, V] extends KeyedDeltaUpdates[
   def update(key: K, initIfMissing: V)(update: V => V): Future[Boolean] = {
     val ep = new UpdateEP(initIfMissing, update)
     val callback = ep.newCallback()
-    imap.submitToKey(key, ep, callback)
+    imap.submitToKey(key, ep, callback) // TODO: This now has too many arguments
     callback.future
   }
 
@@ -385,7 +385,7 @@ private[Scala] trait KeyedIMapAsyncDeltaUpdates[K, V] extends KeyedDeltaUpdates[
     if (runOn == null) {
       val ep = new GetAndUpsertEP(insertIfMissing, updateIfPresent)
       val callback = ep.newCallbackOpt
-      imap.submitToKey(key, ep, callback)
+      imap.submitToKey(key, ep, callback) // TODO: This now has too many arguments
       callback.future
     } else {
       val partition = imap.getHZ.getPartitionService.getPartition(key)
@@ -401,7 +401,7 @@ private[Scala] trait KeyedIMapAsyncDeltaUpdates[K, V] extends KeyedDeltaUpdates[
     if (runOn == null) {
       val ep = new UpdateAndGetEP(cond, updateIfPresent, null.asInstanceOf[V])
       val callback = ep.newCallbackOpt
-      imap.submitToKey(key, ep, callback)
+      imap.submitToKey(key, ep, callback) // TODO: This now has too many arguments
       callback.future
     } else {
       val partition = imap.getHZ.getPartitionService.getPartition(key)
@@ -425,7 +425,7 @@ private[Scala] trait KeyedIMapAsyncDeltaUpdates[K, V] extends KeyedDeltaUpdates[
     if (runOn == null) {
       val ep = new GetAndUpdateEP(cond, updateIfPresent)
       val callback = ep.newCallbackOpt
-      imap.submitToKey(key, ep, callback)
+      imap.submitToKey(key, ep, callback) // TODO: This now has too many arguments
       callback.future
     } else {
       val partition = imap.getHZ.getPartitionService.getPartition(key)

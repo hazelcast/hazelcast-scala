@@ -1,9 +1,8 @@
 package com.hazelcast.Scala
 
-import com.hazelcast.core.Cluster
+import com.hazelcast.cluster.{Cluster, InitialMembershipEvent}
 import scala.concurrent.ExecutionContext
 import scala.concurrent.Future
-import com.hazelcast.core.InitialMembershipEvent
 
 class HzCluster(private val cluster: Cluster) extends AnyVal {
 

@@ -1,7 +1,7 @@
 package com.hazelcast.Scala
 
-import com.hazelcast.core.{ITopic, Message, MessageListener, Member}
-import com.hazelcast.topic.ReliableMessageListener
+import com.hazelcast.cluster.Member
+import com.hazelcast.topic.{ITopic, Message, MessageListener, ReliableMessageListener}
 import com.hazelcast.topic.impl.reliable.ReliableTopicService
 import scala.concurrent.ExecutionContext
 

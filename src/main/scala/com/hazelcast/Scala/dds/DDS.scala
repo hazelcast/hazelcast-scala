@@ -1,12 +1,10 @@
 package com.hazelcast.Scala.dds
 
 import java.util.Map.Entry
-
-import scala.collection.{ Set => aSet }
+import scala.collection.{Set => aSet}
 import scala.reflect.ClassTag
-
 import com.hazelcast.Scala._
-import com.hazelcast.core.IMap
+import com.hazelcast.map.IMap
 import com.hazelcast.query.Predicate
 
 /** Distributed data structure. */

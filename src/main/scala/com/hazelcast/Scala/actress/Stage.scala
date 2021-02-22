@@ -1,14 +1,13 @@
 package com.hazelcast.Scala.actress
 
 import scala.concurrent.Future
-
 import com.hazelcast.Scala._
-import com.hazelcast.core.{ HazelcastInstance, IMap }
+import com.hazelcast.core.HazelcastInstance
 import java.util.Map.Entry
 import com.hazelcast.core.HazelcastInstanceAware
+import com.hazelcast.instance.impl.{HazelcastInstanceImpl, HazelcastInstanceProxy}
+import com.hazelcast.map.IMap
 import scala.beans.BeanProperty
-import com.hazelcast.instance.HazelcastInstanceImpl
-import com.hazelcast.instance.HazelcastInstanceProxy
 
 class Stage(private val actressMap: IMap[String, Array[Byte]]) {
 
@@ -56,7 +55,7 @@ private class ActressImpl[A <: AnyRef](
       }
     }
     val callback = ep.newCallback()
-    imap.submitToKey(name, ep, callback)
+    imap.submitToKey(name, ep, callback) // TODO: This is now accepting too many arguments
     callback.future
   }
 }

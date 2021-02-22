@@ -4,7 +4,7 @@ import java.lang.reflect.{ Field, Modifier }
 
 import scala.util.{ Failure, Success, Try }
 
-import com.hazelcast.nio.{ ObjectDataInput, ObjectDataOutput, UnsafeHelper }
+import com.hazelcast.nio.{ ObjectDataInput, ObjectDataOutput }
 
 import sun.misc.Unsafe
 

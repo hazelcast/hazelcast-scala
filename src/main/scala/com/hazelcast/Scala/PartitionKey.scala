@@ -1,6 +1,6 @@
 package com.hazelcast.Scala
 
-import com.hazelcast.core.PartitionAware
+import com.hazelcast.partition.PartitionAware
 
 /**
  * Convenience class for extension of partition-aware keys.

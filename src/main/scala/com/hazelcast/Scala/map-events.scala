@@ -7,8 +7,8 @@ private[Scala] class MapListener(pf: PartialFunction[MapEvent, Unit], ec: Option
     with map.listener.MapListener
     with map.listener.MapClearedListener
     with map.listener.MapEvictedListener {
-  def mapCleared(evt: core.MapEvent): Unit = invokeWith(MapCleared(evt.getNumberOfEntriesAffected)(evt))
-  def mapEvicted(evt: core.MapEvent): Unit = invokeWith(MapEvicted(evt.getNumberOfEntriesAffected)(evt))
+  def mapCleared(evt: map.MapEvent): Unit = invokeWith(MapCleared(evt.getNumberOfEntriesAffected)(evt))
+  def mapEvicted(evt: map.MapEvent): Unit = invokeWith(MapEvicted(evt.getNumberOfEntriesAffected)(evt))
 }
 private[Scala] trait EntryAddedListener[K, V] extends map.listener.EntryAddedListener[K, V] { self: PfProxy[EntryEvent[K, V]] =>
   def entryAdded(evt: core.EntryEvent[K, V]): Unit = invokeWith(EntryAdded(evt.getKey, evt.getValue)(evt))
@@ -74,12 +74,12 @@ private[Scala] class KeyListener[K](pf: PartialFunction[KeyEvent[K], Unit], ec: 
   with KeyExpiredListener[K]
   with KeyLoadedListener[K]
 
-sealed abstract class MapEvent(evt: core.MapEvent) {
+sealed abstract class MapEvent(evt: map.MapEvent) {
   def member = evt.getMember
   override def toString() = evt.toString()
 }
-final case class MapCleared(entriesCleared: Int)(evt: core.MapEvent) extends MapEvent(evt)
-final case class MapEvicted(entriesEvicted: Int)(evt: core.MapEvent) extends MapEvent(evt)
+final case class MapCleared(entriesCleared: Int)(evt: map.MapEvent) extends MapEvent(evt)
+final case class MapEvicted(entriesEvicted: Int)(evt: map.MapEvent) extends MapEvent(evt)
 
 sealed abstract class KeyEvent[K](evt: core.EntryEvent[K, _]) {
   def member = evt.getMember
@@ -103,7 +103,7 @@ final case class EntryUpdated[K, V](key: K, oldValue: V, newValue: V)(evt: core.
 final case class EntryExpired[K, V](key: K, value: V)(evt: core.EntryEvent[K, V]) extends EntryEvent(evt)
 final case class EntryLoaded[K, V](key: K, value: V)(evt: core.EntryEvent[K, V]) extends EntryEvent(evt)
 
-final case class PartitionLost(member: core.Member, partitionId: Int)(evt: map.MapPartitionLostEvent) {
+final case class PartitionLost(member: cluster.Member, partitionId: Int)(evt: map.MapPartitionLostEvent) {
   override def toString() = evt.toString()
 }
 

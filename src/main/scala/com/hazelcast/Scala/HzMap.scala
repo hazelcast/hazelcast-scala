@@ -2,29 +2,26 @@ package com.hazelcast.Scala
 
 import java.util.Comparator
 import java.util.Map.Entry
-
-import scala.collection.JavaConverters._
-import scala.collection.mutable.{ Map => mMap }
-import scala.collection.{ Set => cSet }
+import scala.jdk.CollectionConverters._
+import scala.collection.mutable.{Map => mMap}
+import scala.collection.{Set => cSet}
 import scala.concurrent._
 import scala.concurrent.duration._
 import scala.util.Try
-
 import com.hazelcast.Scala.dds.DDS
 import com.hazelcast.Scala.dds.MapDDS
 import com.hazelcast.core.HazelcastInstance
 import com.hazelcast.core.HazelcastInstanceAware
-import com.hazelcast.core.IMap
-import com.hazelcast.map.AbstractEntryProcessor
+import com.hazelcast.internal.serialization.Data
+import com.hazelcast.map.IMap
 import com.hazelcast.query.PagingPredicate
 import com.hazelcast.query.Predicate
 import com.hazelcast.query.PredicateBuilder
-import com.hazelcast.spi.AbstractDistributedObject
 import com.hazelcast.map.impl.recordstore.RecordStore
-import com.hazelcast.nio.serialization.Data
 import scala.collection.parallel.ParIterable
 import com.hazelcast.map.impl.MapServiceContext
 import com.hazelcast.map.impl.record.Record
+import com.hazelcast.spi.impl.AbstractDistributedObject
 
 final class HzMap[K, V](protected val imap: IMap[K, V])
   extends KeyedIMapDeltaUpdates[K, V]

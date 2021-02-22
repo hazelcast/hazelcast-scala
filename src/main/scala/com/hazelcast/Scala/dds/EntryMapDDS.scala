@@ -3,7 +3,7 @@ package com.hazelcast.Scala.dds
 import com.hazelcast.Scala._
 import java.util.Map.Entry
 import com.hazelcast.query.Predicate
-import com.hazelcast.query.TruePredicate
+import com.hazelcast.query.impl.predicates.TruePredicate
 import scala.concurrent.ExecutionContext
 
 class EntryMapDDS[K, V](dds: MapDDS[K, V, Entry[K, V]]) extends MapEntryEventSubscription[K, V] {
