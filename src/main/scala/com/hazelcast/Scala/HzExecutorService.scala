@@ -1,11 +1,10 @@
 package com.hazelcast.Scala
 
+import com.hazelcast.cluster.{Member, MemberSelector}
 import java.util.concurrent.Callable
-
-import scala.collection.JavaConverters._
+import scala.jdk.CollectionConverters._
 import scala.concurrent.Future
-
-import com.hazelcast.core.{ HazelcastInstance, IExecutorService, Member, MemberSelector }
+import com.hazelcast.core.{HazelcastInstance, IExecutorService}
 import com.hazelcast.durableexecutor.DurableExecutorService
 
 final class HzExecutorService(private val exec: IExecutorService) extends AnyVal {
@@ -37,7 +36,7 @@ final class HzExecutorService(private val exec: IExecutorService) extends AnyVal
     toMembers match {
       case ToAll =>
         val jResult = exec.submitToAllMembers(task)
-        jResult.asScala.mapValues(_.asScala).toMap
+        jResult.asScala.view.mapValues(_.asScala).toMap
       case ToMembers(members) =>
         members.foldLeft(Map.empty[Member, Future[T]]) {
           case (map, member) =>
@@ -58,7 +57,6 @@ final class HzExecutorService(private val exec: IExecutorService) extends AnyVal
 }
 
 final class HzDurableExecutorService(private val exec: DurableExecutorService) extends AnyVal {
-
   def retrieveAndDispose[T](taskId: Long): Future[T] =
     exec.retrieveAndDisposeResult(taskId).asScala
   def retrieve[T](taskId: Long): Future[T] =
@@ -76,8 +74,8 @@ final class HzDurableExecutorService(private val exec: DurableExecutorService) e
 }
 
 sealed trait SingleMember
-final case object ToOne extends SingleMember
-final case object ToLocal extends SingleMember {
+case object ToOne extends SingleMember
+case object ToLocal extends SingleMember {
   private[Scala] val selector = new MemberSelector {
     def select(member: Member) = member.localMember
   }
@@ -93,8 +91,8 @@ final case class ToKeyOwner(key: Any) extends SingleMember
 final case class ToMember(member: Member) extends SingleMember
 
 sealed trait MultipleMembers
-final case object ToAll extends MultipleMembers
-final case class ToMembers(members: Traversable[Member]) extends MultipleMembers
+case object ToAll extends MultipleMembers
+final case class ToMembers(members: Iterable[Member]) extends MultipleMembers
 object ToMembers {
   def apply(members: Member*): ToMembers = ToMembers(members: _*)
 }

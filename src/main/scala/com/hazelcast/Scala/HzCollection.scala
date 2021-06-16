@@ -1,10 +1,8 @@
 package com.hazelcast.Scala
 
-import com.hazelcast.core.ICollection
+import com.hazelcast.cluster.Member
+import com.hazelcast.collection.{ICollection, ItemEvent, ItemListener}
 import com.hazelcast.core.ItemEventType
-import com.hazelcast.core.Member
-import com.hazelcast.core.ItemListener
-import com.hazelcast.core.ItemEvent
 import scala.concurrent.ExecutionContext
 
 class HzCollection[T](private val coll: ICollection[T]) extends AnyVal {

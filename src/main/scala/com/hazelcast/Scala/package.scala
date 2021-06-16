@@ -1,22 +1,26 @@
 package com.hazelcast
 
 import config._
-import core.{ MapEvent => _, _ }
+import core._
+import topic._
+import map._
+import collection._
 import query._
+import query.impl.predicates._
+import query.impl._
+import PredicateBuilder._
 import ringbuffer.Ringbuffer
 
 import java.lang.reflect.Method
 import java.util.AbstractMap
 import java.util.Map.Entry
-
-import scala.concurrent.{ Await, ExecutionContext, Future, blocking }
-import scala.concurrent.duration.{ DurationInt, FiniteDuration }
+import java.util.concurrent.CompletableFuture
+import scala.concurrent.{Await, ExecutionContext, Future, Promise, blocking}
+import scala.concurrent.duration.{DurationInt, FiniteDuration}
 import scala.language.implicitConversions
 import scala.util.Try
-import scala.util.control.NonFatal
 
 package object Scala extends HighPriorityImplicits {
-
   type Freq = Int
 
   private[Scala] type ImmutableEntry[K, V] = AbstractMap.SimpleImmutableEntry[K, V]
@@ -31,7 +35,7 @@ package object Scala extends HighPriorityImplicits {
     @inline def get(): T = msg.getMessageObject
   }
 
-  implicit def toConfig(ms: MaxSize): MaxSizeConfig = ms.toConfig
+  implicit def toConfig(ms: MaxSize): MaxSizeConfig = ms.toConfig // TODO: Find out what happened to MaxSizeConfig
   implicit def mbrConf2props(conf: Config): HzMemberProperties = new HzMemberProperties(conf)
   implicit def mbrConf2scala(conf: Config): HzConfig = new HzConfig(conf)
 
@@ -42,7 +46,7 @@ package object Scala extends HighPriorityImplicits {
     def megabytes = new MemorySize(i, MemoryUnit.MEGABYTES)
     def bytes = new MemorySize(i, MemoryUnit.BYTES)
   }
-  implicit class HzCDL(private val cdl: ICountDownLatch) extends AnyVal {
+  implicit class HzCDL(private val cdl: ICountDownLatch) extends AnyVal { // TODO: I can't import ICountDownLatch??
     def await(dur: FiniteDuration): Boolean = cdl.await(dur.length, dur.unit)
   }
 
@@ -63,7 +67,7 @@ package object Scala extends HighPriorityImplicits {
   implicit class HzMapConfig(conf: config.MapConfig) extends MapEventSubscription {
     def withTypes[K, V] = new HzTypedMapConfig[K, V](conf)
     type MSR = this.type
-    def onMapEvents(localOnly: Boolean, runOn: ExecutionContext)(pf: PartialFunction[MapEvent, Unit]): MSR = {
+    def onMapEvents(localOnly: Boolean, runOn: ExecutionContext)(pf: PartialFunction[Scala.MapEvent, Unit]): MSR = {
       val mapListener = new MapListener(pf, Option(runOn))
       conf addEntryListenerConfig new config.EntryListenerConfig(mapListener, localOnly, false)
       this
@@ -74,8 +78,8 @@ package object Scala extends HighPriorityImplicits {
     }
   }
 
-  def where: EntryObject = new PredicateBuilder().getEntryObject
-  def where(name: String): EntryObject = new PredicateBuilder().getEntryObject.get(name)
+  def where: EntryObject = new PredicateBuilderImpl().getEntryObject
+  def where(name: String): EntryObject = new PredicateBuilderImpl().getEntryObject.get(name)
   implicit class ScalaEntryObject(private val eo: EntryObject) extends AnyVal {
     def apply(name: String): EntryObject = eo.get(name)
     def key(name: String): EntryObject = eo.key().get(name)
@@ -85,7 +89,7 @@ package object Scala extends HighPriorityImplicits {
     def <(value: Comparable[_]): PredicateBuilder = eo.lessThan(value)
     def >=(value: Comparable[_]): PredicateBuilder = eo.greaterEqual(value)
     def <=(value: Comparable[_]): PredicateBuilder = eo.lessEqual(value)
-    def in(values: TraversableOnce[_ <: Comparable[_]]): PredicateBuilder = eo.in(values.toSeq: _*)
+    def in(values: IterableOnce[_ <: Comparable[_]]): PredicateBuilder = eo.in(values.toSeq: _*)
     def update(name: String, value: Comparable[_]): PredicateBuilder = apply(name).equal(value)
     def <>(value: Comparable[_]): PredicateBuilder = eo.notEqual(value)
   }
@@ -101,33 +105,36 @@ package object Scala extends HighPriorityImplicits {
     def await(dur: FiniteDuration): T = Await.result(f, dur)
   }
 
+  private[Scala] implicit class CompletionStage[T](private val cs: java.util.concurrent.CompletionStage[T]) extends AnyVal {
+    def asScalaOpt: Future[Option[T]] = {
+      val promise = Promise[Option[T]]()
+
+      cs.whenComplete { (res, exception) =>
+        if (exception != null)
+          promise.failure(exception)
+        else
+          promise.success(Option(res))
+      }
+
+      promise.future
+    }
+  }
+
   private[Scala] implicit class JavaFuture[T](private val jFuture: java.util.concurrent.Future[T]) extends AnyVal {
     @inline def await: T = await(DefaultFutureTimeout)
     @inline def await(dur: FiniteDuration): T = if (jFuture.isDone) jFuture.get else blocking(jFuture.get(dur.length, dur.unit))
-    def asScala[U](implicit ev: T => U): Future[U] = {
-      if (jFuture.isDone) try Future successful jFuture.get catch { case NonFatal(t) => Future failed t }
-      else {
-        val callback = new FutureCallback[T, U]()
-        jFuture match {
-          case jFuture: ICompletableFuture[T] =>
-            jFuture andThen callback
-        }
-        callback.future
-      }
-    }
-    def asScalaOpt[U](implicit ev: T <:< U): Future[Option[U]] = {
-      if (jFuture.isDone) try {
-        Future successful Option(jFuture.get: U)
-      } catch {
-        case NonFatal(t) => Future failed t
-      }
-      else {
-        val callback = new FutureCallback[T, Option[U]](None)(Some(_))
-        jFuture match {
-          case jFuture: ICompletableFuture[T] =>
-            jFuture andThen callback
-        }
-        callback.future
+    def asScala: Future[T] = {
+      jFuture match {
+        case jf: CompletableFuture[_] =>
+          val promise = Promise[T]()
+          jf.whenComplete { (res, exception) =>
+            if (exception != null)
+              promise.failure(exception)
+            else
+              promise.success(res.asInstanceOf[T])
+          }
+          promise.future
+        case _ => Future.successful(jFuture.get)
       }
     }
   }
@@ -145,7 +152,6 @@ package object Scala extends HighPriorityImplicits {
 }
 
 package Scala {
-
   private[Scala] final class EntryPredicate[K, V](
       include: Entry[K, V] => Boolean, prev: Predicate[Object, Object] = null)
     extends Predicate[K, V] {

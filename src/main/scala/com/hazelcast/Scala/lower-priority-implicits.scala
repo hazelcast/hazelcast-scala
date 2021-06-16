@@ -1,16 +1,21 @@
 package com.hazelcast.Scala
 
 import java.util.Map.Entry
-
 import com.hazelcast.Scala.dds._
+import com.hazelcast.client.ClientService
+import com.hazelcast.cluster.Cluster
+import com.hazelcast.collection.BaseQueue
 import com.hazelcast.core._
 import com.hazelcast.durableexecutor.DurableExecutorService
+import com.hazelcast.map.IMap
+import com.hazelcast.partition.PartitionService
 import com.hazelcast.query._
-
+import com.hazelcast.query.impl.predicates.SqlPredicate
+import com.hazelcast.topic.ITopic
+import com.hazelcast.transaction.TransactionalQueue
 import language.implicitConversions
 
 trait LowPriorityImplicits {
-
   @inline implicit def builder2anypred(p: PredicateBuilder): Predicate[Any, Any] = p.asInstanceOf[Predicate[Any, Any]]
   @inline implicit def sql2anypred(p: SqlPredicate): Predicate[Any, Any] = p.asInstanceOf[Predicate[Any, Any]]
 

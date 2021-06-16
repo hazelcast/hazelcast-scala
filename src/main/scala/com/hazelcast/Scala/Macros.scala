@@ -1,6 +1,6 @@
 package com.hazelcast.Scala
 
-import com.hazelcast.query.SqlPredicate
+import com.hazelcast.query.impl.predicates.SqlPredicate
 
 private[Scala] object Macros {
   import reflect.macros.whitebox.Context
@@ -28,5 +28,4 @@ private[Scala] object Macros {
         c.abort(c.enclosingPosition, "Unknown error")
     }
   }
-
 }

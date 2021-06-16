@@ -1,27 +1,27 @@
 package com.hazelcast.Scala
 
 import java.util.concurrent.TimeUnit
-
 import scala.concurrent.ExecutionContext
 import scala.concurrent.Future
 import scala.concurrent.duration.FiniteDuration
-
 import com.hazelcast.core._
 import com.hazelcast.core.LifecycleEvent.LifecycleState
-import com.hazelcast.partition.PartitionLostEvent
+import com.hazelcast.partition.{PartitionLostEvent, ReplicaMigrationEvent}
 import com.hazelcast.transaction.TransactionOptions
 import com.hazelcast.transaction.TransactionOptions.TransactionType
 import com.hazelcast.transaction.TransactionalTask
 import com.hazelcast.transaction.TransactionalTaskContext
 import com.hazelcast.nio.serialization.ByteArraySerializer
 import com.hazelcast.Scala.serialization.ByteArrayInterceptor
+import com.hazelcast.cluster.{InitialMembershipEvent, Member}
+import com.hazelcast.map.IMap
 import scala.reflect.ClassTag
 import com.hazelcast.transaction.TransactionContext
 
 private object HzHazelcastInstance {
   private[this] val DefaultTxnOpts = TransactionOptions.getDefault
   private val DefaultTxnType = DefaultTxnOpts.getTransactionType match {
-    case TransactionType.ONE_PHASE | TransactionType.LOCAL => OnePhase
+    case TransactionType.ONE_PHASE => OnePhase
     case TransactionType.TWO_PHASE => TwoPhase(DefaultTxnOpts.getDurability)
   }
   private val DefaultTxnTimeout = FiniteDuration(TransactionOptions.getDefault.getTimeoutMillis, TimeUnit.MILLISECONDS)
@@ -61,7 +61,7 @@ final class HzHazelcastInstance(hz: HazelcastInstance) extends MemberEventSubscr
   def onPartitionLost(runOn: ExecutionContext = null)(listener: PartitionLostEvent => Unit): ESR = {
     hz.getPartitionService.onPartitionLost(runOn)(listener)
   }
-  def onMigration(runOn: ExecutionContext = null)(listener: PartialFunction[MigrationEvent, Unit]): ESR = {
+  def onMigration(runOn: ExecutionContext = null)(listener: PartialFunction[ReplicaMigrationEvent, Unit]): ESR = {
     hz.getPartitionService.onMigration(runOn)(listener)
   }
   def onClient(runOn: ExecutionContext = null)(listener: PartialFunction[ClientEvent, Unit]): ESR = {

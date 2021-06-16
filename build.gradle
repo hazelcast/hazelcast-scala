@@ -22,7 +22,7 @@ ext {
     vPegdown = '1.6.0'
     vScala = System.properties.scalaVersion ?: '2.13'
     vScalaFull = latestScalaFull[vScala]
-    vHazelcast = '3.12.3'
+    vHazelcast = '4.1.1'
     vKryo = '4.0.2'
     vObjenesis = '3.1'
     vLz4 = '1.6.0'
@@ -48,7 +48,7 @@ allprojects {
         }
 
         compileOnly "com.hazelcast:hazelcast:$vHazelcast"
-        compileOnly "com.hazelcast:hazelcast-client:$vHazelcast"
+//        compileOnly "com.hazelcast:hazelcast-client:$vHazelcast"
 
         compileOnly "com.esotericsoftware:kryo:$vKryo"
         compileOnly "org.objenesis:objenesis:$vObjenesis"
@@ -59,7 +59,7 @@ allprojects {
         testCompile "org.pegdown:pegdown:$vPegdown"
         testCompile "org.scala-lang:scala-compiler:$vScalaFull"
         testCompile "com.hazelcast:hazelcast:$vHazelcast"
-        testCompile "com.hazelcast:hazelcast-client:$vHazelcast"
+//        testCompile "com.hazelcast:hazelcast-client:$vHazelcast"
         testCompile "com.esotericsoftware:kryo:$vKryo"
         testCompile "org.objenesis:objenesis:$vObjenesis"
         testCompile "org.lz4:lz4-java:$vLz4"

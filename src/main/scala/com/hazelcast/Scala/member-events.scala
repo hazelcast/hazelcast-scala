@@ -1,8 +1,7 @@
 package com.hazelcast.Scala
 
-import com.hazelcast.core.Member
-import scala.collection.{ Set => aSet }
-import com.hazelcast.core.Cluster
+import com.hazelcast.cluster.{Cluster, Member}
+import scala.collection.{Set => aSet}
 
 sealed abstract class MemberEvent(val cluster: Cluster)
 

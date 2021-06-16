@@ -11,7 +11,7 @@ import com.hazelcast.cache.ICache
 import com.hazelcast.cache.impl.HazelcastServerCachingProvider
 import com.hazelcast.core.{ HazelcastInstance, IExecutorService }
 import com.hazelcast.core.LifecycleEvent.LifecycleState
-import com.hazelcast.spi.properties.{ GroupProperty, HazelcastProperty }
+import com.hazelcast.spi.properties.{ HazelcastProperty }
 
 import javax.cache.CacheManager
 
@@ -56,7 +56,7 @@ class JCacheHazelcastInstance(private val hz: HazelcastInstance) extends AnyVal 
   }
 
   private def getCacheManager[K, V](): CacheManager =
-    CacheManagers.get(hz) getOrElse {
+    CacheManagers.getOrElse(hz, {
       val mgr = {
         val isClient = getProperty(GroupProperty.JCACHE_PROVIDER_TYPE) match {
           case Some("client") => true
@@ -85,7 +85,7 @@ class JCacheHazelcastInstance(private val hz: HazelcastInstance) extends AnyVal 
         }
         mgr
       }
-    }
+    })
 
   def getCache[K: ClassTag, V: ClassTag](name: String, typesafe: Boolean = true): ICache[K, V] = {
     val entryTypes = if (typesafe) {

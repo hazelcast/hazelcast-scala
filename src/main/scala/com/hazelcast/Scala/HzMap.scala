@@ -2,29 +2,27 @@ package com.hazelcast.Scala
 
 import java.util.Comparator
 import java.util.Map.Entry
-
-import scala.collection.JavaConverters._
-import scala.collection.mutable.{ Map => mMap }
-import scala.collection.{ Set => cSet }
+import scala.jdk.CollectionConverters._
+import scala.collection.mutable.{Map => mMap}
+import scala.collection.{Set => cSet}
 import scala.concurrent._
 import scala.concurrent.duration._
 import scala.util.Try
-
 import com.hazelcast.Scala.dds.DDS
 import com.hazelcast.Scala.dds.MapDDS
 import com.hazelcast.core.HazelcastInstance
 import com.hazelcast.core.HazelcastInstanceAware
-import com.hazelcast.core.IMap
-import com.hazelcast.map.AbstractEntryProcessor
+import com.hazelcast.internal.serialization.Data
+import com.hazelcast.map.{EntryProcessor, IMap}
 import com.hazelcast.query.PagingPredicate
 import com.hazelcast.query.Predicate
 import com.hazelcast.query.PredicateBuilder
-import com.hazelcast.spi.AbstractDistributedObject
 import com.hazelcast.map.impl.recordstore.RecordStore
-import com.hazelcast.nio.serialization.Data
 import scala.collection.parallel.ParIterable
 import com.hazelcast.map.impl.MapServiceContext
 import com.hazelcast.map.impl.record.Record
+import com.hazelcast.query.impl.predicates.PagingPredicateImpl
+import com.hazelcast.spi.impl.AbstractDistributedObject
 
 final class HzMap[K, V](protected val imap: IMap[K, V])
   extends KeyedIMapDeltaUpdates[K, V]
@@ -236,7 +234,7 @@ final class HzMap[K, V](protected val imap: IMap[K, V])
       }
       def compare(a: Entry[K, V], b: Entry[K, V]): Int = ordering.compare(sortBy(a), sortBy(b))
     }
-    val pp = new PagingPredicate(pred.asInstanceOf[Predicate[K, V]], comparator, pageSize)
+    val pp = new PagingPredicateImpl(pred.asInstanceOf[Predicate[K, V]], comparator, pageSize)
     pp.setPage(pageIdx)
     val result = imap.values(pp).asScala
     if (dropValues == 0) result
@@ -254,7 +252,7 @@ final class HzMap[K, V](protected val imap: IMap[K, V])
       def compare(a: Entry[K, V], b: Entry[K, V]): Int =
         ordering.compare(sortBy(a), sortBy(b))
     }
-    val pp = new PagingPredicate(pred.asInstanceOf[Predicate[K, V]], comparator, pageSize)
+    val pp = new PagingPredicateImpl(pred.asInstanceOf[Predicate[K, V]], comparator, pageSize)
     pp.setPage(pageIdx)
     val result = imap.entrySet(pp).iterator.asScala.toIterable
     if (dropEntries == 0) result
@@ -272,7 +270,7 @@ final class HzMap[K, V](protected val imap: IMap[K, V])
       def compare(a: Entry[K, V], b: Entry[K, V]): Int =
         ordering.compare(sortBy(a), sortBy(b))
     }
-    val pp = new PagingPredicate(pred.asInstanceOf[Predicate[K, V]], comparator, pageSize)
+    val pp = new PagingPredicateImpl(pred.asInstanceOf[Predicate[K, V]], comparator, pageSize)
     pp.setPage(pageIdx)
     val result = (if (localOnly) imap.localKeySet(pp) else imap.keySet(pp)).iterator.asScala.toIterable
     if (dropEntries == 0) result
@@ -292,7 +290,7 @@ private[Scala] object HzMap {
   }
   def mapServiceContext(imap: IMap[_, _]): Try[MapServiceContext] = MapServiceCtxField.flatMap(field => Try(field.get(imap).asInstanceOf[MapServiceContext]))
 
-  final class GetAllAsEP[K, V, T](_mf: V => T) extends AbstractEntryProcessor[K, V](false) {
+  final class GetAllAsEP[K, V, T](_mf: V => T) extends EntryProcessor[K, V, T] {
     def mf = _mf
     def process(entry: Entry[K, V]): Object = {
       entry.value match {
@@ -301,12 +299,12 @@ private[Scala] object HzMap {
       }
     }
   }
-  final class QueryEP[V, T](_mf: V => T) extends AbstractEntryProcessor[Any, V](false) {
+  final class QueryEP[V, T](_mf: V => T) extends EntryProcessor[Any, V, T] {
     def mf = _mf
     def process(entry: Entry[Any, V]): Object = _mf(entry.value).asInstanceOf[Object]
   }
   final class ContextQueryEP[C, K, V, T](val getCtx: HazelcastInstance => C, _mf: (C, K, V) => T)
-    extends AbstractEntryProcessor[K, V](false)
+    extends EntryProcessor[K, V, T]
     with HazelcastInstanceAware {
     @transient private[this] var ctx: C = _
     def setHazelcastInstance(hz: HazelcastInstance): Unit = {
@@ -316,7 +314,7 @@ private[Scala] object HzMap {
     def process(entry: Entry[K, V]): Object = _mf(ctx, entry.key, entry.value).asInstanceOf[Object]
   }
   final class ForEachEP[K, V, C](val getCtx: HazelcastInstance => C, _thunk: (C, K, V) => Unit)
-    extends AbstractEntryProcessor[K, V](false)
+    extends EntryProcessor[K, V, T]
     with HazelcastInstanceAware {
     def thunk = _thunk
     @transient private[this] var ctx: C = _
@@ -326,7 +324,7 @@ private[Scala] object HzMap {
       null
     }
   }
-  final class ValueUpdaterEP[V](_update: V => V, _returnValue: V => Object) extends AbstractEntryProcessor[Any, V](true) {
+  final class ValueUpdaterEP[V](_update: V => V, _returnValue: V => Object) extends EntryProcessor[Any, V, Object] {
     def update = _update
     def returnValue = _returnValue
     def process(entry: Entry[Any, V]): Object = {
@@ -334,14 +332,14 @@ private[Scala] object HzMap {
       _returnValue(entry.value)
     }
   }
-  final class ExecuteEP[K, V, R](_thunk: Entry[K, V] => R) extends AbstractEntryProcessor[K, V](true) {
+  final class ExecuteEP[K, V, R](_thunk: Entry[K, V] => R) extends EntryProcessor[K, V, T] {
     def thunk = _thunk
     def process(entry: Entry[K, V]): Object = _thunk(entry) match {
       case null | _: Unit => null
       case value => value.asInstanceOf[Object]
     }
   }
-  final class ExecuteOptEP[K, V, R](_thunk: Entry[K, Option[V]] => R) extends AbstractEntryProcessor[K, V](true) {
+  final class ExecuteOptEP[K, V, R](_thunk: Entry[K, Option[V]] => R) extends EntryProcessor[K, V, T] {
     private class OptEntry(org: Entry[K, V]) extends Entry[K, Option[V]] {
       def getKey() = org.getKey
       def getValue() = Option(org.getValue)

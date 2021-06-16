@@ -1,14 +1,15 @@
 package com.hazelcast.Scala.dds
 
-import scala.collection.parallel.CollectionConverters._
-
 import scala.concurrent._
 import com.hazelcast.Scala._
 import com.hazelcast.Scala.aggr._
-import collection.{ Map => cMap }
+import collection.{Map => cMap}
+import com.hazelcast.cluster.Member
 import com.hazelcast.core._
 import com.hazelcast.query._
+import com.hazelcast.query.impl.predicates.TruePredicate
 import java.util.Map.Entry
+import java.util.UUID
 
 private[Scala] class AggrMapDDS[K, E](val dds: MapDDS[K, _, E], sorted: Option[Sorted[E]] = None) extends AggrDDS[E] {
 
@@ -21,7 +22,7 @@ private[Scala] class AggrMapDDS[K, E](val dds: MapDDS[K, _, E], sorted: Option[S
 
     val hz = dds.imap.getHZ
     val keysByMember = dds.keySet.map(hz.groupByMember)
-    val es = if (esOrNull == null) hz.queryPool else esOrNull
+    val es = if (esOrNull == null) hz.queryPool() else esOrNull
     val ts = Option(tsOrNull)
 
     sorted match {
@@ -75,12 +76,10 @@ private[Scala] final class AggrMapDDSTask[K, E, AW](
   val aggr: Aggregator[E, _] { type W = AW },
   val taskSupport: Option[UserContext.Key[collection.parallel.TaskSupport]],
   val mapName: String,
-  val keysByMemberId: Map[String, collection.Set[K]],
+  val keysByMemberId: Map[UUID, collection.Set[K]],
   val predicate: Option[Predicate[_, _]],
   val pipe: Pipe[E])
     extends (HazelcastInstance => AW) with Serializable {
-
-  import scala.jdk.CollectionConverters._
 
   def apply(hz: HazelcastInstance): AW = {
     aggr match {
@@ -133,7 +132,7 @@ private object AggrMapDDS {
     taskSupport: OptionalTaskSupport)(implicit ec: ExecutionContext): Future[R] = {
 
     val (keysByMemberId, submitTo) = keysByMember match {
-      case None => Map.empty[String, Set[K]] -> ToAll
+      case None => Map.empty[UUID, Set[K]] -> ToAll
       case Some(keysByMember) =>
         val keysByMemberId = keysByMember.map {
           case (member, keys) => member.getUuid -> keys
@@ -141,14 +140,14 @@ private object AggrMapDDS {
         keysByMemberId -> ToMembers(keysByMember.keys)
     }
     val values = submitFold(es, submitTo, mapName, keysByMemberId, predicate, pipe getOrElse PassThroughPipe[E], aggr, taskSupport)
-    val reduced = Future.reduceLeft(values.toSeq)(aggr.localCombine _)
-    reduced.map(aggr.localFinalize(_))(SameThread)
+    val reduced = Future.reduceLeft(values.toSeq)(aggr.localCombine)
+    reduced.map(aggr.localFinalize)(SameThread)
   }
   private def submitFold[K, E](
     es: IExecutorService,
     submitTo: MultipleMembers,
     mapName: String,
-    keysByMemberId: Map[String, collection.Set[K]],
+    keysByMemberId: Map[UUID, collection.Set[K]],
     predicate: Option[Predicate[_, _]],
     pipe: Pipe[E],
     aggr: Aggregator[E, _],

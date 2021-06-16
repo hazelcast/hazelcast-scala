@@ -1,7 +1,5 @@
 package com.hazelcast.Scala
 
-import scala.language.{ higherKinds }
-
 import com.hazelcast.query.Predicate
 import collection.mutable.Map
 

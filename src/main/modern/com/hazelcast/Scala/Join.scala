@@ -1,10 +1,9 @@
 package com.hazelcast.Scala
 
-import scala.collection.{ Map, Set }
+import scala.collection.{Map, Set}
 import scala.collection.parallel.CollectionConverters._
-
 import com.hazelcast.core.HazelcastInstance
-import com.hazelcast.core.IMap
+import com.hazelcast.map.IMap
 
 private[Scala] sealed trait Join[V, JK, JV] {
   type T
@@ -13,7 +12,7 @@ private[Scala] sealed trait Join[V, JK, JV] {
   def mapName: String
   def init[A](hz: HazelcastInstance): CB[A] = {
     val joinMap = hz.getMap[JK, JV](mapName)
-    join[A](new CachingMap[JK, JV](joinMap)) _
+    join[A](new CachingMap[JK, JV](joinMap))
   }
   def join[A](joinMap: CachingMap[JK, JV])(acc: A, value: V, callback: (A, T) => A): A
 }

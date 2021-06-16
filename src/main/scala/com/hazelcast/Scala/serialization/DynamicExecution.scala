@@ -7,7 +7,7 @@ import scala.reflect.ClassTag
 
 import com.hazelcast.Scala.{ Aggregator, Pipe }
 import com.hazelcast.core.IFunction
-import com.hazelcast.map.{ EntryBackupProcessor, EntryProcessor }
+import com.hazelcast.map.EntryProcessor
 import com.hazelcast.nio.{ ObjectDataInput, ObjectDataOutput }
 import com.hazelcast.query.Predicate
 
@@ -54,7 +54,7 @@ abstract class DynamicExecution extends SerializerEnum(Defaults) {
       val className = inp.readUTF()
       val classBytes = inp.readByteArray()
       val cls =
-        if (classBytes.length == 0) {
+        if (classBytes.isEmpty) {
           Class.forName(className)
         } else {
           classByName.get(className) match {
@@ -78,7 +78,6 @@ abstract class DynamicExecution extends SerializerEnum(Defaults) {
   val Function3Ser: S[Function3[_, _, _, _]] = new ClassBytesSerializer
   val PartialFunctionSer: S[PartialFunction[_, _]] = new ClassBytesSerializer
   val EntryProcessorSer: S[EntryProcessor[_, _]] = new ClassBytesSerializer
-  val EntryBackupProcessorSer: S[EntryBackupProcessor[_, _]] = new ClassBytesSerializer
   val CallableSer: S[Callable[_]] = new ClassBytesSerializer
   val RunnableSer: S[Runnable] = new ClassBytesSerializer
   val PredicateSer: S[Predicate[_, _]] = new ClassBytesSerializer
@@ -86,5 +85,4 @@ abstract class DynamicExecution extends SerializerEnum(Defaults) {
   val AggregatorSer: S[Aggregator[_, _]] = new ClassBytesSerializer
   val ComparatorSer: S[Comparator[_]] = new ClassBytesSerializer
   val IFunctionSer: S[IFunction[_, _]] = new ClassBytesSerializer
-
 }
